@@ -85,6 +85,7 @@ async def create_group(
 
 
 @router.put("/items/{item_id}")
+@router.patch("/items/{item_id}")
 async def update_menu_item(
     item_id: int,
     item_data: dict = Body(...),
@@ -161,6 +162,7 @@ async def delete_menu_item(
 
 
 @router.put("/categories/{category_id}")
+@router.patch("/categories/{category_id}")
 async def update_category(
     category_id: int,
     category_data: dict = Body(...),
@@ -198,6 +200,7 @@ async def delete_category(
 
 
 @router.put("/groups/{group_id}")
+@router.patch("/groups/{group_id}")
 async def update_group(
     group_id: int,
     group_data: dict = Body(...),

@@ -5,6 +5,15 @@ import '../screens/profile_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/qr_management_screen.dart';
 import '../screens/orders_screen.dart';
+import '../screens/reports_screen.dart';
+import '../screens/users_management_screen.dart';
+import '../screens/session_control_screen.dart';
+import '../screens/branch_management_screen.dart';
+import '../screens/menu_screen.dart';
+import '../screens/purchase_management_screen.dart';
+import '../screens/delivery_partners_screen.dart';
+import '../screens/floors_tables_management_screen.dart';
+import '../screens/settings_screen.dart';
 
 class CommonDrawer extends StatelessWidget {
   const CommonDrawer({super.key});
@@ -83,21 +92,92 @@ class CommonDrawer extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const QrManagementScreen()));
             },
           ),
+          const Divider(),
+          // Management Section
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text('Management', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.menu_book),
+            title: const Text("Menu & Categories"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.analytics),
+            title: const Text("Reports & Analytics"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.people),
+            title: const Text("User Management"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const UsersManagementScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.branch),
+            title: const Text("Branches"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const BranchManagementScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.timer),
+            title: const Text("Session Control"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SessionControlScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.inventory),
+            title: const Text("Purchase & Suppliers"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const PurchaseManagementScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.local_shipping),
+            title: const Text("Delivery Partners"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const DeliveryPartnersScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.table_restaurant),
+            title: const Text("Floors & Tables"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const FloorsTablesManagementScreen()));
+            },
+          ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text("Settings"),
             onTap: () {
               Navigator.pop(context);
-              // TODO: Implement settings
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Settings coming soon")));
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
             },
           ),
           ListTile(
-            leading: const Icon(Icons.more_horiz),
-            title: const Text("More Features"),
+            leading: const Icon(Icons.logout),
+            title: const Text("Logout"),
             onTap: () {
-               Navigator.pop(context);
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("More features coming soon")));
+              Navigator.pop(context);
+              AuthService().logout();
+              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
             },
           ),
         ],

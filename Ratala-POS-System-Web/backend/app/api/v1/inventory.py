@@ -117,6 +117,7 @@ async def create_product(
 
 
 @router.put("/products/{product_id}")
+@router.patch("/products/{product_id}")
 async def update_product(
     product_id: int,
     product_data: dict = Body(...),
@@ -202,6 +203,7 @@ async def create_unit(
 
 
 @router.put("/units/{unit_id}")
+@router.patch("/units/{unit_id}")
 async def update_unit(
     unit_id: int,
     unit_data: dict = Body(...),
@@ -426,6 +428,7 @@ async def create_bom(
 
 
 @router.put("/boms/{bom_id}")
+@router.patch("/boms/{bom_id}")
 async def update_bom(
     bom_id: int,
     bom_data: dict = Body(...),

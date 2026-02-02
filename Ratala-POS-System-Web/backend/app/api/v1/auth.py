@@ -19,6 +19,7 @@ router = APIRouter()
 
 @router.post("/signup", response_model=dict)
 async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
+    print(f"DEBUG: Received signup request for {user_data.email}")
     """
     User registration endpoint - creates user and organization
     First user signup becomes the organization owner
@@ -113,6 +114,7 @@ async def login_for_access_token(
     db: Session = Depends(get_db)
 ):
     """Login endpoint - returns JWT token with organization and branch info"""
+    print(f"DEBUG: Received login request for {form_data.username}")
     from app.services import branch_service
     
     user = db.query(DBUser).filter(

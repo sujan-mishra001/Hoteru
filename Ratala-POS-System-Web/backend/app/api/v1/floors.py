@@ -59,6 +59,7 @@ async def create_floor(
 
 
 @router.put("/{floor_id}")
+@router.patch("/{floor_id}")
 async def update_floor(
     floor_id: int,
     floor_data: dict = Body(...),

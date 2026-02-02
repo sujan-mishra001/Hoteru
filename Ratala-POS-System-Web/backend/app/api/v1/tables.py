@@ -212,6 +212,7 @@ async def create_table(
 
 
 @router.put("/{table_id}")
+@router.patch("/{table_id}")
 async def update_table(
     table_id: int,
     table_data: dict = Body(...),
@@ -244,6 +245,7 @@ async def update_table(
 
 
 @router.put("/{table_id}/status")
+@router.patch("/{table_id}/status")
 async def update_table_status(
     table_id: int,
     status: str = Body(..., embed=True),

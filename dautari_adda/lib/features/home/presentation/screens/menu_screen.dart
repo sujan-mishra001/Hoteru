@@ -51,6 +51,16 @@ class _MenuScreenState extends State<MenuScreen> {
     });
   }
 
+  void _loadData() async {
+    final data = await _menuService.getMenu();
+    if (mounted) {
+      setState(() {
+        _fullMenu = data;
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -689,24 +699,15 @@ class _MenuScreenState extends State<MenuScreen> {
           ElevatedButton(
             onPressed: () async {
               if (controller.text.isEmpty) return;
-              final newCat = MenuCategory(name: controller.text.trim());
               
               if (parent == null) {
-                await _menuService.addMainCategory(newCat);
-              } else if (rootCategory != null) {
-                // Add to parent within the root hierarchy
-                final updatedRoot = _updateCategoryInHierarchy(
-                  root: rootCategory,
-                  targetName: parent.name,
-                  updateFn: (cat) => MenuCategory(
-                    name: cat.name,
-                    items: cat.items,
-                    subCategories: [...cat.subCategories, newCat],
-                  ),
-                );
-                await _menuService.updateCategory(rootCategory.name, updatedRoot);
+                await _menuService.addCategory(controller.text.trim(), 'KOT');
+              } else {
+                // Backend doesn't support nested categories yet, adding as flat
+                await _menuService.addCategory(controller.text.trim(), 'KOT');
               }
               Navigator.pop(context);
+              _loadData(); // Manually refresh
             },
             child: const Text("Add"),
           ),
@@ -735,22 +736,17 @@ class _MenuScreenState extends State<MenuScreen> {
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isEmpty || priceController.text.isEmpty) return;
-              final newItem = MenuItem(
-                name: nameController.text.trim(),
-                price: double.tryParse(priceController.text) ?? 0.0,
-              );
               
-              final updatedRoot = _updateCategoryInHierarchy(
-                root: rootCategory,
-                targetName: category.name,
-                updateFn: (cat) => MenuCategory(
-                  name: cat.name,
-                  subCategories: cat.subCategories,
-                  items: [...cat.items, newItem],
-                ),
-              );
-              await _menuService.updateCategory(rootCategory.name, updatedRoot);
+              final itemData = {
+                'name': nameController.text.trim(),
+                'price': double.tryParse(priceController.text) ?? 0.0,
+                'category_id': category.id,
+                'kot_bot': 'KOT', // Default
+              };
+              
+              await _menuService.addMenuItem(itemData);
               Navigator.pop(context);
+              _loadData();
             },
             child: const Text("Add"),
           ),
@@ -794,19 +790,12 @@ class _MenuScreenState extends State<MenuScreen> {
               if (controller.text.isEmpty) return;
               final newName = controller.text.trim();
               
-              final updatedRoot = _updateCategoryInHierarchy(
-                root: rootCategory,
-                targetName: category.name,
-                updateFn: (cat) => MenuCategory(
-                  name: newName,
-                  items: cat.items,
-                  subCategories: cat.subCategories,
-                ),
-              );
+              if (category.id != null) {
+                await _menuService.updateCategory(category.id!, newName);
+              }
               
-              // If we renamed the root itself, we need to handle the Firestore doc name change if name is key
-              await _menuService.updateCategory(rootCategory.name, updatedRoot);
               Navigator.pop(context);
+              _loadData();
             },
             child: const Text("Update"),
           ),
@@ -826,13 +815,11 @@ class _MenuScreenState extends State<MenuScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
-              if (category.name == rootCategory.name) {
-                await _menuService.deleteCategory(category.name);
-              } else {
-                final updatedRoot = _removeCategoryFromHierarchy(rootCategory, category.name);
-                await _menuService.updateCategory(rootCategory.name, updatedRoot);
+              if (category.id != null) {
+                await _menuService.deleteCategory(category.id!);
               }
               Navigator.pop(context);
+              _loadData();
             },
             child: const Text("Delete"),
           ),
@@ -871,22 +858,15 @@ class _MenuScreenState extends State<MenuScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () async {
-              final updatedItem = MenuItem(
-                name: nameController.text.trim(),
-                price: double.tryParse(priceController.text) ?? 0.0,
-              );
-              
-              final updatedRoot = _updateCategoryInHierarchy(
-                root: rootCategory,
-                targetName: category.name,
-                updateFn: (cat) => MenuCategory(
-                  name: cat.name,
-                  subCategories: cat.subCategories,
-                  items: cat.items.map((i) => i.name == item.name ? updatedItem : i).toList(),
-                ),
-              );
-              await _menuService.updateCategory(rootCategory.name, updatedRoot);
+              if (item.id != null) {
+                final updatedItemData = {
+                  'name': nameController.text.trim(),
+                  'price': double.tryParse(priceController.text) ?? 0.0,
+                };
+                await _menuService.updateMenuItem(item.id!, updatedItemData);
+              }
               Navigator.pop(context);
+              _loadData();
             },
             child: const Text("Update"),
           ),
@@ -906,17 +886,11 @@ class _MenuScreenState extends State<MenuScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
-              final updatedRoot = _updateCategoryInHierarchy(
-                root: rootCategory,
-                targetName: category.name,
-                updateFn: (cat) => MenuCategory(
-                  name: cat.name,
-                  subCategories: cat.subCategories,
-                  items: cat.items.where((i) => i.name != item.name).toList(),
-                ),
-              );
-              await _menuService.updateCategory(rootCategory.name, updatedRoot);
+              if (item.id != null) {
+                await _menuService.deleteMenuItem(item.id!);
+              }
               Navigator.pop(context);
+              _loadData();
             },
             child: const Text("Delete"),
           ),

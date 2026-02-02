@@ -29,6 +29,8 @@ class AuthService {
     required String name,
   }) async {
     try {
+      print('AUTH_DEBUG: Attempting signup for: $email');
+      
       final response = await _apiService.post('/auth/signup', {
         'email': email,
         'full_name': name,
@@ -36,36 +38,49 @@ class AuthService {
         'role': 'admin', // First user is admin/owner
       });
 
+      print('AUTH_DEBUG: Signup response status: ${response.statusCode}');
+      print('AUTH_DEBUG: Signup response body: ${response.body}');
+
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return {'success': true, 'message': data['message']};
+        return {'success': true, 'message': data['message'] ?? 'Account created successfully! Please login.'};
       } else {
-        throw data['detail'] ?? 'Signup failed';
+        throw data['detail'] ?? data['message'] ?? 'Signup failed';
       }
     } catch (e) {
-      throw e.toString();
+      print('AUTH_DEBUG: Signup error: $e');
+      if (e is String) throw e;
+      throw 'Network error: Please check if your computer is reachable at the IP in .env and that the backend is running.';
     }
   }
 
   // Login
   Future<bool> login({required String email, required String password}) async {
     try {
+      print('AUTH_DEBUG: Attempting login for: $email');
       final response = await _apiService.postForm('/auth/token', {
         'username': email,
         'password': password,
       });
 
+      print('AUTH_DEBUG: Login response status: ${response.statusCode}');
+      print('AUTH_DEBUG: Login response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await _apiService.saveToken(data['access_token']);
-        // You might want to save role, branch_id etc. to storage or a Provider state
+        print('AUTH_DEBUG: Login successful, token saved');
         return true;
       } else {
         final data = jsonDecode(response.body);
-        throw data['detail'] ?? 'Login failed';
+        final error = data['detail'] ?? data['message'] ?? 'Login failed';
+        print('AUTH_DEBUG: Login failed - $error');
+        throw error;
       }
     } catch (e) {
-      throw e.toString();
+      print('AUTH_DEBUG: Login error: $e');
+      if (e is String) throw e;
+      throw 'Login failed: Could not reach the server. Please check your network connection and ensure backend is running on ${ApiService.baseUrl}';
     }
   }
 
@@ -74,9 +89,46 @@ class AuthService {
     await _apiService.clearToken();
   }
 
-  // Simple getter for current user email (can be cached after /token)
-  Future<String?> getCurrentUserEmail() async {
-    // In a real app, you'd call /auth/users/me
-    return null; 
+  // Get user branches
+  Future<List<dynamic>> getUserBranches() async {
+    try {
+      final response = await _apiService.get('/branches/my-branches');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Switch branch
+  Future<bool> switchBranch(int branchId) async {
+    try {
+      final response = await _apiService.post('/branches/select', {
+        'branch_id': branchId,
+      });
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Get current session info
+  Future<Map<String, dynamic>?> getCurrentSession() async {
+    try {
+      final response = await _apiService.get('/auth/users/me');
+      if (response.statusCode == 200) {
+        final userData = jsonDecode(response.body);
+        return {
+          'user': userData,
+          'current_branch_id': userData['current_branch_id'],
+          'role': userData['role'],
+        };
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 }

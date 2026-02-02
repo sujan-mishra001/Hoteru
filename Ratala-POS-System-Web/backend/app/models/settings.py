@@ -28,6 +28,14 @@ class CompanySettings(Base):
     # Other settings
     currency = Column(String, default="NPR")
     timezone = Column(String, default="Asia/Kathmandu")
+    tax_rate = Column(Float, default=13.0)
+    
+    # User Preferences (synchronized with backend for multi-device consistency)
+    notifications_enabled = Column(Boolean, default=True)
+    sound_enabled = Column(Boolean, default=True)
+    vibration_enabled = Column(Boolean, default=True)
+    auto_print = Column(Boolean, default=False)
+    dark_mode = Column(Boolean, default=False)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

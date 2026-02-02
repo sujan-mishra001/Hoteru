@@ -93,6 +93,7 @@ async def get_user(
 
 
 @router.put("/{user_id}", response_model=UserResponse)
+@router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
     user_data: UserUpdate = Body(...),

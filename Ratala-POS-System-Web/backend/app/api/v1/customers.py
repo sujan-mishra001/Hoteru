@@ -50,6 +50,7 @@ async def get_customer(
 
 
 @router.put("/{customer_id}", response_model=CustomerResponse)
+@router.patch("/{customer_id}", response_model=CustomerResponse)
 async def update_customer(
     customer_id: int,
     customer_data: CustomerUpdate = Body(...),

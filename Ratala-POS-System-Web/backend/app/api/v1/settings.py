@@ -28,6 +28,12 @@ class CompanySettingsBase(BaseModel):
     show_vat_on_invoice: bool = True
     currency: str = "NPR"
     timezone: str = "Asia/Kathmandu"
+    tax_rate: float = 13.0
+    notifications_enabled: bool = True
+    sound_enabled: bool = True
+    vibration_enabled: bool = True
+    auto_print: bool = False
+    dark_mode: bool = False
 
 
 class CompanySettingsResponse(CompanySettingsBase):
@@ -137,6 +143,154 @@ async def update_company_settings(
     db.commit()
     db.refresh(settings)
     return settings
+
+
+# General Settings Endpoints (aliases/shorthands for mobile app)
+@router.get("", response_model=CompanySettingsBase)
+async def get_all_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all settings (aliased to company settings for now)"""
+    settings = db.query(CompanySettings).first()
+    if not settings:
+        return {
+            "company_name": "HOTERU",
+            "currency": "NPR",
+            "tax_rate": 13.0,
+            "notifications_enabled": True,
+            "sound_enabled": True,
+            "vibration_enabled": True,
+            "auto_print": False,
+            "dark_mode": False
+        }
+    return settings
+
+
+@router.put("", response_model=CompanySettingsResponse)
+async def update_all_settings(
+    settings_data: CompanySettingsBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update all settings"""
+    return await update_company_settings(settings_data, db, current_user)
+
+
+@router.get("/currency")
+async def get_currency_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get currency settings"""
+    settings = db.query(CompanySettings).first()
+    return {"currency": settings.currency if settings else "NPR"}
+
+
+@router.put("/currency")
+async def update_currency_settings(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update currency settings"""
+    settings = db.query(CompanySettings).first()
+    if settings:
+        settings.currency = data.get("currency", settings.currency)
+        db.commit()
+    return {"success": True}
+
+
+@router.get("/taxes")
+async def get_tax_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get tax settings"""
+    settings = db.query(CompanySettings).first()
+    return {"tax_rate": settings.tax_rate if settings else 13.0}
+
+
+@router.put("/taxes")
+async def update_tax_settings(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update tax settings"""
+    settings = db.query(CompanySettings).first()
+    if settings:
+        settings.tax_rate = data.get("tax_rate", settings.tax_rate)
+        db.commit()
+    return {"success": True}
+
+
+@router.get("/printer")
+async def get_printer_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get printer settings"""
+    settings = db.query(CompanySettings).first()
+    return {"auto_print": settings.auto_print if settings else False}
+
+
+@router.put("/printer")
+async def update_printer_settings(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update printer settings"""
+    settings = db.query(CompanySettings).first()
+    if settings:
+        settings.auto_print = data.get("auto_print", settings.auto_print)
+        db.commit()
+    return {"success": True}
+
+
+@router.get("/notifications")
+async def get_notification_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get notification settings"""
+    settings = db.query(CompanySettings).first()
+    if not settings:
+        return {"notifications_enabled": True, "sound_enabled": True, "vibration_enabled": True}
+    return {
+        "notifications_enabled": settings.notifications_enabled,
+        "sound_enabled": settings.sound_enabled,
+        "vibration_enabled": settings.vibration_enabled
+    }
+
+
+@router.put("/notifications")
+async def update_notification_settings(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update notification settings"""
+    settings = db.query(CompanySettings).first()
+    if settings:
+        settings.notifications_enabled = data.get("notifications_enabled", settings.notifications_enabled)
+        settings.sound_enabled = data.get("sound_enabled", settings.sound_enabled)
+        settings.vibration_enabled = data.get("vibration_enabled", settings.vibration_enabled)
+        db.commit()
+    return {"success": True}
+
+
+@router.get("/receipt")
+async def get_receipt_settings():
+    """Get receipt settings (placeholder)"""
+    return {"header_text": "Welcome to HOTERU", "footer_text": "Thank you for visiting!"}
+
+
+@router.put("/receipt")
+async def update_receipt_settings():
+    """Update receipt settings (placeholder)"""
+    return {"success": True}
 
 
 # Payment Modes Endpoints

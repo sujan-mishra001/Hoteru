@@ -175,6 +175,7 @@ def get_branch(
 
 
 @router.put("/{branch_id}", response_model=BranchResponse)
+@router.patch("/{branch_id}", response_model=BranchResponse)
 def update_branch(
     branch_id: int,
     branch_data: BranchUpdate,
