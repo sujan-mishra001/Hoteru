@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-jose[cryptography]
+passlib
+bcrypt==4.0.1
+python-multipart
+psycopg2-binary
+sqlalchemy
+python-dotenv
+reportlab
+openpyxl
+pandas
+xlsxwriter
+pydantic

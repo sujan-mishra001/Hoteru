@@ -1,0 +1,431 @@
+/* POS Dashboard Modern Styles */
+
+.pos-dashboard {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  overflow: hidden;
+}
+
+/* Sidebar Styles */
+.pos-sidebar {
+  width: 80px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  border-radius: 0 24px 24px 0;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.pos-sidebar-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #FF8C00 0%, #e67e00 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: white;
+  font-size: 1.2rem;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 15px rgba(255, 140, 0, 0.4);
+}
+
+.pos-nav-item {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 8px;
+  color: #64748b;
+  background: transparent;
+  border: none;
+}
+
+.pos-nav-item:hover {
+  background: rgba(255, 140, 0, 0.1);
+  color: #FF8C00;
+}
+
+.pos-nav-item.active {
+  background: linear-gradient(135deg, #FF8C00 0%, #e67e00 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(255, 140, 0, 0.4);
+}
+
+/* Main Content Area */
+.pos-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pos-header {
+  padding: 24px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.pos-header h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.pos-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* Table Cards */
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.table-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 2px solid;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.table-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.02) 100%);
+  pointer-events: none;
+}
+
+.table-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.table-card.available {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-color: #10b981;
+}
+
+.table-card.occupied {
+  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+  border-color: #f59e0b;
+}
+
+.table-card.reserved {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-color: #8b5cf6;
+}
+
+.table-card.bill-requested {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #ef4444;
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+.table-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.table-status-chip {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.table-kot-badges {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.kot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.table-amount {
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+/* KOT Cards */
+.kot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.kot-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 2px solid;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.kot-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.kot-card.pending {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+}
+
+.kot-card.served {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+}
+
+.kot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.kot-type-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: white;
+}
+
+.kot-type-badge.kot {
+  background: linear-gradient(135deg, #FF8C00 0%, #e67e00 100%);
+}
+
+.kot-type-badge.bot {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.kot-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+/* Orders Table */
+.orders-table {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.orders-table th {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: white;
+  font-weight: 700;
+  padding: 16px;
+}
+
+.orders-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.orders-table tr:hover {
+  background: #f8fafc;
+}
+
+/* Status Chips */
+.status-chip {
+  display: inline-flex;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+}
+
+.status-chip.pending { background: #f59e0b; }
+.status-chip.in-progress { background: #3b82f6; }
+.status-chip.completed { background: #10b981; }
+.status-chip.paid { background: #059669; }
+.status-chip.cancelled { background: #ef4444; }
+
+/* Floor Selector */
+.floor-selector {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.floor-select {
+  min-width: 200px;
+  border-radius: 12px !important;
+}
+
+/* Action Buttons */
+.action-btn {
+  padding: 8px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: none;
+  transition: all 0.3s ease;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #FF8C00 0%, #e67e00 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3);
+}
+
+.action-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 140, 0, 0.4);
+}
+
+.action-btn.secondary {
+  background: white;
+  color: #1a1a2e;
+  border: 1px solid #e2e8f0;
+}
+
+.action-btn.secondary:hover {
+  background: #f8fafc;
+  border-color: #FF8C00;
+  color: #FF8C00;
+}
+
+/* Empty States */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  color: #94a3b8;
+}
+
+.empty-state svg {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pos-sidebar {
+    width: 64px;
+    border-radius: 0 16px 16px 0;
+  }
+
+  .pos-nav-item {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+  }
+
+  .table-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .table-card {
+    min-height: 100px;
+    padding: 12px;
+  }
+
+  .kot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .floor-selector {
+    flex-wrap: wrap;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.table-card, .kot-card {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.table-grid > *:nth-child(1) { animation-delay: 0.05s; }
+.table-grid > *:nth-child(2) { animation-delay: 0.1s; }
+.table-grid > *:nth-child(3) { animation-delay: 0.15s; }
+.table-grid > *:nth-child(4) { animation-delay: 0.2s; }
+.table-grid > *:nth-child(5) { animation-delay: 0.25s; }
+.table-grid > *:nth-child(6) { animation-delay: 0.3s; }
+
+/* Scrollbar */
+.pos-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pos-content::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.pos-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.pos-content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
