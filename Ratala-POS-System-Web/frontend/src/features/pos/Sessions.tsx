@@ -164,7 +164,7 @@ const Sessions: React.FC = () => {
                         startIcon={<Play size={18} />}
                         onClick={handleStartSessionClick}
                         sx={{
-                            bgcolor: '#FF8C00',
+                            bgcolor: '#FFC107',
                             '&:hover': { bgcolor: '#FF7700' },
                             textTransform: 'none',
                             borderRadius: '10px',
@@ -191,7 +191,7 @@ const Sessions: React.FC = () => {
                     </TableHead>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={6} align="center"><CircularProgress size={24} sx={{ color: '#FF8C00' }} /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} align="center"><CircularProgress size={24} sx={{ color: '#FFC107' }} /></TableCell></TableRow>
                         ) : sessions.length === 0 ? (
                             <TableRow><TableCell colSpan={6} align="center">No sessions found</TableCell></TableRow>
                         ) : (
@@ -199,7 +199,7 @@ const Sessions: React.FC = () => {
                                 <TableRow key={session.id} hover>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                            <Avatar sx={{ bgcolor: '#fff7ed', color: '#FF8C00', fontSize: '14px', fontWeight: 700 }}>
+                                            <Avatar sx={{ bgcolor: '#fff7ed', color: '#FFC107', fontSize: '14px', fontWeight: 700 }}>
                                                 {session.user?.full_name?.charAt(0) || 'U'}
                                             </Avatar>
                                             <Box>
@@ -299,7 +299,7 @@ const Sessions: React.FC = () => {
                     <Button
                         onClick={() => handleStartSession(parseFloat(openingCash) || 0)}
                         variant="contained"
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none' }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none' }}
                     >
                         Start Session
                     </Button>
@@ -355,3 +355,4 @@ const Sessions: React.FC = () => {
 };
 
 export default Sessions;
+

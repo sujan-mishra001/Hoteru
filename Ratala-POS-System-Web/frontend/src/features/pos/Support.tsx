@@ -38,7 +38,7 @@ const Support: React.FC = () => {
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                <MessageCircle size={24} color="#FF8C00" />
+                                <MessageCircle size={24} color="#FFC107" />
                             </Box>
                             <Typography variant="h6" fontWeight={700}>
                                 Live Chat
@@ -47,7 +47,7 @@ const Support: React.FC = () => {
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Chat with our support team in real-time for immediate assistance.
                         </Typography>
-                        <Typography variant="caption" color="#FF8C00" fontWeight={600}>
+                        <Typography variant="caption" color="#FFC107" fontWeight={600}>
                             Available: Mon-Fri, 9:00 AM - 6:00 PM
                         </Typography>
                     </Paper>
@@ -73,7 +73,7 @@ const Support: React.FC = () => {
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                <Mail size={24} color="#FF8C00" />
+                                <Mail size={24} color="#FFC107" />
                             </Box>
                             <Typography variant="h6" fontWeight={700}>
                                 Email Support
@@ -108,7 +108,7 @@ const Support: React.FC = () => {
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                <Phone size={24} color="#FF8C00" />
+                                <Phone size={24} color="#FFC107" />
                             </Box>
                             <Typography variant="h6" fontWeight={700}>
                                 Phone Support
@@ -143,7 +143,7 @@ const Support: React.FC = () => {
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                <HelpCircle size={24} color="#FF8C00" />
+                                <HelpCircle size={24} color="#FFC107" />
                             </Box>
                             <Typography variant="h6" fontWeight={700}>
                                 Help Center
@@ -152,7 +152,7 @@ const Support: React.FC = () => {
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Browse our knowledge base and frequently asked questions.
                         </Typography>
-                        <Typography variant="caption" color="#FF8C00" fontWeight={600}>
+                        <Typography variant="caption" color="#FFC107" fontWeight={600}>
                             Coming Soon
                         </Typography>
                     </Paper>
@@ -163,3 +163,4 @@ const Support: React.FC = () => {
 };
 
 export default Support;
+

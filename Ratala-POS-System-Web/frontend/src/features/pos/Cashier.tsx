@@ -185,7 +185,7 @@ const Cashier: React.FC = () => {
                                             size="small"
                                             startIcon={<Receipt size={14} />}
                                             onClick={() => handlePrintBill(order)}
-                                            sx={{ color: '#FF8C00', textTransform: 'none', mr: 1 }}
+                                            sx={{ color: '#FFC107', textTransform: 'none', mr: 1 }}
                                         >
                                             Bill
                                         </Button>
@@ -231,7 +231,7 @@ const Cashier: React.FC = () => {
                         variant="contained"
                         startIcon={<Printer size={18} />}
                         onClick={() => handlePrint()}
-                        sx={{ borderRadius: '10px', bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', fontWeight: 700 }}
+                        sx={{ borderRadius: '10px', bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', fontWeight: 700 }}
                     >
                         Print Bill
                     </Button>
@@ -242,3 +242,4 @@ const Cashier: React.FC = () => {
 };
 
 export default Cashier;
+

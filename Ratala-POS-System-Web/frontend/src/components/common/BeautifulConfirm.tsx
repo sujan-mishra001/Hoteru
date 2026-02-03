@@ -98,7 +98,7 @@ const BeautifulConfirm: React.FC<BeautifulConfirmProps> = ({
                             borderRadius: '12px',
                             textTransform: 'none',
                             fontWeight: 800,
-                            bgcolor: isDestructive ? '#ef4444' : '#FF8C00',
+                            bgcolor: isDestructive ? '#ef4444' : '#FFC107',
                             '&:hover': {
                                 bgcolor: isDestructive ? '#dc2626' : '#e67e00'
                             },
@@ -116,3 +116,4 @@ const BeautifulConfirm: React.FC<BeautifulConfirmProps> = ({
 };
 
 export default BeautifulConfirm;
+

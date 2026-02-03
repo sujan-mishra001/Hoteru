@@ -58,7 +58,7 @@ const POSMenu: React.FC = () => {
                     '&:hover': {
                         bgcolor: '#fff7ed',
                         '& .MuiAvatar-root': {
-                            color: '#FF8C00'
+                            color: '#FFC107'
                         }
                     }
                 }}
@@ -68,7 +68,7 @@ const POSMenu: React.FC = () => {
                         width: 40,
                         height: 40,
                         bgcolor: open ? 'transparent' : '#e2e8f0',
-                        color: open ? '#FF8C00' : '#64748b',
+                        color: open ? '#FFC107' : '#64748b',
                         fontWeight: 700,
                         fontSize: '1.1rem'
                     }}
@@ -106,7 +106,7 @@ const POSMenu: React.FC = () => {
                             '&:hover': {
                                 bgcolor: '#fff7ed',
                                 '& .MuiListItemIcon-root': {
-                                    color: '#FF8C00'
+                                    color: '#FFC107'
                                 }
                             }
                         }
@@ -119,7 +119,7 @@ const POSMenu: React.FC = () => {
                             width: 40,
                             height: 40,
                             bgcolor: '#fff7ed',
-                            color: '#FF8C00',
+                            color: '#FFC107',
                             fontWeight: 700
                         }}
                     >
@@ -166,3 +166,4 @@ const POSMenu: React.FC = () => {
 };
 
 export default POSMenu;
+

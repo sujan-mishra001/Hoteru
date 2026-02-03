@@ -11,6 +11,13 @@ from app.dependencies import get_current_user
 
 router = APIRouter()
 
+
+def apply_branch_filter_session(query, branch_id):
+    """Apply branch_id filter to POSSession queries"""
+    if branch_id is not None:
+        query = query.filter(POSSession.branch_id == branch_id)
+    return query
+
 def auto_close_old_sessions(db: Session):
     """Automatically close sessions that have been active for more than 24 hours"""
     from datetime import datetime, timedelta
@@ -45,7 +52,12 @@ def read_sessions(
     # Auto-close sessions older than 24 hours
     auto_close_old_sessions(db)
     
-    sessions = db.query(POSSession).order_by(POSSession.start_time.desc()).offset(skip).limit(limit).all()
+    # Filter by user's current branch (unless admin viewing all)
+    branch_id = current_user.current_branch_id if current_user.role != 'admin' else None
+    
+    query = db.query(POSSession)
+    query = apply_branch_filter_session(query, branch_id)
+    sessions = query.order_by(POSSession.start_time.desc()).offset(skip).limit(limit).all()
     return sessions
 
 @router.post("", response_model=POSSessionSchema)
@@ -85,9 +97,14 @@ def read_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    session = db.query(POSSession).filter(POSSession.id == id).first()
+    branch_id = current_user.current_branch_id if current_user.role != 'admin' else None
+    
+    query = db.query(POSSession).filter(POSSession.id == id)
+    query = apply_branch_filter_session(query, branch_id)
+    session = query.first()
+    
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or access denied")
     return session
 
 @router.put("/{id}", response_model=POSSessionSchema)
@@ -97,9 +114,14 @@ def update_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    db_session = db.query(POSSession).filter(POSSession.id == id).first()
+    branch_id = current_user.current_branch_id if current_user.role != 'admin' else None
+    
+    query = db.query(POSSession).filter(POSSession.id == id)
+    query = apply_branch_filter_session(query, branch_id)
+    db_session = query.first()
+    
     if not db_session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or access denied")
         
     update_data = session_in.dict(exclude_unset=True)
     

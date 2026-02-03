@@ -17,6 +17,7 @@ class Category(Base):
     image = Column(String, nullable=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.now)
 
 
@@ -30,6 +31,7 @@ class MenuGroup(Base):
     image = Column(String, nullable=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.now)
     
     category = relationship("Category")
@@ -51,6 +53,7 @@ class MenuItem(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     
     category = relationship("Category")
     group = relationship("MenuGroup")

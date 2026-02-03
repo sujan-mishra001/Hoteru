@@ -40,18 +40,18 @@ export const authAPI = {
     const params = new URLSearchParams();
     params.append('username', username);
     params.append('password', password);
-    return axios.post(`${API_BASE_URL}/token`, params, {
+    return axios.post(`${API_BASE_URL}${API_PREFIX}/auth/token`, params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       timeout: 30000
     });
   },
-  signup: (data: any) => axios.post(`${API_BASE_URL}/signup`, data, { timeout: 30000 }), // Root level endpoint
+  signup: (data: any) => axios.post(`${API_BASE_URL}${API_PREFIX}/auth/signup`, data, { timeout: 30000 }), // Root level endpoint
   getCurrentUser: (token?: string) => {
     // Use axios directly with token explicitly provided or from localStorage for root-level endpoint
     const authToken = token || localStorage.getItem('token');
-    return axios.get(`${API_BASE_URL}/users/me`, {
+    return axios.get(`${API_BASE_URL}${API_PREFIX}/auth/users/me`, {
       headers: {
         'Authorization': authToken ? `Bearer ${authToken}` : ''
       }
@@ -226,7 +226,7 @@ export const branchAPI = {
   select: (branchId: number) => {
     // This is a direct axios call because it's at the root level /select-branch
     const token = localStorage.getItem('token');
-    return axios.post(`${API_BASE_URL}/select-branch`,
+    return axios.post(`${API_BASE_URL}${API_PREFIX}/auth/select-branch`,
       { branch_id: branchId },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -255,3 +255,4 @@ export const otpAPI = {
 // Actually, it's better to export all individual APIs as they were.
 
 export default api;
+

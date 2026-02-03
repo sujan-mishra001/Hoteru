@@ -15,6 +15,7 @@ class Floor(Base):
     name = Column(String, unique=True, nullable=False)  # e.g., "Ground Floor", "Rooftop"
     display_order = Column(Integer, default=0)  # For ordering floors in UI
     is_active = Column(Boolean, default=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.now)
     
     tables = relationship("Table", back_populates="floor_rel")
@@ -35,6 +36,7 @@ class Table(Base):
     display_order = Column(Integer, default=0)
     is_hold_table = Column(String, default="No")  # Yes, No - for hold tables
     hold_table_name = Column(String, nullable=True)  # Unique name for hold table
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -70,6 +72,9 @@ class Order(Base):
     paid_amount = Column(Float, default=0)
     credit_amount = Column(Float, default=0)
     payment_type = Column(String, nullable=True)  # Cash, Fonepay, Credit Card, etc.
+    
+    # Branch isolation
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     
     # Meal Session (Breakfast/Lunch/Dinner)
     session_id = Column(Integer, ForeignKey("sessions.id"), nullable=True)

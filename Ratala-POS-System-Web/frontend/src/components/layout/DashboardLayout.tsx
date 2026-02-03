@@ -167,8 +167,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         selected={location.pathname === item.path}
                         sx={{
                             borderRadius: '10px',
-                            '&.Mui-selected': { bgcolor: 'rgba(255, 140, 0, 0.08)', color: '#FF8C00' },
-                            '&.Mui-selected .MuiListItemIcon-root': { color: '#FF8C00' }
+                            '&.Mui-selected': { bgcolor: 'rgba(255, 140, 0, 0.08)', color: '#FFC107' },
+                            '&.Mui-selected .MuiListItemIcon-root': { color: '#FFC107' }
                         }}
                     >
                         <ListItemIcon sx={{ minWidth: 40, color: '#64748b' }}>{item.icon}</ListItemIcon>
@@ -195,7 +195,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                                     sx={{
                                         borderRadius: '8px',
                                         py: 0.5,
-                                        '&.Mui-selected': { color: '#FF8C00' }
+                                        '&.Mui-selected': { color: '#FFC107' }
                                     }}
                                 >
                                     <ListItemText
@@ -289,7 +289,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
                             {user?.role === 'admin' && (
                                 <>
-                                    <Button startIcon={<QrCode size={18} />} sx={{ color: '#FF8C00', textTransform: 'none', fontWeight: 600 }} onClick={() => navigate('/digital-menu')}>
+                                    <Button startIcon={<QrCode size={18} />} sx={{ color: '#FFC107', textTransform: 'none', fontWeight: 600 }} onClick={() => navigate('/digital-menu')}>
                                         Digital Menu
                                     </Button>
                                     <Button startIcon={<Headphones size={18} />} sx={{ color: '#2C1810', textTransform: 'none', fontWeight: 600 }} onClick={() => navigate('/support')}>
@@ -394,7 +394,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                             startIcon={<MonitorDot size={18} />}
                             onClick={() => navigate('/pos')}
                             sx={{
-                                bgcolor: '#FF8C00',
+                                bgcolor: '#FFC107',
                                 '&:hover': { bgcolor: '#FF7700' },
                                 textTransform: 'none',
                                 fontWeight: 700,
@@ -407,7 +407,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
                         <Tooltip title="Account settings">
                             <IconButton size="small" sx={{ ml: 1 }}>
-                                <Avatar sx={{ width: 32, height: 32, bgcolor: '#FF8C00', fontSize: '0.875rem' }}>
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: '#FFC107', fontSize: '0.875rem' }}>
                                     {user?.username?.[0].toUpperCase()}
                                 </Avatar>
                             </IconButton>
@@ -455,3 +455,4 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 };
 
 export default DashboardLayout;
+

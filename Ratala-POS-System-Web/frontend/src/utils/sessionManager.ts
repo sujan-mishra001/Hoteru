@@ -237,3 +237,4 @@ class SessionManager {
 // Export singleton instance
 export const sessionManager = new SessionManager();
 export default sessionManager;
+

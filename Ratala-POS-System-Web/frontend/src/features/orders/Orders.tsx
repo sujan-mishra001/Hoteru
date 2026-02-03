@@ -252,7 +252,7 @@ const Orders: React.FC = () => {
                             onClick={() => setActiveTab(tab)}
                             sx={{
                                 borderRadius: '40px', px: 3, py: 1, textTransform: 'none', fontWeight: 700,
-                                bgcolor: activeTab === tab ? '#FF8C00' : 'transparent',
+                                bgcolor: activeTab === tab ? '#FFC107' : 'transparent',
                                 color: activeTab === tab ? 'white' : '#64748b',
                                 '&:hover': { bgcolor: activeTab === tab ? '#FF7700' : '#e2e8f0' },
                                 transition: 'all 0.2s',
@@ -316,7 +316,7 @@ const Orders: React.FC = () => {
                                     <TableCell align="center">
                                         <Stack direction="row" spacing={0.5} justifyContent="center">
                                             <Tooltip title="View Details">
-                                                <IconButton size="small" sx={{ color: '#FF8C00' }} onClick={() => handleView(order)}><Eye size={16} /></IconButton>
+                                                <IconButton size="small" sx={{ color: '#FFC107' }} onClick={() => handleView(order)}><Eye size={16} /></IconButton>
                                             </Tooltip>
                                             <Tooltip title="Print Bill">
                                                 <IconButton
@@ -390,7 +390,7 @@ const Orders: React.FC = () => {
 
                             <Divider />
 
-                            <Typography variant="subtitle2" fontWeight={800} color="#FF8C00">Bill Items</Typography>
+                            <Typography variant="subtitle2" fontWeight={800} color="#FFC107">Bill Items</Typography>
                             <Table size="small">
                                 <TableHead>
                                     <TableRow>
@@ -422,7 +422,7 @@ const Orders: React.FC = () => {
                                 <Divider sx={{ my: 1 }} />
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography variant="subtitle1" fontWeight={800}>Total Payable</Typography>
-                                    <Typography variant="subtitle1" fontWeight={900} color="#FF8C00">NPRs. {selectedOrder.net_amount?.toLocaleString()}</Typography>
+                                    <Typography variant="subtitle1" fontWeight={900} color="#FFC107">NPRs. {selectedOrder.net_amount?.toLocaleString()}</Typography>
                                 </Box>
                             </Box>
                         </Box>
@@ -440,7 +440,7 @@ const Orders: React.FC = () => {
                     >
                         Print Invoice
                     </Button>
-                    <Button variant="contained" onClick={() => setViewDialogOpen(false)} sx={{ bgcolor: '#FF8C00', borderRadius: '10px', textTransform: 'none', px: 4 }}>Close</Button>
+                    <Button variant="contained" onClick={() => setViewDialogOpen(false)} sx={{ bgcolor: '#FFC107', borderRadius: '10px', textTransform: 'none', px: 4 }}>Close</Button>
                 </DialogActions>
             </Dialog>
 
@@ -482,7 +482,7 @@ const Orders: React.FC = () => {
                         variant="contained"
                         startIcon={<Printer size={18} />}
                         onClick={() => handlePrint()}
-                        sx={{ borderRadius: '10px', bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', fontWeight: 700 }}
+                        sx={{ borderRadius: '10px', bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', fontWeight: 700 }}
                     >
                         Print Bill
                     </Button>
@@ -494,3 +494,4 @@ const Orders: React.FC = () => {
 };
 
 export default Orders;
+

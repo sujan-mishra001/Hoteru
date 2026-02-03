@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ToastService.show(context, "Login Successful");
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const BranchSelectionScreen()),
+          MaterialPageRoute(builder: (context) => BranchSelectionScreen()),
         );
       }
     } catch (e) {

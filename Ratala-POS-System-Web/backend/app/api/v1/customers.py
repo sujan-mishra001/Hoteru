@@ -1,5 +1,5 @@
 """
-Customer management routes
+Customer management routes with branch isolation
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
@@ -12,13 +12,23 @@ from app.schemas import CustomerCreate, CustomerUpdate, CustomerResponse
 router = APIRouter()
 
 
+def apply_branch_filter_customer(query, branch_id):
+    """Apply branch_id filter to Customer queries"""
+    if branch_id is not None and hasattr(Customer, 'branch_id'):
+        query = query.filter(Customer.branch_id == branch_id)
+    return query
+
+
 @router.get("", response_model=list[CustomerResponse])
 async def get_customers(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all customers"""
-    customers = db.query(Customer).all()
+    """Get all customers for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(Customer)
+    query = apply_branch_filter_customer(query, branch_id)
+    customers = query.all()
     return customers
 
 
@@ -28,8 +38,15 @@ async def create_customer(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create a new customer"""
-    new_customer = Customer(**customer_data.dict())
+    """Create a new customer in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    customer_dict = customer_data.dict()
+    
+    # Set branch_id for the new customer
+    if branch_id is not None and hasattr(Customer, 'branch_id'):
+        customer_dict['branch_id'] = branch_id
+    
+    new_customer = Customer(**customer_dict)
     db.add(new_customer)
     db.commit()
     db.refresh(new_customer)
@@ -42,10 +59,15 @@ async def get_customer(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get customer by ID"""
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    """Get customer by ID, filtered by user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Customer).filter(Customer.id == customer_id)
+    query = apply_branch_filter_customer(query, branch_id)
+    customer = query.first()
+    
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Customer not found or access denied")
     return customer
 
 
@@ -57,14 +79,20 @@ async def update_customer(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update customer"""
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    """Update customer in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Customer).filter(Customer.id == customer_id)
+    query = apply_branch_filter_customer(query, branch_id)
+    customer = query.first()
+    
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Customer not found or access denied")
     
     update_data = customer_data.dict(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(customer, key, value)
+        if hasattr(customer, key) and key != 'branch_id':
+            setattr(customer, key, value)
     
     db.commit()
     db.refresh(customer)
@@ -77,10 +105,15 @@ async def delete_customer(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete customer"""
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    """Delete customer in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Customer).filter(Customer.id == customer_id)
+    query = apply_branch_filter_customer(query, branch_id)
+    customer = query.first()
+    
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Customer not found or access denied")
     
     db.delete(customer)
     db.commit()

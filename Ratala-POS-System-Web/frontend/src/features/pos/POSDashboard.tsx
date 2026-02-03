@@ -303,10 +303,10 @@ const POSDashboard: React.FC = () => {
                                     mr: 2,
                                     minWidth: 'auto',
                                     p: 0,
-                                    '&.Mui-selected': { color: '#FF8C00' }
+                                    '&.Mui-selected': { color: '#FFC107' }
                                 },
                                 '& .MuiTabs-indicator': {
-                                    bgcolor: '#FF8C00',
+                                    bgcolor: '#FFC107',
                                     height: 3
                                 }
                             }}
@@ -368,7 +368,7 @@ const POSDashboard: React.FC = () => {
                                                 startIcon={<Play size={16} />}
                                                 onClick={handleStartSession}
                                                 sx={{
-                                                    bgcolor: '#FF8C00',
+                                                    bgcolor: '#FFC107',
                                                     '&:hover': { bgcolor: '#e67e00' },
                                                     borderRadius: '8px',
                                                     textTransform: 'none',
@@ -392,7 +392,7 @@ const POSDashboard: React.FC = () => {
                 <Box sx={{ flex: 1, p: 3, overflowY: 'auto', bgcolor: '#f9fafb' }}>
                     {loading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
-                            <CircularProgress sx={{ color: '#FF8C00' }} />
+                            <CircularProgress sx={{ color: '#FFC107' }} />
                         </Box>
                     ) : (
                         <Box sx={{
@@ -434,8 +434,8 @@ const POSDashboard: React.FC = () => {
                                 fontSize: '0.95rem',
                                 minHeight: 48
                             },
-                            '& .MuiTabs-indicator': { bgcolor: '#FF8C00' },
-                            '& .Mui-selected': { color: '#FF8C00 !important' }
+                            '& .MuiTabs-indicator': { bgcolor: '#FFC107' },
+                            '& .Mui-selected': { color: '#FFC107 !important' }
                         }}
                     >
                         <Tab
@@ -494,7 +494,7 @@ const POSDashboard: React.FC = () => {
                             }
                         }}
                         sx={{
-                            bgcolor: '#FF8C00', // Orange
+                            bgcolor: '#FFC107', // Orange
                             '&:hover': { bgcolor: '#e67e00' },
                             py: 1.5,
                             borderRadius: '12px',
@@ -516,3 +516,4 @@ const POSDashboard: React.FC = () => {
 };
 
 export default POSDashboard;
+

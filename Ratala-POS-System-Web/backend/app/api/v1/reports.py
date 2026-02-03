@@ -1,5 +1,5 @@
 """
-Reports and export routes
+Reports and export routes with branch isolation
 """
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,7 +10,7 @@ from typing import Optional
 from sqlalchemy import func
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Order, Product, Customer, User, Branch
+from app.models import Order, Product, Customer, User, Branch, Table, Floor, MenuItem, OrderItem
 from app.utils.pdf_generator import generate_pdf_report, generate_invoice_pdf
 from app.utils.excel_generator import generate_excel_report
 
@@ -27,6 +27,33 @@ def get_branch_metadata(current_user, db):
             }
     return None
 
+
+def get_branch_filter(current_user):
+    """Helper to get branch_id filter for queries"""
+    return current_user.current_branch_id
+
+
+def apply_branch_filter_order(query, branch_id):
+    """Apply branch_id filter to Order queries"""
+    if branch_id is not None:
+        query = query.filter(Order.branch_id == branch_id)
+    return query
+
+
+def apply_branch_filter_table(query, branch_id):
+    """Apply branch_id filter to Table queries"""
+    if branch_id is not None:
+        query = query.filter(Table.branch_id == branch_id)
+    return query
+
+
+def apply_branch_filter_floor(query, branch_id):
+    """Apply branch_id filter to Floor queries"""
+    if branch_id is not None:
+        query = query.filter(Floor.branch_id == branch_id)
+    return query
+
+
 router = APIRouter()
 
 
@@ -37,20 +64,26 @@ async def get_dashboard_summary(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get summarized data for the admin dashboard with optional date range"""
-    from app.models import Table, Order
+    """Get summarized data for the admin dashboard with branch isolation and optional date range"""
     from datetime import datetime, time, timedelta
     
-    total_tables = db.query(Table).count()
-    occupied_tables = db.query(Table).filter(Table.status == 'Occupied').count()
+    branch_id = get_branch_filter(current_user)
+    
+    # Apply branch filter to tables
+    table_query = db.query(Table)
+    table_query = apply_branch_filter_table(table_query, branch_id)
+    total_tables = table_query.count()
+    occupied_tables = table_query.filter(Table.status == 'Occupied').count()
     occupancy = (occupied_tables / total_tables * 100) if total_tables > 0 else 0
     
-    # Date filtering logic
+    # Date filtering logic with branch isolation
     if start_date and end_date:
         try:
             start_dt = datetime.combine(datetime.strptime(start_date, '%Y-%m-%d').date(), time.min)
             end_dt = datetime.combine(datetime.strptime(end_date, '%Y-%m-%d').date(), time.max)
-            orders_list = db.query(Order).filter(Order.created_at.between(start_dt, end_dt)).all()
+            order_query = db.query(Order).filter(Order.created_at.between(start_dt, end_dt))
+            order_query = apply_branch_filter_order(order_query, branch_id)
+            orders_list = order_query.all()
             period_label = f"{start_date} to {end_date}"
             
             # For peak time data relative to the selected start date
@@ -59,13 +92,17 @@ async def get_dashboard_summary(
             # Fallback to 24h if date parsing fails
             base_time = datetime.now()
             start_dt = base_time - timedelta(hours=24)
-            orders_list = db.query(Order).filter(Order.created_at >= start_dt).all()
+            order_query = db.query(Order).filter(Order.created_at >= start_dt)
+            order_query = apply_branch_filter_order(order_query, branch_id)
+            orders_list = order_query.all()
             period_label = "Last 24 Hours"
     else:
         # Default to last 24 hours
         base_time = datetime.now()
         start_dt = base_time - timedelta(hours=24)
-        orders_list = db.query(Order).filter(Order.created_at >= start_dt).all()
+        order_query = db.query(Order).filter(Order.created_at >= start_dt)
+        order_query = apply_branch_filter_order(order_query, branch_id)
+        orders_list = order_query.all()
         period_label = "Last 24 Hours"
     
     # Sales breakdown
@@ -79,13 +116,12 @@ async def get_dashboard_summary(
     takeaway_count = len([o for o in orders_list if o.order_type == 'Takeaway'])
     delivery_count = len([o for o in orders_list if o.order_type == 'Delivery'])
 
-    # Outstanding revenue (all time credit)
-    outstanding_revenue = sum(order.credit_amount or 0 for order in db.query(Order).all())
+    # Outstanding revenue (all time credit, branch filtered)
+    outstanding_query = db.query(Order)
+    outstanding_query = apply_branch_filter_order(outstanding_query, branch_id)
+    outstanding_revenue = sum(order.credit_amount or 0 for order in outstanding_query.all())
 
-    # Top items with outstanding revenue
-    from app.models import OrderItem, MenuItem
-    from sqlalchemy import func
-    
+    # Top items with outstanding revenue (branch filtered)
     credit_orders = [o.id for o in orders_list if o.credit_amount > 0]
     
     if credit_orders:
@@ -137,10 +173,11 @@ async def get_dashboard_summary(
     else:
         top_selling_items = []
 
-    # Sales by area/floor
-    from app.models import Floor
+    # Sales by area/floor (branch filtered)
+    floor_query = db.query(Floor)
+    floor_query = apply_branch_filter_floor(floor_query, branch_id)
+    floors = floor_query.all()
     sales_by_area = []
-    floors = db.query(Floor).all()
     for floor in floors:
         floor_tables = [t.id for t in floor.tables] if floor.tables else []
         floor_sales = sum(
@@ -194,8 +231,13 @@ async def get_sales_summary(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get sales summary"""
-    orders = db.query(Order).filter(Order.status == 'Completed').all()
+    """Get sales summary for the current user's branch"""
+    branch_id = get_branch_filter(current_user)
+    
+    order_query = db.query(Order).filter(Order.status == 'Completed')
+    order_query = apply_branch_filter_order(order_query, branch_id)
+    orders = order_query.all()
+    
     total_sales = sum(order.total_amount or 0 for order in orders)
     total_orders = len(orders)
     return {
@@ -210,9 +252,13 @@ async def get_day_book(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get day book (all transactions for today)"""
+    """Get day book (all transactions for today) for the current user's branch"""
+    branch_id = get_branch_filter(current_user)
     today = datetime.now().date()
-    orders = db.query(Order).filter(Order.created_at >= today).all()
+    
+    order_query = db.query(Order).filter(Order.created_at >= today)
+    order_query = apply_branch_filter_order(order_query, branch_id)
+    orders = order_query.all()
     return orders
 
 

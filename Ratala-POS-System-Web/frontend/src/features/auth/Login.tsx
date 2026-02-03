@@ -90,7 +90,7 @@ const Login: React.FC = () => {
                 fullWidth
                 sx={{
                     py: 1.5,
-                    bgcolor: '#FF8C00',
+                    bgcolor: '#FFC107',
                     '&:hover': { bgcolor: '#FF7700' },
                     borderRadius: '12px',
                     fontWeight: 700,
@@ -103,7 +103,7 @@ const Login: React.FC = () => {
 
             <Box sx={{ textAlign: 'center', mt: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                    Don't have an account? <Link to="/signup" style={{ color: '#FF8C00', fontWeight: 700, textDecoration: 'none' }}>Sign up</Link>
+                    Don't have an account? <Link to="/signup" style={{ color: '#FFC107', fontWeight: 700, textDecoration: 'none' }}>Sign up</Link>
                 </Typography>
             </Box>
         </Box>
@@ -111,3 +111,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+

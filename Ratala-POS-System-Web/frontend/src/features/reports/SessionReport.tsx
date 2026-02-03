@@ -100,7 +100,7 @@ const SessionReport: React.FC = () => {
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                <CircularProgress sx={{ color: '#FF8C00' }} />
+                <CircularProgress sx={{ color: '#FFC107' }} />
             </Box>
         );
     }
@@ -122,7 +122,7 @@ const SessionReport: React.FC = () => {
                     startIcon={<FileText size={18} />}
                     onClick={handleExportPDF}
                     sx={{
-                        bgcolor: '#FF8C00',
+                        bgcolor: '#FFC107',
                         '&:hover': { bgcolor: '#FF7700' },
                         textTransform: 'none',
                         borderRadius: '10px',
@@ -139,7 +139,7 @@ const SessionReport: React.FC = () => {
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr 1fr' }, gap: 2, mb: { xs: 2, sm: 3, md: 4 } }}>
                 <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '12px', border: '1px solid #f1f5f9' }} elevation={0}>
                     <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>TOTAL SESSIONS</Typography>
-                    <Typography variant="h4" fontWeight={800} color="#FF8C00" sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>{sessions.length}</Typography>
+                    <Typography variant="h4" fontWeight={800} color="#FFC107" sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>{sessions.length}</Typography>
                 </Paper>
                 <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '12px', border: '1px solid #f1f5f9' }} elevation={0}>
                     <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>ACTIVE SESSIONS</Typography>
@@ -239,8 +239,8 @@ const SessionReport: React.FC = () => {
                                 </TableCell>
                                 <TableCell align="right">
                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                                        <DollarSign size={14} color="#FF8C00" />
-                                        <Typography variant="body2" fontWeight={700} color="#FF8C00">
+                                        <DollarSign size={14} color="#FFC107" />
+                                        <Typography variant="body2" fontWeight={700} color="#FFC107">
                                             Rs. {session.total_sales?.toLocaleString()}
                                         </Typography>
                                     </Box>
@@ -271,3 +271,4 @@ const SessionReport: React.FC = () => {
 };
 
 export default SessionReport;
+

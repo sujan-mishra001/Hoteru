@@ -24,12 +24,19 @@ async def get_orders(
     current_user = Depends(get_current_user)
 ):
     """Get all orders, optionally filtered by order_type and status"""
+    # Get user's current branch for filtering
+    branch_id = current_user.current_branch_id
+    
     query = db.query(Order).options(
         joinedload(Order.table),
         joinedload(Order.customer),
         joinedload(Order.items).joinedload(OrderItem.menu_item),
         joinedload(Order.kots).joinedload(KOT.items).joinedload(KOTItem.menu_item)
     )
+    
+    # Filter by branch_id for data isolation
+    if branch_id:
+        query = query.filter(Order.branch_id == branch_id)
     
     if order_type:
         query = query.filter(Order.order_type == order_type)
@@ -47,12 +54,21 @@ async def get_order(
     current_user = Depends(get_current_user)
 ):
     """Get order by ID with items"""
-    order = db.query(Order).options(
+    # Get user's current branch for filtering
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Order).options(
         joinedload(Order.table),
         joinedload(Order.customer),
         joinedload(Order.items).joinedload(OrderItem.menu_item),
         joinedload(Order.kots).joinedload(KOT.items).joinedload(KOTItem.menu_item)
-    ).filter(Order.id == order_id).first()
+    ).filter(Order.id == order_id)
+    
+    # Filter by branch_id for data isolation
+    if branch_id:
+        query = query.filter(Order.branch_id == branch_id)
+    
+    order = query.first()
     
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -91,6 +107,10 @@ async def create_order(
     # Sync total_amount with net_amount for consistency
     if 'total_amount' not in order_data or order_data.get('total_amount') == 0:
         order_data['total_amount'] = order_data.get('net_amount', 0)
+    
+    # Set branch_id for data isolation
+    if current_user.current_branch_id:
+        order_data['branch_id'] = current_user.current_branch_id
     
     new_order = Order(**order_data)
     db.add(new_order)

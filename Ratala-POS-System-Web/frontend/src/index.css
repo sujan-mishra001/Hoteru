@@ -11,16 +11,16 @@
   line-height: 1.5;
   font-weight: 400;
 
-  /* Orange Color Palette from Logo */
-  --primary-orange: #FF8C00;
-  --primary-orange-hover: #FF7700;
-  --accent-orange: #FFA500;
+  /* Yellow/Amber Color Palette - Unified with Mobile App */
+  --primary-orange: #FFC107;
+  --primary-orange-hover: #FFB300;
+  --accent-orange: #FFD54F;
   --dark-brown: #2C1810;
   --medium-brown: #4A2C1A;
-  --light-orange: #FFB84D;
+  --light-orange: #FFECB3;
   --cream: #FFF5E6;
-  --glass: rgba(255, 140, 0, 0.08);
-  --glass-border: rgba(255, 140, 0, 0.25);
+  --glass: rgba(255, 193, 7, 0.08);
+  --glass-border: rgba(255, 193, 7, 0.25);
   --text-main: #f8fafc;
   --text-muted: #cbd5e1;
   --error: #ef4444;
@@ -93,4 +93,22 @@ body {
 .spinner {
   font-size: 1.2rem;
   color: var(--primary-orange);
+}
+
+/* Bottom Navigation for Mobile */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  z-index: 1000;
+  box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.05);
+}
+
+@media (min-width: 1024px) {
+  .bottom-nav {
+    display: none;
+  }
 }

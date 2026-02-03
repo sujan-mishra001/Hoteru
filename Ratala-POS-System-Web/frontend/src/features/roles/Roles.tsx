@@ -141,7 +141,7 @@ const Roles: React.FC = () => {
                         variant="contained"
                         startIcon={<Shield size={18} />}
                         onClick={() => handleOpenDialog()}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
                     >
                         Create New Role
                     </Button>
@@ -179,7 +179,7 @@ const Roles: React.FC = () => {
                                     <TableCell>
                                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                                             {role.permissions?.map((p: string) => (
-                                                <Chip key={p} label={p} size="small" sx={{ bgcolor: '#fff7ed', color: '#FF8C00', fontWeight: 800, fontSize: '0.7rem' }} />
+                                                <Chip key={p} label={p} size="small" sx={{ bgcolor: '#fff7ed', color: '#FFC107', fontWeight: 800, fontSize: '0.7rem' }} />
                                             ))}
                                             {(!role.permissions || role.permissions.length === 0) && (
                                                 <Typography variant="caption" color="text.secondary">No explicitly assigned permissions</Typography>
@@ -187,7 +187,7 @@ const Roles: React.FC = () => {
                                         </Box>
                                     </TableCell>
                                     <TableCell align="right">
-                                        <IconButton size="small" onClick={() => handleOpenDialog(role)} sx={{ color: '#FF8C00' }}>
+                                        <IconButton size="small" onClick={() => handleOpenDialog(role)} sx={{ color: '#FFC107' }}>
                                             <Edit size={16} />
                                         </IconButton>
                                         <IconButton
@@ -240,7 +240,7 @@ const Roles: React.FC = () => {
                                                         checked={formData.permissions.includes(perm)}
                                                         onChange={() => handlePermissionToggle(perm)}
                                                         disabled={processing}
-                                                        sx={{ color: '#FF8C00', '&.Mui-checked': { color: '#FF8C00' } }}
+                                                        sx={{ color: '#FFC107', '&.Mui-checked': { color: '#FFC107' } }}
                                                     />
                                                 }
                                                 label={<Typography variant="body2">{perm}</Typography>}
@@ -258,7 +258,7 @@ const Roles: React.FC = () => {
                         onClick={handleSaveRole}
                         variant="contained"
                         disabled={processing}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, fontWeight: 700 }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, fontWeight: 700 }}
                     >
                         {processing ? <CircularProgress size={24} color="inherit" /> : editingRole ? 'Update Role' : 'Create Role'}
                     </Button>
@@ -279,3 +279,4 @@ const Roles: React.FC = () => {
 };
 
 export default Roles;
+

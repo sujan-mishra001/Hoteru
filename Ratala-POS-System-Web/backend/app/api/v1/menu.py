@@ -1,5 +1,5 @@
 """
-Menu management routes
+Menu management routes with branch isolation
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
@@ -12,13 +12,23 @@ from app.schemas import MenuItemCreate
 router = APIRouter()
 
 
+def apply_branch_filter_menu(query, model, branch_id):
+    """Apply branch_id filter if branch_id is set and model has branch_id column"""
+    if branch_id is not None and hasattr(model, 'branch_id'):
+        query = query.filter(model.branch_id == branch_id)
+    return query
+
+
 @router.get("/items")
 async def get_menu_items(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all menu items"""
-    items = db.query(MenuItem).all()
+    """Get all menu items for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(MenuItem)
+    query = apply_branch_filter_menu(query, MenuItem, branch_id)
+    items = query.all()
     return items
 
 
@@ -28,8 +38,15 @@ async def create_menu_item(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create a new menu item"""
-    new_item = MenuItem(**item_data.dict())
+    """Create a new menu item in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    item_dict = item_data.dict()
+    
+    # Set branch_id for the new item
+    if branch_id is not None:
+        item_dict['branch_id'] = branch_id
+    
+    new_item = MenuItem(**item_dict)
     db.add(new_item)
     db.commit()
     db.refresh(new_item)
@@ -41,8 +58,11 @@ async def get_categories(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all categories"""
-    categories = db.query(Category).all()
+    """Get all categories for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(Category)
+    query = apply_branch_filter_menu(query, Category, branch_id)
+    categories = query.all()
     return categories
 
 
@@ -52,7 +72,13 @@ async def create_category(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create a new category"""
+    """Create a new category in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    # Set branch_id for the new category
+    if branch_id is not None:
+        category_data['branch_id'] = branch_id
+    
     new_category = Category(**category_data)
     db.add(new_category)
     db.commit()
@@ -65,8 +91,11 @@ async def get_groups(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all menu groups"""
-    groups = db.query(MenuGroup).all()
+    """Get all menu groups for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(MenuGroup)
+    query = apply_branch_filter_menu(query, MenuGroup, branch_id)
+    groups = query.all()
     return groups
 
 
@@ -76,7 +105,13 @@ async def create_group(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create a new menu group"""
+    """Create a new menu group in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    # Set branch_id for the new group
+    if branch_id is not None:
+        group_data['branch_id'] = branch_id
+    
     new_group = MenuGroup(**group_data)
     db.add(new_group)
     db.commit()
@@ -92,13 +127,18 @@ async def update_menu_item(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a menu item"""
-    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    """Update a menu item in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(MenuItem).filter(MenuItem.id == item_id)
+    query = apply_branch_filter_menu(query, MenuItem, branch_id)
+    item = query.first()
+    
     if not item:
-        raise HTTPException(status_code=404, detail="Menu item not found")
+        raise HTTPException(status_code=404, detail="Menu item not found or access denied")
     
     for key, value in item_data.items():
-        if hasattr(item, key):
+        if hasattr(item, key) and key != 'branch_id':
             setattr(item, key, value)
     
     db.commit()
@@ -151,10 +191,15 @@ async def delete_menu_item(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a menu item"""
-    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    """Delete a menu item in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(MenuItem).filter(MenuItem.id == item_id)
+    query = apply_branch_filter_menu(query, MenuItem, branch_id)
+    item = query.first()
+    
     if not item:
-        raise HTTPException(status_code=404, detail="Menu item not found")
+        raise HTTPException(status_code=404, detail="Menu item not found or access denied")
     
     db.delete(item)
     db.commit()
@@ -169,13 +214,18 @@ async def update_category(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a category"""
-    category = db.query(Category).filter(Category.id == category_id).first()
+    """Update a category in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Category).filter(Category.id == category_id)
+    query = apply_branch_filter_menu(query, Category, branch_id)
+    category = query.first()
+    
     if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise HTTPException(status_code=404, detail="Category not found or access denied")
     
     for key, value in category_data.items():
-        if hasattr(category, key):
+        if hasattr(category, key) and key != 'branch_id':
             setattr(category, key, value)
     
     db.commit()
@@ -189,10 +239,15 @@ async def delete_category(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a category"""
-    category = db.query(Category).filter(Category.id == category_id).first()
+    """Delete a category in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Category).filter(Category.id == category_id)
+    query = apply_branch_filter_menu(query, Category, branch_id)
+    category = query.first()
+    
     if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise HTTPException(status_code=404, detail="Category not found or access denied")
     
     db.delete(category)
     db.commit()
@@ -207,13 +262,18 @@ async def update_group(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a menu group"""
-    group = db.query(MenuGroup).filter(MenuGroup.id == group_id).first()
+    """Update a menu group in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(MenuGroup).filter(MenuGroup.id == group_id)
+    query = apply_branch_filter_menu(query, MenuGroup, branch_id)
+    group = query.first()
+    
     if not group:
-        raise HTTPException(status_code=404, detail="Menu group not found")
+        raise HTTPException(status_code=404, detail="Menu group not found or access denied")
     
     for key, value in group_data.items():
-        if hasattr(group, key):
+        if hasattr(group, key) and key != 'branch_id':
             setattr(group, key, value)
     
     db.commit()
@@ -227,10 +287,15 @@ async def delete_group(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a menu group"""
-    group = db.query(MenuGroup).filter(MenuGroup.id == group_id).first()
+    """Delete a menu group in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(MenuGroup).filter(MenuGroup.id == group_id)
+    query = apply_branch_filter_menu(query, MenuGroup, branch_id)
+    group = query.first()
+    
     if not group:
-        raise HTTPException(status_code=404, detail="Menu group not found")
+        raise HTTPException(status_code=404, detail="Menu group not found or access denied")
     
     db.delete(group)
     db.commit()

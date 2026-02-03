@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/login_screen.dart';
 
-import 'package:dautari_adda/features/home/presentation/screens/main_navigation_screen.dart';
+import 'package:dautari_adda/features/auth/presentation/screens/branch_selection_screen.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
@@ -59,7 +59,7 @@ class _SignupScreenState extends State<SignupScreen> {
           
           if (mounted) {
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => MainNavigationScreen()),
+              MaterialPageRoute(builder: (context) => BranchSelectionScreen()),
             );
           }
         }

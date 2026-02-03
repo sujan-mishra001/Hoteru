@@ -1,5 +1,5 @@
 """
-Table management routes with enhanced floor support
+Table management routes with branch isolation
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
@@ -12,6 +12,20 @@ from app.models import Table, Floor, Order, KOT
 router = APIRouter()
 
 
+def apply_branch_filter_table(db: Session, query, branch_id):
+    """Apply branch_id filter if branch_id is set and model has branch_id column"""
+    if branch_id is not None:
+        query = query.filter(Table.branch_id == branch_id)
+    return query
+
+
+def apply_branch_filter_floor(db: Session, query, branch_id):
+    """Apply branch_id filter to floor queries"""
+    if branch_id is not None:
+        query = query.filter(Floor.branch_id == branch_id)
+    return query
+
+
 @router.get("")
 async def get_tables(
     floor: Optional[str] = None,
@@ -20,8 +34,12 @@ async def get_tables(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all tables with KOT/BOT counts, optionally filtered by floor"""
+    """Get all tables for the current user's branch with KOT/BOT counts, optionally filtered by floor"""
+    branch_id = current_user.current_branch_id
     query = db.query(Table)
+    
+    # Apply branch filter
+    query = apply_branch_filter_table(db, query, branch_id)
     
     if not include_inactive:
         query = query.filter(Table.is_active == True)
@@ -84,8 +102,13 @@ async def get_tables_with_stats(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get tables with order statistics grouped by floor"""
-    floors = db.query(Floor).filter(Floor.is_active == True).order_by(Floor.display_order).all()
+    """Get tables with order statistics grouped by floor for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    # Get floors filtered by branch
+    floor_query = db.query(Floor).filter(Floor.is_active == True)
+    floor_query = apply_branch_filter_floor(db, floor_query, branch_id)
+    floors = floor_query.order_by(Floor.display_order).all()
     
     result = []
     for floor in floors:
@@ -143,10 +166,14 @@ async def get_table(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get table by ID with active order info"""
-    table = db.query(Table).filter(Table.id == table_id).first()
+    """Get table by ID with active order info, filtered by user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Table).filter(Table.id == table_id)
+    query = apply_branch_filter_table(db, query, branch_id)
+    table = query.first()
     if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+        raise HTTPException(status_code=404, detail="Table not found or access denied")
     
     result = {
         "id": table.id,
@@ -186,23 +213,33 @@ async def create_table(
     db: Session = Depends(get_db),
     current_user = Depends(check_admin_role)
 ):
-    """Create a new table (Admin only)"""
-    # Check if table_id already exists
-    existing = db.query(Table).filter(Table.table_id == table_data.get('table_id')).first()
+    """Create a new table in the user's current branch (Admin only)"""
+    branch_id = current_user.current_branch_id
+    
+    # Check if table_id already exists in the branch (or globally if branch_id is None)
+    query = db.query(Table).filter(Table.table_id == table_data.get('table_id'))
+    query = apply_branch_filter_table(db, query, branch_id)
+    existing = query.first()
     if existing:
-        raise HTTPException(status_code=400, detail="Table ID already exists")
+        raise HTTPException(status_code=400, detail="Table ID already exists in this branch")
     
     # Set floor name from floor_id if provided
     if 'floor_id' in table_data and table_data['floor_id']:
-        floor = db.query(Floor).filter(Floor.id == table_data['floor_id']).first()
+        floor_query = db.query(Floor).filter(Floor.id == table_data['floor_id'])
+        floor_query = apply_branch_filter_floor(db, floor_query, branch_id)
+        floor = floor_query.first()
         if floor:
             table_data['floor'] = floor.name
     
-    # Get max display_order for this floor
-    max_order = db.query(Table).filter(
-        Table.floor_id == table_data.get('floor_id')
-    ).order_by(Table.display_order.desc()).first()
+    # Get max display_order for this floor, filtered by branch
+    query = db.query(Table).filter(Table.floor_id == table_data.get('floor_id'))
+    query = apply_branch_filter_table(db, query, branch_id)
+    max_order = query.order_by(Table.display_order.desc()).first()
     table_data['display_order'] = (max_order.display_order + 1) if max_order else 0
+    
+    # Set branch_id for the new table
+    if branch_id is not None:
+        table_data['branch_id'] = branch_id
     
     new_table = Table(**table_data)
     db.add(new_table)
@@ -219,20 +256,29 @@ async def update_table(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a table"""
-    table = db.query(Table).filter(Table.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    """Update a table in the user's current branch"""
+    branch_id = current_user.current_branch_id
     
-    # Check if new table_id conflicts with existing
+    # Get table filtered by branch
+    query = db.query(Table).filter(Table.id == table_id)
+    query = apply_branch_filter_table(db, query, branch_id)
+    table = query.first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found or access denied")
+    
+    # Check if new table_id conflicts with existing in the branch
     if 'table_id' in table_data and table_data['table_id'] != table.table_id:
-        existing = db.query(Table).filter(Table.table_id == table_data['table_id']).first()
+        query = db.query(Table).filter(Table.table_id == table_data['table_id'])
+        query = apply_branch_filter_table(db, query, branch_id)
+        existing = query.first()
         if existing:
-            raise HTTPException(status_code=400, detail="Table ID already exists")
+            raise HTTPException(status_code=400, detail="Table ID already exists in this branch")
     
     # Update floor name if floor_id changed
     if 'floor_id' in table_data and table_data['floor_id'] != table.floor_id:
-        floor = db.query(Floor).filter(Floor.id == table_data['floor_id']).first()
+        floor_query = db.query(Floor).filter(Floor.id == table_data['floor_id'])
+        floor_query = apply_branch_filter_floor(db, floor_query, branch_id)
+        floor = floor_query.first()
         if floor:
             table_data['floor'] = floor.name
     
@@ -252,10 +298,14 @@ async def update_table_status(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update table status"""
-    table = db.query(Table).filter(Table.id == table_id).first()
+    """Update table status in the user's current branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Table).filter(Table.id == table_id)
+    query = apply_branch_filter_table(db, query, branch_id)
+    table = query.first()
     if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+        raise HTTPException(status_code=404, detail="Table not found or access denied")
     
     valid_statuses = ["Available", "Occupied", "Reserved", "BillRequested"]
     if status not in valid_statuses:
@@ -273,10 +323,14 @@ async def delete_table(
     db: Session = Depends(get_db),
     current_user = Depends(check_admin_role)
 ):
-    """Delete a table (Admin only) - sets is_active to False"""
-    table = db.query(Table).filter(Table.id == table_id).first()
+    """Delete a table in the user's current branch (Admin only) - sets is_active to False"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Table).filter(Table.id == table_id)
+    query = apply_branch_filter_table(db, query, branch_id)
+    table = query.first()
     if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+        raise HTTPException(status_code=404, detail="Table not found or access denied")
     
     # Soft delete
     table.is_active = False
@@ -291,10 +345,14 @@ async def reorder_table(
     db: Session = Depends(get_db),
     current_user = Depends(check_admin_role)
 ):
-    """Reorder a table (Admin only)"""
-    table = db.query(Table).filter(Table.id == table_id).first()
+    """Reorder a table in the user's current branch (Admin only)"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Table).filter(Table.id == table_id)
+    query = apply_branch_filter_table(db, query, branch_id)
+    table = query.first()
     if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+        raise HTTPException(status_code=404, detail="Table not found or access denied")
     
     table.display_order = new_order
     db.commit()

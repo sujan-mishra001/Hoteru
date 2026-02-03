@@ -7,7 +7,7 @@ class BranchService {
   // Get all branches for current user
   Future<List<dynamic>> getBranches() async {
     try {
-      final response = await _apiService.get('/branches');
+      final response = await _apiService.get('/branches/');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -20,7 +20,7 @@ class BranchService {
   // Get user's assigned branches
   Future<List<dynamic>> getMyBranches() async {
     try {
-      final response = await _apiService.get('/branches/my-branches');
+      final response = await _apiService.get('/branches/my/branches');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -53,7 +53,7 @@ class BranchService {
     String? location,
   }) async {
     try {
-      final response = await _apiService.post('/branches', {
+      final response = await _apiService.post('/branches/', {
         'name': name,
         'code': code,
         'address': address,
@@ -97,7 +97,7 @@ class BranchService {
   // Select/switch to a branch
   Future<bool> selectBranch(int branchId) async {
     try {
-      final response = await _apiService.post('/branches/select', {
+      final response = await _apiService.post('/auth/select-branch', {
         'branch_id': branchId,
       });
       return response.statusCode == 200;

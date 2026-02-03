@@ -293,7 +293,7 @@ class _MenuScreenState extends State<MenuScreen> {
     final filteredData = _getFilteredMenu();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 20),
@@ -303,19 +303,19 @@ class _MenuScreenState extends State<MenuScreen> {
           widget.isOrderingMode ? "Place Order" : "Menu Directory",
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(_isEditMode ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined, color: Colors.black54),
+            icon: Icon(_isEditMode ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined, color: Colors.black87, size: 20),
             tooltip: "Management Mode",
             onPressed: () => setState(() => _isEditMode = !_isEditMode),
           ),
           if (widget.isOrderingMode)
             IconButton(
-              icon: const Icon(Icons.receipt_long_rounded, color: Colors.black54),
+              icon: const Icon(Icons.receipt_long_rounded, color: Colors.black87, size: 20),
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => BillScreen(tableNumber: widget.tableNumber)));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => BillScreen(tableNumber: widget.tableNumber, navigationItems: widget.navigationItems)));
               },
             ),
           const SizedBox(width: 8),
@@ -479,6 +479,42 @@ class _MenuScreenState extends State<MenuScreen> {
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      bottomNavigationBar: widget.isOrderingMode ? Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: 3, // Menu tab active
+          onTap: (index) => Navigator.pop(context, index),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFFFFC107),
+          unselectedItemColor: Colors.grey[400],
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          elevation: 0,
+          items: widget.navigationItems != null
+              ? widget.navigationItems!.map((item) {
+                  return BottomNavigationBarItem(
+                    icon: Icon(item['icon'] as IconData),
+                    label: item['label'] as String,
+                  );
+                }).toList()
+              : const [
+                  BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+                  BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
+                  BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+                  BottomNavigationBarItem(icon: Icon(Icons.restaurant_menu_rounded), label: 'Menu'),
+                  BottomNavigationBarItem(icon: Icon(Icons.receipt_rounded), label: 'Expenses'),
+                ],
+        ),
+      ) : null,
     );
   }
 

@@ -29,6 +29,11 @@ class OrderService {
     }
   }
 
+  // Alias for getOrders() to match cashier_screen and day_book_screen usage
+  Future<List<dynamic>> getAllOrders() async {
+    return getOrders();
+  }
+
   // Get specific order
   Future<Map<String, dynamic>?> getOrder(int orderId) async {
     try {

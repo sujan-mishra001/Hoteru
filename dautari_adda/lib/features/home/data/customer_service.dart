@@ -24,6 +24,11 @@ class CustomerService {
     }
   }
 
+  // Alias for getCustomers() to match communications_screen usage
+  Future<List<dynamic>> getAllCustomers() async {
+    return getCustomers();
+  }
+
   // Get specific customer
   Future<Map<String, dynamic>?> getCustomer(int customerId) async {
     try {

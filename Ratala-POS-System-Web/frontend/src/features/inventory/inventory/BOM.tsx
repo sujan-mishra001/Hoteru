@@ -143,7 +143,7 @@ const BOM: React.FC = () => {
                     startIcon={<Plus size={18} />}
                     onClick={() => handleOpenDialog()}
                     sx={{
-                        bgcolor: '#FF8C00',
+                        bgcolor: '#FFC107',
                         '&:hover': { bgcolor: '#FF7700' },
                         textTransform: 'none',
                         borderRadius: '12px',
@@ -168,7 +168,7 @@ const BOM: React.FC = () => {
                 ) : boms.length === 0 ? (
                     <Box sx={{ gridColumn: '1/-1', textAlign: 'center', py: 8 }}>
                         <Typography variant="h6" color="text.secondary">No recipes defined yet.</Typography>
-                        <Button variant="text" onClick={() => handleOpenDialog()} sx={{ mt: 1, color: '#FF8C00' }}>Create your first BOM</Button>
+                        <Button variant="text" onClick={() => handleOpenDialog()} sx={{ mt: 1, color: '#FFC107' }}>Create your first BOM</Button>
                     </Box>
                 ) : (
                     boms.map((bom) => (
@@ -181,7 +181,7 @@ const BOM: React.FC = () => {
                                 '&:hover': {
                                     transform: 'translateY(-4px)',
                                     boxShadow: '0 12px 24px -10px rgba(0,0,0,0.1)',
-                                    borderColor: '#FF8C00'
+                                    borderColor: '#FFC107'
                                 }
                             }}
                         >
@@ -206,7 +206,7 @@ const BOM: React.FC = () => {
                                     <Box sx={{ mb: 2 }}>
                                         <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished Product</Typography>
                                         <Typography variant="body2" sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Package size={16} color="#FF8C00" />
+                                            <Package size={16} color="#FFC107" />
                                             {bom.finished_product?.name || 'Manual Selection'}
                                             <Typography variant="caption" sx={{ ml: 1, bgcolor: '#f1f5f9', px: 1, py: 0.5, borderRadius: '4px' }}>
                                                 Yield: {bom.output_quantity} {bom.finished_product?.unit?.abbreviation || 'pcs'}
@@ -268,7 +268,7 @@ const BOM: React.FC = () => {
 
                         <Paper variant="outlined" sx={{ p: 2, borderRadius: '12px', bgcolor: '#f8fafc' }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Package size={18} color="#FF8C00" />
+                                <Package size={18} color="#FFC107" />
                                 Resulting Product
                             </Typography>
                             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' }, gap: 2 }}>
@@ -298,14 +298,14 @@ const BOM: React.FC = () => {
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Utensils size={18} color="#FF8C00" />
+                                    <Utensils size={18} color="#FFC107" />
                                     Recipe Ingredients
                                 </Typography>
                                 <Button
                                     size="small"
                                     startIcon={<Plus size={16} />}
                                     onClick={handleAddComponent}
-                                    sx={{ color: '#FF8C00' }}
+                                    sx={{ color: '#FFC107' }}
                                 >
                                     Add Ingredient
                                 </Button>
@@ -351,7 +351,7 @@ const BOM: React.FC = () => {
                                 startIcon={<Save size={18} />}
                                 onClick={handleSubmit}
                                 sx={{
-                                    bgcolor: '#FF8C00',
+                                    bgcolor: '#FFC107',
                                     '&:hover': { bgcolor: '#FF7700' },
                                     px: 4,
                                     borderRadius: '10px'
@@ -368,3 +368,4 @@ const BOM: React.FC = () => {
 };
 
 export default BOM;
+

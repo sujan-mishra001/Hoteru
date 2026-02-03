@@ -381,9 +381,11 @@ class BillScreen extends StatelessWidget {
                       BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
                       BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
                       BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+                      BottomNavigationBarItem(icon: Icon(Icons.restaurant_menu_rounded), label: 'Menu'),
+                      BottomNavigationBarItem(icon: Icon(Icons.receipt_long_rounded), label: 'Expenses'),
                     ],
-            ),
-          ),
+                ),
+              ),
         );
       },
     );

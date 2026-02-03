@@ -119,7 +119,7 @@ const Reports: React.FC = () => {
 
     if (loading && !summary) return (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-            <CircularProgress sx={{ color: '#FF8C00' }} />
+            <CircularProgress sx={{ color: '#FFC107' }} />
             <Typography sx={{ mt: 2, color: 'text.secondary' }}>Preparing your business reports...</Typography>
         </Box>
     );
@@ -128,7 +128,7 @@ const Reports: React.FC = () => {
         <Box sx={{ p: { xs: 1, md: 0 } }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4, flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
                 <Box>
-                    <Typography variant="h4" fontWeight={900} color="#2C1810">Intelligence <span style={{ color: '#FF8C00' }}>Center</span></Typography>
+                    <Typography variant="h4" fontWeight={900} color="#2C1810">Intelligence <span style={{ color: '#FFC107' }}>Center</span></Typography>
                     <Typography variant="body1" color="text.secondary">Comprehensive analytics and data exports for your restaurant</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -144,11 +144,11 @@ const Reports: React.FC = () => {
                         boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
                         transition: 'all 0.2s',
                         '&:hover': {
-                            borderColor: '#FF8C00',
+                            borderColor: '#FFC107',
                             boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
                         }
                     }}>
-                        <Calendar size={20} color="#FF8C00" />
+                        <Calendar size={20} color="#FFC107" />
                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem', mb: -0.5 }}>Reporting Date</Typography>
                             <input
@@ -192,7 +192,7 @@ const Reports: React.FC = () => {
                         title="Gross Sales"
                         value={`NPRs. ${summary?.sales_24h?.toLocaleString() || '0'}`}
                         icon={<TrendingUp size={20} />}
-                        color="#FF8C00"
+                        color="#FFC107"
                         subtitle={`On ${selectedDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedDate}`}
                     />
                 </Grid>
@@ -267,7 +267,7 @@ const Reports: React.FC = () => {
                                 border: '1px solid #f1f5f9',
                                 transition: 'all 0.2s',
                                 '&:hover': {
-                                    borderColor: '#FF8C00',
+                                    borderColor: '#FFC107',
                                     bgcolor: '#fffbf5',
                                     transform: 'translateY(-2px)',
                                     boxShadow: '0 10px 15px -3px rgba(0,0,0,0.04)'
@@ -276,7 +276,7 @@ const Reports: React.FC = () => {
                             elevation={0}
                         >
                             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <Box sx={{ p: 1.5, bgcolor: '#fff', borderRadius: '12px', color: '#FF8C00', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex' }}>
+                                <Box sx={{ p: 1.5, bgcolor: '#fff', borderRadius: '12px', color: '#FFC107', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex' }}>
                                     {report.icon}
                                 </Box>
                                 <Box>
@@ -297,7 +297,7 @@ const Reports: React.FC = () => {
                                             color: '#64748b',
                                             fontWeight: 600,
                                             borderRadius: '8px',
-                                            '&:hover': { bgcolor: '#fff', color: '#FF8C00' }
+                                            '&:hover': { bgcolor: '#fff', color: '#FFC107' }
                                         }}
                                         onClick={() => handleExport(report.type, 'pdf')}
                                     >
@@ -323,7 +323,7 @@ const Reports: React.FC = () => {
                                         size="small"
                                         endIcon={<ChevronRight size={14} />}
                                         onClick={() => navigate(report.navigateTo!)}
-                                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px', color: '#FF8C00' }}
+                                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px', color: '#FFC107' }}
                                     >
                                         View
                                     </Button>
@@ -362,7 +362,7 @@ const ActionItem = ({ title, description, onClick }: any) => (
             cursor: 'pointer',
             transition: 'all 0.2s',
             border: '1px solid transparent',
-            '&:hover': { bgcolor: '#fff', borderColor: '#FF8C00', transform: 'translateX(4px)' }
+            '&:hover': { bgcolor: '#fff', borderColor: '#FFC107', transform: 'translateX(4px)' }
         }}
     >
         <Typography variant="subtitle2" fontWeight={800}>{title}</Typography>
@@ -373,3 +373,4 @@ const ActionItem = ({ title, description, onClick }: any) => (
 
 
 export default Reports;
+

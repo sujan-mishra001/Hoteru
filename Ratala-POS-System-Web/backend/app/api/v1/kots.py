@@ -1,5 +1,5 @@
 """
-KOT (Kitchen Order Ticket) and BOT (Bar Order Ticket) management routes
+KOT (Kitchen Order Ticket) and BOT (Bar Order Ticket) management routes with branch isolation
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
@@ -22,12 +22,18 @@ async def get_kots(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all KOTs/BOTs, optionally filtered by type and status"""
+    """Get all KOTs/BOTs for the current user's branch, optionally filtered by type and status"""
+    branch_id = current_user.current_branch_id
+    
     query = db.query(KOT).options(
         joinedload(KOT.order).joinedload(Order.table),
         joinedload(KOT.items).joinedload(KOTItem.menu_item),
         joinedload(KOT.user)
-    )
+    ).join(Order)
+    
+    # Filter by branch_id for data isolation
+    if branch_id:
+        query = query.filter(Order.branch_id == branch_id)
     
     if kot_type:
         query = query.filter(KOT.kot_type == kot_type)
@@ -44,15 +50,23 @@ async def get_kot(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get KOT by ID"""
-    kot = db.query(KOT).options(
+    """Get KOT by ID, filtered by user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(KOT).options(
         joinedload(KOT.order).joinedload(Order.table),
         joinedload(KOT.items).joinedload(KOTItem.menu_item),
         joinedload(KOT.user)
-    ).filter(KOT.id == kot_id).first()
+    ).filter(KOT.id == kot_id)
+    
+    # Filter by branch_id for data isolation
+    if branch_id:
+        query = query.join(Order).filter(Order.branch_id == branch_id)
+    
+    kot = query.first()
     
     if not kot:
-        raise HTTPException(status_code=404, detail="KOT not found")
+        raise HTTPException(status_code=404, detail="KOT not found or access denied")
     return kot
 
 
@@ -99,10 +113,16 @@ async def update_kot(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a KOT/BOT"""
-    kot = db.query(KOT).filter(KOT.id == kot_id).first()
+    """Update a KOT/BOT in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(KOT).filter(KOT.id == kot_id)
+    if branch_id:
+        query = query.join(Order).filter(Order.branch_id == branch_id)
+    kot = query.first()
+    
     if not kot:
-        raise HTTPException(status_code=404, detail="KOT not found")
+        raise HTTPException(status_code=404, detail="KOT not found or access denied")
     
     for key, value in kot_data.items():
         setattr(kot, key, value)
@@ -119,10 +139,16 @@ async def update_kot_status(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update KOT/BOT status"""
-    kot = db.query(KOT).filter(KOT.id == kot_id).first()
+    """Update KOT/BOT status in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(KOT).filter(KOT.id == kot_id)
+    if branch_id:
+        query = query.join(Order).filter(Order.branch_id == branch_id)
+    kot = query.first()
+    
     if not kot:
-        raise HTTPException(status_code=404, detail="KOT not found")
+        raise HTTPException(status_code=404, detail="KOT not found or access denied")
     
     kot.status = status
     db.commit()

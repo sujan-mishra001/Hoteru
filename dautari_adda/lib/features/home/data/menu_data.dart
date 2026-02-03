@@ -7,6 +7,8 @@ class MenuItem {
   final bool available;
   final int? categoryId;
   final int? groupId;
+  final String kotBot; // KOT or BOT - from backend model
+  final bool inventoryTracking; // from backend model
 
   const MenuItem({
     this.id,
@@ -17,6 +19,8 @@ class MenuItem {
     this.available = true,
     this.categoryId,
     this.groupId,
+    this.kotBot = 'KOT',
+    this.inventoryTracking = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +33,8 @@ class MenuItem {
       'is_available': available,
       if (categoryId != null) 'category_id': categoryId,
       if (groupId != null) 'group_id': groupId,
+      'kot_bot': kotBot,
+      'inventory_tracking': inventoryTracking,
     };
   }
 
@@ -42,6 +48,8 @@ class MenuItem {
       available: map['is_available'] ?? true,
       categoryId: map['category_id']?.toInt(),
       groupId: map['group_id']?.toInt(),
+      kotBot: map['kot_bot'] ?? 'KOT',
+      inventoryTracking: map['inventory_tracking'] ?? false,
     );
   }
 }
@@ -49,12 +57,14 @@ class MenuItem {
 class MenuCategory {
   final int? id;
   final String name;
+  final String type; // KOT or BOT - from backend model
   final List<MenuCategory> subCategories;
   final List<MenuItem> items;
 
   const MenuCategory({
     this.id,
     required this.name,
+    this.type = 'KOT',
     this.subCategories = const [],
     this.items = const [],
   });
@@ -63,6 +73,7 @@ class MenuCategory {
     return {
       if (id != null) 'id': id,
       'name': name,
+      'type': type,
       'items': items.map((i) => i.toMap()).toList(),
       'subCategories': subCategories.map((s) => s.toMap()).toList(),
     };
@@ -72,6 +83,7 @@ class MenuCategory {
     return MenuCategory(
       id: map['id']?.toInt(),
       name: map['name'] ?? '',
+      type: map['type'] ?? 'KOT',
       items: (map['items'] as List? ?? [])
           .map((i) => MenuItem.fromMap(Map<String, dynamic>.from(i)))
           .toList(),
@@ -85,22 +97,25 @@ class MenuCategory {
 class MenuGroup {
   final int? id;
   final String name;
+  final int? categoryId; // From backend model - single category_id
   final String? description;
-  final List<int> categoryIds;
+  final bool isActive; // From backend model
 
   const MenuGroup({
     this.id,
     required this.name,
+    this.categoryId,
     this.description,
-    this.categoryIds = const [],
+    this.isActive = true,
   });
 
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
       'name': name,
+      if (categoryId != null) 'category_id': categoryId,
       if (description != null) 'description': description,
-      'category_ids': categoryIds,
+      'is_active': isActive,
     };
   }
 
@@ -108,8 +123,9 @@ class MenuGroup {
     return MenuGroup(
       id: map['id']?.toInt(),
       name: map['name'] ?? '',
+      categoryId: map['category_id']?.toInt(),
       description: map['description'],
-      categoryIds: List<int>.from(map['category_ids'] ?? []),
+      isActive: map['is_active'] ?? true,
     );
   }
 }

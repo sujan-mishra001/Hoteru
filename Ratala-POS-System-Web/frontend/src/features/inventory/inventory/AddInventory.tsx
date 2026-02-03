@@ -141,8 +141,8 @@ const AddInventory: React.FC = () => {
                         bgcolor: '#f8fafc',
                         borderBottom: '1px solid #f1f5f9',
                         '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, fontSize: '0.95rem', minWidth: 140 },
-                        '& .Mui-selected': { color: '#FF8C00 !important' },
-                        '& .MuiTabs-indicator': { bgcolor: '#FF8C00', height: 3, borderRadius: '3px 3px 0 0' }
+                        '& .Mui-selected': { color: '#FFC107 !important' },
+                        '& .MuiTabs-indicator': { bgcolor: '#FFC107', height: 3, borderRadius: '3px 3px 0 0' }
                     }}
                 >
                     <Tab icon={<Plus size={18} />} iconPosition="start" label="Add Stock" />
@@ -194,7 +194,7 @@ const AddInventory: React.FC = () => {
                                             variant="contained"
                                             type="submit"
                                             disabled={submitting}
-                                            sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, minWidth: 200, py: 1.5, borderRadius: '12px', fontWeight: 700 }}
+                                            sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, minWidth: 200, py: 1.5, borderRadius: '12px', fontWeight: 700 }}
                                         >
                                             {submitting ? <CircularProgress size={20} color="inherit" /> : 'Confirm Add Stock'}
                                         </Button>
@@ -247,7 +247,7 @@ const AddInventory: React.FC = () => {
                                             variant="contained"
                                             type="submit"
                                             disabled={submitting}
-                                            sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, minWidth: 200, py: 1.5, borderRadius: '12px', fontWeight: 700 }}
+                                            sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, minWidth: 200, py: 1.5, borderRadius: '12px', fontWeight: 700 }}
                                         >
                                             {submitting ? <CircularProgress size={20} color="inherit" /> : 'Confirm Adjustment'}
                                         </Button>
@@ -287,7 +287,7 @@ const AddInventory: React.FC = () => {
                                 </TableHead>
                                 <TableBody>
                                     {loading ? (
-                                        <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}><CircularProgress size={24} sx={{ color: '#FF8C00' }} /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}><CircularProgress size={24} sx={{ color: '#FFC107' }} /></TableCell></TableRow>
                                     ) : filteredProducts.length === 0 ? (
                                         <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}>No products found.</TableCell></TableRow>
                                     ) : (
@@ -380,3 +380,4 @@ const AddInventory: React.FC = () => {
 };
 
 export default AddInventory;
+

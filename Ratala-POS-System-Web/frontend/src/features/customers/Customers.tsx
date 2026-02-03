@@ -111,7 +111,7 @@ const Customers: React.FC = () => {
                     variant="contained"
                     startIcon={<UserPlus size={18} />}
                     onClick={() => setOpenDialog(true)}
-                    sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
+                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
                 >
                     Register New Customer
                 </Button>
@@ -168,7 +168,7 @@ const Customers: React.FC = () => {
                                     <TableRow key={customer.id} hover>
                                         <TableCell>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: '#fff7ed', color: '#FF8C00', fontWeight: 700 }}>
+                                                <Avatar sx={{ bgcolor: '#fff7ed', color: '#FFC107', fontWeight: 700 }}>
                                                     {customer.name[0]?.toUpperCase()}
                                                 </Avatar>
                                                 <Box>
@@ -221,7 +221,7 @@ const Customers: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-                    <Button onClick={handleCreateCustomer} variant="contained" sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' } }}>Create Customer</Button>
+                    <Button onClick={handleCreateCustomer} variant="contained" sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' } }}>Create Customer</Button>
                 </DialogActions>
             </Dialog>
 
@@ -241,7 +241,7 @@ const Customers: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
-                    <Button onClick={handleEditCustomer} variant="contained" sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' } }}>Update Customer</Button>
+                    <Button onClick={handleEditCustomer} variant="contained" sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' } }}>Update Customer</Button>
                 </DialogActions>
             </Dialog>
         </Box>
@@ -249,3 +249,4 @@ const Customers: React.FC = () => {
 };
 
 export default Customers;
+

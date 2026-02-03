@@ -20,3 +20,4 @@ const Purchase: React.FC = () => {
 };
 
 export default Purchase;
+

@@ -175,7 +175,7 @@ const MenuManagement: React.FC = () => {
         <Box>
             <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h5" fontWeight={800}>Menu Management</Typography>
-                <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => handleOpenDialog()} sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' } }}>
+                <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => handleOpenDialog()} sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' } }}>
                     Add {tab === 0 ? 'Item' : tab === 1 ? 'Category' : 'Group'}
                 </Button>
             </Box>
@@ -212,7 +212,7 @@ const MenuManagement: React.FC = () => {
                             </TableHead>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={6} align="center"><CircularProgress size={24} sx={{ color: '#FF8C00' }} /></TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={6} align="center"><CircularProgress size={24} sx={{ color: '#FFC107' }} /></TableCell></TableRow>
                                 ) : filteredContent().length === 0 ? (
                                     <TableRow><TableCell colSpan={6} align="center">No records found</TableCell></TableRow>
                                 ) : (
@@ -237,7 +237,7 @@ const MenuManagement: React.FC = () => {
                                                 </Box>
                                             </TableCell>
                                             <TableCell>
-                                                <IconButton size="small" onClick={() => handleOpenDialog(item)} sx={{ color: '#64748b', '&:hover': { color: '#FF8C00' } }}><Edit size={16} /></IconButton>
+                                                <IconButton size="small" onClick={() => handleOpenDialog(item)} sx={{ color: '#64748b', '&:hover': { color: '#FFC107' } }}><Edit size={16} /></IconButton>
                                                 <IconButton size="small" onClick={() => handleDelete(item.id)} sx={{ color: '#64748b', '&:hover': { color: '#ef4444' } }}><Trash2 size={16} /></IconButton>
                                             </TableCell>
                                         </TableRow>
@@ -270,7 +270,7 @@ const MenuManagement: React.FC = () => {
                                 <TextField label="Price" type="number" fullWidth required value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} InputProps={{ startAdornment: <InputAdornment position="start">NPRs.</InputAdornment> }} />
                                 <TextField label="Description" fullWidth multiline rows={3} value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} />
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <input type="checkbox" id="is_active_item" checked={itemForm.is_active} onChange={(e) => setItemForm({ ...itemForm, is_active: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#FF8C00', cursor: 'pointer' }} />
+                                    <input type="checkbox" id="is_active_item" checked={itemForm.is_active} onChange={(e) => setItemForm({ ...itemForm, is_active: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#FFC107', cursor: 'pointer' }} />
                                     <label htmlFor="is_active_item" style={{ cursor: 'pointer', fontWeight: 600 }}>Active Status</label>
                                 </Box>
                             </>
@@ -279,12 +279,12 @@ const MenuManagement: React.FC = () => {
                                 <TextField label="Name" fullWidth required value={tab === 1 ? categoryForm.name : groupForm.name} onChange={(e) => tab === 1 ? setCategoryForm({ ...categoryForm, name: e.target.value }) : setGroupForm({ ...groupForm, name: e.target.value })} />
                                 <TextField label="Description" fullWidth multiline rows={3} value={tab === 1 ? categoryForm.description : groupForm.description} onChange={(e) => tab === 1 ? setCategoryForm({ ...categoryForm, description: e.target.value }) : setGroupForm({ ...groupForm, description: e.target.value })} />
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <input type="checkbox" id="is_active_toggle" checked={tab === 1 ? categoryForm.is_active : groupForm.is_active} onChange={(e) => tab === 1 ? setCategoryForm({ ...categoryForm, is_active: e.target.checked }) : setGroupForm({ ...groupForm, is_active: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#FF8C00', cursor: 'pointer' }} />
+                                    <input type="checkbox" id="is_active_toggle" checked={tab === 1 ? categoryForm.is_active : groupForm.is_active} onChange={(e) => tab === 1 ? setCategoryForm({ ...categoryForm, is_active: e.target.checked }) : setGroupForm({ ...groupForm, is_active: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#FFC107', cursor: 'pointer' }} />
                                     <label htmlFor="is_active_toggle" style={{ cursor: 'pointer', fontWeight: 600 }}>Active Status</label>
                                 </Box>
                             </>
                         )}
-                        <Button variant="contained" sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, mt: 2 }} onClick={handleSave}>
+                        <Button variant="contained" sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, mt: 2 }} onClick={handleSave}>
                             {editingItem ? 'Update' : 'Save'}
                         </Button>
                     </Box>
@@ -295,3 +295,4 @@ const MenuManagement: React.FC = () => {
 };
 
 export default MenuManagement;
+

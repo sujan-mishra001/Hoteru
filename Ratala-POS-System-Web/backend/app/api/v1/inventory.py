@@ -1,5 +1,5 @@
 """
-Inventory management routes - Transaction-based system
+Inventory management routes - Transaction-based system with branch isolation
 Core Principle: Stock is NEVER updated directly, only through transactions
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
@@ -16,6 +16,13 @@ from app.models import (
 )
 
 router = APIRouter()
+
+
+def apply_branch_filter_inventory(query, model, branch_id):
+    """Apply branch_id filter if branch_id is set and model has branch_id column"""
+    if branch_id is not None and hasattr(model, 'branch_id'):
+        query = query.filter(model.branch_id == branch_id)
+    return query
 
 
 # ============================================================================
@@ -67,8 +74,12 @@ async def get_products(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all products with DERIVED stock"""
-    products = db.query(Product).options(joinedload(Product.unit)).all()
+    """Get all products with DERIVED stock for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Product).options(joinedload(Product.unit))
+    query = apply_branch_filter_inventory(query, Product, branch_id)
+    products = query.all()
     
     result = []
     for product in products:
@@ -95,10 +106,16 @@ async def create_product(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create a new product"""
+    """Create a new product in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
     # Strip non-model fields
     allowed_fields = ['name', 'category', 'unit_id', 'min_stock']
     data = {k: v for k, v in product_data.items() if k in allowed_fields}
+    
+    # Set branch_id if the column exists
+    if branch_id is not None and hasattr(Product, 'branch_id'):
+        data['branch_id'] = branch_id
     
     new_product = Product(**data)
     db.add(new_product)
@@ -124,10 +141,15 @@ async def update_product(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a product"""
-    db_product = db.query(Product).filter(Product.id == product_id).first()
+    """Update a product in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Product).filter(Product.id == product_id)
+    query = apply_branch_filter_inventory(query, Product, branch_id)
+    db_product = query.first()
+    
     if not db_product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found or access denied")
     
     allowed_fields = ['name', 'category', 'unit_id', 'min_stock']
     for key, value in product_data.items():
@@ -155,10 +177,15 @@ async def delete_product(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a product - ONLY if no transactions exist"""
-    db_product = db.query(Product).filter(Product.id == product_id).first()
+    """Delete a product in the current user's branch - ONLY if no transactions exist"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Product).filter(Product.id == product_id)
+    query = apply_branch_filter_inventory(query, Product, branch_id)
+    db_product = query.first()
+    
     if not db_product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found or access denied")
     
     txn_count = db.query(InventoryTransaction).filter(
         InventoryTransaction.product_id == product_id
@@ -279,9 +306,14 @@ async def get_transactions(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    return db.query(InventoryTransaction).options(
+    """Get all inventory transactions for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(InventoryTransaction).options(
         joinedload(InventoryTransaction.product).joinedload(Product.unit)
-    ).order_by(InventoryTransaction.created_at.desc()).all()
+    )
+    query = apply_branch_filter_inventory(query, InventoryTransaction, branch_id)
+    return query.order_by(InventoryTransaction.created_at.desc()).all()
 
 
 # ============================================================================
@@ -294,12 +326,18 @@ async def create_adjustment(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create Adjustment transaction (signed quantity)"""
+    """Create Adjustment transaction (signed quantity) in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
     if not adj_data.get('notes'):
         raise HTTPException(status_code=400, detail="Reason is required for adjustments")
         
     adj_data['created_by'] = current_user.id
     adj_data['transaction_type'] = 'Adjustment'
+    
+    # Set branch_id if the column exists
+    if branch_id is not None and hasattr(InventoryTransaction, 'branch_id'):
+        adj_data['branch_id'] = branch_id
     
     # Tie to active POS Session
     active_session = db.query(POSSession).filter(
@@ -321,10 +359,14 @@ async def get_adjustments(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all adjustments"""
-    return db.query(InventoryTransaction).filter(
+    """Get all adjustments for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(InventoryTransaction).filter(
         InventoryTransaction.transaction_type == 'Adjustment'
-    ).options(
+    )
+    query = apply_branch_filter_inventory(query, InventoryTransaction, branch_id)
+    return query.options(
         joinedload(InventoryTransaction.product).joinedload(Product.unit)
     ).order_by(InventoryTransaction.created_at.desc()).all()
 
@@ -375,10 +417,14 @@ async def get_counts(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all inventory counts"""
-    return db.query(InventoryTransaction).filter(
+    """Get all inventory counts for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(InventoryTransaction).filter(
         InventoryTransaction.transaction_type == 'Count'
-    ).options(
+    )
+    query = apply_branch_filter_inventory(query, InventoryTransaction, branch_id)
+    return query.options(
         joinedload(InventoryTransaction.product).joinedload(Product.unit)
     ).order_by(InventoryTransaction.created_at.desc()).all()
 
@@ -392,10 +438,15 @@ async def get_boms(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    return db.query(BillOfMaterials).options(
+    """Get all BOMs for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(BillOfMaterials).options(
         joinedload(BillOfMaterials.components).joinedload(BOMItem.product),
         joinedload(BillOfMaterials.finished_product)
-    ).all()
+    )
+    query = apply_branch_filter_inventory(query, BillOfMaterials, branch_id)
+    return query.all()
 
 
 @router.post("/boms")
@@ -404,6 +455,8 @@ async def create_bom(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    """Create a new BOM in the current user's branch"""
+    branch_id = current_user.current_branch_id
     components = bom_data.pop('components', [])
     
     # Clean up empty string IDs
@@ -411,6 +464,10 @@ async def create_bom(
         bom_data['menu_item_id'] = None
     if bom_data.get('finished_product_id') == '':
         bom_data['finished_product_id'] = None
+    
+    # Set branch_id if the column exists
+    if branch_id is not None and hasattr(BillOfMaterials, 'branch_id'):
+        bom_data['branch_id'] = branch_id
         
     new_bom = BillOfMaterials(**bom_data)
     db.add(new_bom)

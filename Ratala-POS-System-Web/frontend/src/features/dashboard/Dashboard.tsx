@@ -174,7 +174,7 @@ const Dashboard: React.FC = () => {
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-                <CircularProgress sx={{ color: '#FF8C00' }} />
+                <CircularProgress sx={{ color: '#FFC107' }} />
             </Box>
         );
     }
@@ -239,3 +239,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+

@@ -52,7 +52,7 @@ const AuthLayout: React.FC = () => {
                             variant="h3"
                             sx={{
                                 fontWeight: 900,
-                                color: '#FF8C00',
+                                color: '#FFC107',
                                 mb: 0.5,
                                 letterSpacing: '-0.5px'
                             }}
@@ -71,3 +71,4 @@ const AuthLayout: React.FC = () => {
 };
 
 export default AuthLayout;
+

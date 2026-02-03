@@ -167,7 +167,7 @@ const Billing: React.FC = () => {
     if (loading && !table) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <CircularProgress sx={{ color: '#FF8C00' }} />
+                <CircularProgress sx={{ color: '#FFC107' }} />
             </Box>
         );
     }
@@ -209,7 +209,7 @@ const Billing: React.FC = () => {
                 </Box>
 
                 <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                    <Typography variant="h4" fontWeight={900} color={isPaid ? "#16a34a" : "#FF8C00"} sx={{ lineHeight: 1 }}>
+                    <Typography variant="h4" fontWeight={900} color={isPaid ? "#16a34a" : "#FFC107"} sx={{ lineHeight: 1 }}>
                         Rs. {isPaid ? order?.paid_amount : (order?.net_amount || 0)}
                     </Typography>
                     <Typography variant="caption" fontWeight={700} color="#94a3b8">{isPaid ? 'TOTAL PAID' : 'TOTAL PAYABLE'}</Typography>
@@ -233,7 +233,7 @@ const Billing: React.FC = () => {
                                     icon={<UserCircle size={16} />}
                                     label={order.customer.name}
                                     variant="outlined"
-                                    sx={{ borderRadius: '8px', fontWeight: 700, borderColor: '#FF8C00', color: '#FF8C00' }}
+                                    sx={{ borderRadius: '8px', fontWeight: 700, borderColor: '#FFC107', color: '#FFC107' }}
                                 />
                             )}
                         </Box>
@@ -252,7 +252,7 @@ const Billing: React.FC = () => {
                                         <Box sx={{
                                             width: 40, height: 40, borderRadius: '12px', bgcolor: '#fff',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            border: '1px solid #e2e8f0', fontWeight: 800, color: '#FF8C00'
+                                            border: '1px solid #e2e8f0', fontWeight: 800, color: '#FFC107'
                                         }}>
                                             {item.quantity}
                                         </Box>
@@ -288,7 +288,7 @@ const Billing: React.FC = () => {
                                 bgcolor: '#1e293b', borderRadius: '16px', color: 'white'
                             }}>
                                 <Typography variant="h6" fontWeight={800}>Total Amount</Typography>
-                                <Typography variant="h5" fontWeight={900} color="#FF8C00">Rs. {order?.net_amount || 0}</Typography>
+                                <Typography variant="h5" fontWeight={900} color="#FFC107">Rs. {order?.net_amount || 0}</Typography>
                             </Box>
                         </Box>
                     </Paper>
@@ -306,14 +306,14 @@ const Billing: React.FC = () => {
                                         onClick={() => setSelectedPaymentMode('Cash')}
                                         sx={{
                                             p: 2.5, borderRadius: '20px', border: '2px solid',
-                                            borderColor: selectedPaymentMode === 'Cash' ? '#FF8C00' : '#f1f5f9',
+                                            borderColor: selectedPaymentMode === 'Cash' ? '#FFC107' : '#f1f5f9',
                                             bgcolor: selectedPaymentMode === 'Cash' ? '#fff7ed' : 'white',
                                             cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-                                            '&:hover': { borderColor: '#FF8C00' }
+                                            '&:hover': { borderColor: '#FFC107' }
                                         }}
                                     >
-                                        <Banknote size={24} color={selectedPaymentMode === 'Cash' ? '#FF8C00' : '#64748b'} style={{ marginBottom: 8 }} />
-                                        <Typography variant="body2" fontWeight={800} color={selectedPaymentMode === 'Cash' ? '#FF8C00' : '#64748b'}>Cash</Typography>
+                                        <Banknote size={24} color={selectedPaymentMode === 'Cash' ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />
+                                        <Typography variant="body2" fontWeight={800} color={selectedPaymentMode === 'Cash' ? '#FFC107' : '#64748b'}>Cash</Typography>
                                     </Box>
                                 </Grid>
                                 {paymentModes.filter(m => m.name !== 'Cash').map((mode) => (
@@ -322,14 +322,14 @@ const Billing: React.FC = () => {
                                             onClick={() => setSelectedPaymentMode(mode.name)}
                                             sx={{
                                                 p: 2.5, borderRadius: '20px', border: '2px solid',
-                                                borderColor: selectedPaymentMode === mode.name ? '#FF8C00' : '#f1f5f9',
+                                                borderColor: selectedPaymentMode === mode.name ? '#FFC107' : '#f1f5f9',
                                                 bgcolor: selectedPaymentMode === mode.name ? '#fff7ed' : 'white',
                                                 cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-                                                '&:hover': { borderColor: '#FF8C00' }
+                                                '&:hover': { borderColor: '#FFC107' }
                                             }}
                                         >
-                                            {mode.name.toLowerCase().includes('card') ? <CreditCard size={24} color={selectedPaymentMode === mode.name ? '#FF8C00' : '#64748b'} style={{ marginBottom: 8 }} /> : <Smartphone size={24} color={selectedPaymentMode === mode.name ? '#FF8C00' : '#64748b'} style={{ marginBottom: 8 }} />}
-                                            <Typography variant="body2" fontWeight={800} color={selectedPaymentMode === mode.name ? '#FF8C00' : '#64748b'}>{mode.name}</Typography>
+                                            {mode.name.toLowerCase().includes('card') ? <CreditCard size={24} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} /> : <Smartphone size={24} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />}
+                                            <Typography variant="body2" fontWeight={800} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'}>{mode.name}</Typography>
                                         </Box>
                                     </Grid>
                                 ))}
@@ -374,8 +374,8 @@ const Billing: React.FC = () => {
                                         fontSize: '24px',
                                         py: 1,
                                         '& fieldset': { borderColor: 'transparent' },
-                                        '&:hover fieldset': { borderColor: '#FF8C00' },
-                                        '&.Mui-focused fieldset': { borderColor: '#FF8C00', borderWidth: 2 }
+                                        '&:hover fieldset': { borderColor: '#FFC107' },
+                                        '&.Mui-focused fieldset': { borderColor: '#FFC107', borderWidth: 2 }
                                     }
                                 }}
                             />
@@ -403,7 +403,7 @@ const Billing: React.FC = () => {
                                     startIcon={loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : (isPaid ? <CheckCircle2 size={24} /> : <CheckCircle2 size={24} />)}
                                     sx={{
                                         py: 2.5, borderRadius: '18px',
-                                        bgcolor: isPaid ? '#16a34a' : '#FF8C00',
+                                        bgcolor: isPaid ? '#16a34a' : '#FFC107',
                                         fontWeight: 900, fontSize: '1.2rem', textTransform: 'none',
                                         boxShadow: isPaid ? '0 8px 30px rgba(22, 163, 74, 0.3)' : '0 8px 30px rgba(255, 140, 0, 0.3)',
                                         '&:hover': { bgcolor: isPaid ? '#15803d' : '#e67e00', transform: 'translateY(-2px)' },
@@ -422,12 +422,12 @@ const Billing: React.FC = () => {
                                     sx={{
                                         py: 2, borderRadius: '16px',
                                         borderColor: isPaid ? 'transparent' : '#e2e8f0',
-                                        bgcolor: isPaid ? '#FF8C00' : 'transparent',
+                                        bgcolor: isPaid ? '#FFC107' : 'transparent',
                                         color: isPaid ? 'white' : '#64748b',
                                         fontWeight: 800, textTransform: 'none',
                                         boxShadow: isPaid ? '0 8px 25px rgba(255, 140, 0, 0.3)' : 'none',
                                         '&:hover': {
-                                            borderColor: '#FF8C00',
+                                            borderColor: '#FFC107',
                                             bgcolor: isPaid ? '#e67e00' : '#fff7ed',
                                             transform: isPaid ? 'scale(1.02)' : 'none'
                                         },
@@ -481,7 +481,7 @@ const Billing: React.FC = () => {
                         variant="contained"
                         startIcon={<Printer size={18} />}
                         onClick={() => handlePrint()}
-                        sx={{ borderRadius: '10px', bgcolor: '#FF8C00', '&:hover': { bgcolor: '#e67e00' }, textTransform: 'none', fontWeight: 700 }}
+                        sx={{ borderRadius: '10px', bgcolor: '#FFC107', '&:hover': { bgcolor: '#e67e00' }, textTransform: 'none', fontWeight: 700 }}
                     >
                         Print Bill
                     </Button>
@@ -492,3 +492,4 @@ const Billing: React.FC = () => {
 };
 
 export default Billing;
+

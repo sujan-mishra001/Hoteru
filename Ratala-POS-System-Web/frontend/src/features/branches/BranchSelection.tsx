@@ -59,18 +59,18 @@ const BranchSelection: React.FC = () => {
                                 cursor: 'pointer',
                                 position: 'relative',
                                 border: '2px solid',
-                                borderColor: selectedBranchId === branch.id ? '#FF8C00' : 'transparent',
+                                borderColor: selectedBranchId === branch.id ? '#FFC107' : 'transparent',
                                 bgcolor: selectedBranchId === branch.id ? '#fff7ed' : 'white',
                                 transition: 'all 0.2s',
                                 '&:hover': {
-                                    borderColor: '#FF8C00',
+                                    borderColor: '#FFC107',
                                     transform: 'translateY(-4px)',
                                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
                                 }
                             }}
                         >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Avatar sx={{ bgcolor: '#FF8C00', width: 48, height: 48 }}>
+                                <Avatar sx={{ bgcolor: '#FFC107', width: 48, height: 48 }}>
                                     <Building2 size={24} />
                                 </Avatar>
                                 <Box>
@@ -85,7 +85,7 @@ const BranchSelection: React.FC = () => {
                                 </Box>
                             </Box>
                             {selectedBranchId === branch.id && (
-                                <Box sx={{ position: 'absolute', top: 16, right: 16, color: '#FF8C00' }}>
+                                <Box sx={{ position: 'absolute', top: 16, right: 16, color: '#FFC107' }}>
                                     <Check size={24} />
                                 </Box>
                             )}
@@ -130,7 +130,7 @@ const BranchSelection: React.FC = () => {
                 sx={{
                     mt: 4,
                     py: 1.5,
-                    bgcolor: '#FF8C00',
+                    bgcolor: '#FFC107',
                     '&:hover': { bgcolor: '#FF7700' },
                     borderRadius: '12px',
                     fontWeight: 800,
@@ -145,3 +145,4 @@ const BranchSelection: React.FC = () => {
 };
 
 export default BranchSelection;
+

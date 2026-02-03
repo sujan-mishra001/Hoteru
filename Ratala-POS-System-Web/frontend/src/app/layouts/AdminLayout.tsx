@@ -19,6 +19,7 @@ import {
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { useBranch } from '../providers/BranchProvider';
+import BottomNav from '../../components/layout/BottomNav';
 
 const drawerWidth = 260;
 
@@ -146,8 +147,8 @@ const AdminLayout: React.FC = () => {
                             sx={{
                                 borderRadius: '10px',
                                 mx: 1,
-                                '&.Mui-selected': { bgcolor: 'rgba(255, 140, 0, 0.08)', color: '#FF8C00' },
-                                '&.Mui-selected .MuiListItemIcon-root': { color: '#FF8C00' },
+                                '&.Mui-selected': { bgcolor: 'rgba(255, 140, 0, 0.08)', color: '#FFC107' },
+                                '&.Mui-selected .MuiListItemIcon-root': { color: '#FFC107' },
                                 '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' }
                             }}
                         >
@@ -170,11 +171,11 @@ const AdminLayout: React.FC = () => {
                                             py: 0.5,
                                             mx: 1,
                                             pl: 4,
-                                            '&.Mui-selected': { color: '#FF8C00', bgcolor: 'transparent' },
-                                            '&:hover': { color: '#FF8C00', bgcolor: 'transparent' }
+                                            '&.Mui-selected': { color: '#FFC107', bgcolor: 'transparent' },
+                                            '&:hover': { color: '#FFC107', bgcolor: 'transparent' }
                                         }}
                                     >
-                                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: location.pathname === sub.path ? '#FF8C00' : '#cbd5e1', mr: 2 }} />
+                                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: location.pathname === sub.path ? '#FFC107' : '#cbd5e1', mr: 2 }} />
                                         <ListItemText
                                             primary={sub.text}
                                             primaryTypographyProps={{ fontSize: '0.85rem', fontWeight: 500 }}
@@ -197,7 +198,7 @@ const AdminLayout: React.FC = () => {
                     <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5 }}>
                         Welcome to
                     </Typography>
-                    <Typography variant="h6" fontWeight={800} color="#FF8C00" sx={{ lineHeight: 1.2, wordBreak: 'break-word' }}>
+                    <Typography variant="h6" fontWeight={800} color="#FFC107" sx={{ lineHeight: 1.2, wordBreak: 'break-word' }}>
                         {currentBranch?.name || 'HOTERU'}
                     </Typography>
                 </Box>
@@ -324,7 +325,7 @@ const AdminLayout: React.FC = () => {
                                 onClick={() => navigate('/pos')}
                                 startIcon={<MonitorDot size={18} />}
                                 sx={{
-                                    bgcolor: '#FF8C00',
+                                    bgcolor: '#FFC107',
                                     textTransform: 'none',
                                     fontWeight: 700,
                                     boxShadow: 'none',
@@ -340,7 +341,7 @@ const AdminLayout: React.FC = () => {
 
                         {/* Profile */}
                         <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0.5 }}>
-                            <Avatar sx={{ width: 36, height: 36, bgcolor: '#FF8C00', fontWeight: 700, fontSize: '1rem' }}>
+                            <Avatar sx={{ width: 36, height: 36, bgcolor: '#FFC107', fontWeight: 700, fontSize: '1rem' }}>
                                 {user?.username?.charAt(0).toUpperCase()}
                             </Avatar>
                         </IconButton>
@@ -401,9 +402,12 @@ const AdminLayout: React.FC = () => {
                 </Drawer>
             </Box>
 
-            <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, sm: 3 }, pt: { xs: 9, sm: 10 }, bgcolor: '#f8fafc', minHeight: '100vh', width: { lg: `calc(100% - ${drawerWidth}px)` } }}>
+            <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, sm: 3 }, pt: { xs: 9, sm: 10 }, pb: { xs: 10, lg: 3 }, bgcolor: '#f8fafc', minHeight: '100vh', width: { lg: `calc(100% - ${drawerWidth}px)` } }}>
                 <Outlet />
             </Box>
+
+            {/* Mobile Bottom Navigation */}
+            <BottomNav />
 
             {/* Logout Confirmation Dialog */}
             <Dialog
@@ -447,3 +451,4 @@ const AdminLayout: React.FC = () => {
 };
 
 export default AdminLayout;
+

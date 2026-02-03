@@ -1,19 +1,34 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/services/api_service.dart';
 import 'menu_data.dart';
 
 class MenuService {
   final ApiService _apiService = ApiService();
+  int? _currentBranchId;
+
+  Future<void> _loadBranchId() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentBranchId = prefs.getInt('selectedBranchId');
+  }
+
+  String _buildUrl(String endpoint) {
+    if (_currentBranchId != null) {
+      return '$endpoint?branch_id=$_currentBranchId';
+    }
+    return endpoint;
+  }
 
   // Fetch menu once from the Ratala backend and map to our structure
   Future<List<MenuCategory>> getMenu() async {
+    await _loadBranchId();
     try {
       // 1. Fetch Categories
-      final catResponse = await _apiService.get('/menu/categories');
+      final catResponse = await _apiService.get(_buildUrl('/menu/categories'));
       // 2. Fetch Groups (Sub-categories)
-      final groupResponse = await _apiService.get('/menu/groups');
+      final groupResponse = await _apiService.get(_buildUrl('/menu/groups'));
       // 3. Fetch Items
-      final itemResponse = await _apiService.get('/menu/items');
+      final itemResponse = await _apiService.get(_buildUrl('/menu/items'));
 
       if (catResponse.statusCode == 200 && groupResponse.statusCode == 200 && itemResponse.statusCode == 200) {
         final List categoriesJson = jsonDecode(catResponse.body);
@@ -23,6 +38,7 @@ class MenuService {
         // Map items and groups to categories
         List<MenuCategory> menu = categoriesJson.map((cat) {
           final catId = cat['id'];
+          final catType = cat['type'] ?? 'KOT';
           
           // Get groups belonging to this category
           final List categoryGroups = groupsJson.where((g) => g['category_id'] == catId).toList();
@@ -38,6 +54,7 @@ class MenuService {
             return MenuCategory(
               id: groupId,
               name: group['name'],
+              type: catType,
               items: groupItems.map((i) => MenuItem(
                 id: i['id'],
                 name: i['name'],
@@ -46,6 +63,9 @@ class MenuService {
                 image: i['image_url'],
                 available: i['is_available'] ?? true,
                 categoryId: catId,
+                groupId: groupId,
+                kotBot: i['kot_bot'] ?? 'KOT',
+                inventoryTracking: i['inventory_tracking'] ?? false,
               )).toList(),
             );
           }).toList();
@@ -53,6 +73,7 @@ class MenuService {
           return MenuCategory(
             id: catId,
             name: cat['name'],
+            type: catType,
             subCategories: subCategories,
             items: topLevelItems.map((i) => MenuItem(
               id: i['id'],
@@ -62,6 +83,8 @@ class MenuService {
               image: i['image_url'],
               available: i['is_available'] ?? true,
               categoryId: catId,
+              kotBot: i['kot_bot'] ?? 'KOT',
+              inventoryTracking: i['inventory_tracking'] ?? false,
             )).toList(),
           );
         }).toList();
@@ -84,7 +107,7 @@ class MenuService {
   
   Future<List<dynamic>> getCategories() async {
     try {
-      final response = await _apiService.get('/menu/categories');
+      final response = await _apiService.get(_buildUrl('/menu/categories'));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -186,6 +209,11 @@ class MenuService {
     } catch (e) {
       return [];
     }
+  }
+
+  // Alias for getMenuItems() to match food_cost_screen usage
+  Future<List<dynamic>> getAllMenuItems() async {
+    return getMenuItems();
   }
 
   Future<bool> addMenuItem(Map<String, dynamic> itemData) async {

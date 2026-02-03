@@ -92,7 +92,7 @@ class AuthService {
   // Get user branches
   Future<List<dynamic>> getUserBranches() async {
     try {
-      final response = await _apiService.get('/branches/my-branches');
+      final response = await _apiService.get('/branches/my/branches');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -105,7 +105,7 @@ class AuthService {
   // Switch branch
   Future<bool> switchBranch(int branchId) async {
     try {
-      final response = await _apiService.post('/branches/select', {
+      final response = await _apiService.post('/auth/select-branch', {
         'branch_id': branchId,
       });
       return response.statusCode == 200;

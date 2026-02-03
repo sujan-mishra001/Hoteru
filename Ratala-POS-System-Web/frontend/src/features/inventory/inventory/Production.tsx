@@ -138,7 +138,7 @@ const Production: React.FC = () => {
                     startIcon={<Plus size={18} />}
                     onClick={handleOpenDialog}
                     sx={{
-                        bgcolor: '#FF8C00',
+                        bgcolor: '#FFC107',
                         '&:hover': { bgcolor: '#FF7700' },
                         textTransform: 'none',
                         borderRadius: '12px',
@@ -219,7 +219,7 @@ const Production: React.FC = () => {
                 <DialogTitle sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{ p: 1, bgcolor: '#FFF7ED', borderRadius: '12px' }}>
-                            <Play size={24} color="#FF8C00" />
+                            <Play size={24} color="#FFC107" />
                         </Box>
                         <Typography variant="h5" sx={{ fontWeight: 800 }}>Start Production Cycle</Typography>
                     </Box>
@@ -272,7 +272,7 @@ const Production: React.FC = () => {
                                 <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
                                     <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Target Output</Typography>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-                                        <Package size={24} color="#FF8C00" />
+                                        <Package size={24} color="#FFC107" />
                                         <Box>
                                             <Typography variant="body1" sx={{ fontWeight: 700 }}>
                                                 {selectedBOM.finished_product?.name || 'Multiple Items'}
@@ -339,7 +339,7 @@ const Production: React.FC = () => {
                             disabled={!canProduce || !formData.bom_id}
                             onClick={handleSubmit}
                             sx={{
-                                bgcolor: '#FF8C00',
+                                bgcolor: '#FFC107',
                                 '&:hover': { bgcolor: '#FF7700' },
                                 px: 4,
                                 py: 1.2,
@@ -359,3 +359,4 @@ const Production: React.FC = () => {
 };
 
 export default Production;
+

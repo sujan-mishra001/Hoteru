@@ -146,8 +146,8 @@ const Settings: React.FC = () => {
                             mb: 0.5,
                             '&.Mui-selected': {
                                 bgcolor: 'rgba(255, 140, 0, 0.08)',
-                                color: '#FF8C00',
-                                '& .MuiListItemIcon-root': { color: '#FF8C00' }
+                                color: '#FFC107',
+                                '& .MuiListItemIcon-root': { color: '#FFC107' }
                             }
                         }}
                     >
@@ -181,8 +181,8 @@ const Settings: React.FC = () => {
                             mb: 0.5,
                             '&.Mui-selected': {
                                 bgcolor: 'rgba(255, 140, 0, 0.08)',
-                                color: '#FF8C00',
-                                '& .MuiListItemIcon-root': { color: '#FF8C00' }
+                                color: '#FFC107',
+                                '& .MuiListItemIcon-root': { color: '#FFC107' }
                             }
                         }}
                     >
@@ -314,7 +314,7 @@ const Settings: React.FC = () => {
             <Paper sx={{ p: 0, mb: 3, borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'none', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ bgcolor: 'rgba(255, 140, 0, 0.1)', p: 0.5, px: 1, borderRadius: '6px', color: '#FF8C00', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ bgcolor: 'rgba(255, 140, 0, 0.1)', p: 0.5, px: 1, borderRadius: '6px', color: '#FFC107', display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Utensils size={14} />
                             <Typography variant="caption" fontWeight={800}>MENUS</Typography>
                         </Box>
@@ -363,7 +363,7 @@ const Settings: React.FC = () => {
                         </TableHead>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={3} align="center" padding="normal"><CircularProgress size={20} sx={{ color: '#FF8C00' }} /></TableCell></TableRow>
+                                <TableRow><TableCell colSpan={3} align="center" padding="normal"><CircularProgress size={20} sx={{ color: '#FFC107' }} /></TableCell></TableRow>
                             ) : menuItems
                                 .filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
                                 .map((item) => (
@@ -404,7 +404,7 @@ const Settings: React.FC = () => {
                     variant="contained"
                     startIcon={<Plus size={18} />}
                     onClick={() => navigate('/branches/create')}
-                    sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
+                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
                 >
                     Create Branch
                 </Button>
@@ -413,7 +413,7 @@ const Settings: React.FC = () => {
             <Grid container spacing={3}>
                 {loading ? (
                     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', p: 4 }}>
-                        <CircularProgress sx={{ color: '#FF8C00' }} />
+                        <CircularProgress sx={{ color: '#FFC107' }} />
                     </Box>
                 ) : branches.length === 0 ? (
                     <Box sx={{ width: '100%', textAlign: 'center', p: 4 }}>
@@ -424,7 +424,7 @@ const Settings: React.FC = () => {
                         <Paper sx={{ p: 2.5, borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <Box sx={{ display: 'flex', gap: 2 }}>
-                                    <Avatar sx={{ bgcolor: '#fff7ed', color: '#FF8C00', borderRadius: '8px' }}>
+                                    <Avatar sx={{ bgcolor: '#fff7ed', color: '#FFC107', borderRadius: '8px' }}>
                                         <Building2 size={20} />
                                     </Avatar>
                                     <Box>
@@ -465,7 +465,7 @@ const Settings: React.FC = () => {
                         setSubTab(v === 0 ? 'company-profile' : 'update-menu-rate');
                     }}
                     sx={{
-                        '& .MuiTabs-indicator': { bgcolor: '#FF8C00', height: 3 },
+                        '& .MuiTabs-indicator': { bgcolor: '#FFC107', height: 3 },
                         '& .MuiTab-root': { fontWeight: 700, textTransform: 'uppercase', fontSize: '0.8rem', color: '#64748b', minWidth: 160 },
                         '& .MuiTab-root.Mui-selected': { color: '#2C1810' }
                     }}
@@ -508,3 +508,4 @@ const Settings: React.FC = () => {
 };
 
 export default Settings;
+

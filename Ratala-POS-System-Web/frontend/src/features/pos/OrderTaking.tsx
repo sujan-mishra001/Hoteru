@@ -386,7 +386,7 @@ const OrderTaking: React.FC = () => {
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <CircularProgress sx={{ color: '#FF8C00' }} />
+                <CircularProgress sx={{ color: '#FFC107' }} />
             </Box>
         );
     }
@@ -441,9 +441,9 @@ const OrderTaking: React.FC = () => {
                                 color: '#64748b',
                                 minHeight: '48px',
                                 px: 3,
-                                '&.Mui-selected': { color: '#FF8C00' }
+                                '&.Mui-selected': { color: '#FFC107' }
                             },
-                            '& .MuiTabs-indicator': { bgcolor: '#FF8C00', height: '3px', borderRadius: '3px 3px 0 0' }
+                            '& .MuiTabs-indicator': { bgcolor: '#FFC107', height: '3px', borderRadius: '3px 3px 0 0' }
                         }}
                     >
                         {categories.map(cat => (
@@ -472,7 +472,7 @@ const OrderTaking: React.FC = () => {
                                     mb: 0.5,
                                     bgcolor: selectedGroupId === null ? 'white' : 'transparent',
                                     boxShadow: selectedGroupId === null ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                                    border: selectedGroupId === null ? '1px solid #FF8C00' : '1px solid transparent',
+                                    border: selectedGroupId === null ? '1px solid #FFC107' : '1px solid transparent',
                                     transition: 'all 0.2s',
                                     '&:hover': { bgcolor: selectedGroupId === null ? 'white' : '#f1f5f9' }
                                 }}
@@ -481,7 +481,7 @@ const OrderTaking: React.FC = () => {
                                     sx={{
                                         fontWeight: 700,
                                         fontSize: '13px',
-                                        color: selectedGroupId === null ? '#FF8C00' : '#64748b'
+                                        color: selectedGroupId === null ? '#FFC107' : '#64748b'
                                     }}
                                 >
                                     All Items
@@ -500,7 +500,7 @@ const OrderTaking: React.FC = () => {
                                         mb: 0.5,
                                         bgcolor: selectedGroupId === group.id ? 'white' : 'transparent',
                                         boxShadow: selectedGroupId === group.id ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                                        border: selectedGroupId === group.id ? '1px solid #FF8C00' : '1px solid transparent',
+                                        border: selectedGroupId === group.id ? '1px solid #FFC107' : '1px solid transparent',
                                         transition: 'all 0.2s',
                                         '&:hover': { bgcolor: selectedGroupId === group.id ? 'white' : '#f1f5f9' }
                                     }}
@@ -509,7 +509,7 @@ const OrderTaking: React.FC = () => {
                                         sx={{
                                             fontWeight: 700,
                                             fontSize: '13px',
-                                            color: selectedGroupId === group.id ? '#FF8C00' : '#64748b',
+                                            color: selectedGroupId === group.id ? '#FFC107' : '#64748b',
                                             overflow: 'hidden',
                                             textOverflow: 'ellipsis',
                                             whiteSpace: 'nowrap'
@@ -542,7 +542,7 @@ const OrderTaking: React.FC = () => {
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 '&:hover': {
-                                                    borderColor: '#FF8C00',
+                                                    borderColor: '#FFC107',
                                                     boxShadow: '0 4px 12px rgba(255,140,0,0.1)',
                                                     transform: 'translateY(-2px)'
                                                 }
@@ -567,11 +567,11 @@ const OrderTaking: React.FC = () => {
                                                 </Typography>
                                             </Box>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                                                <Typography fontWeight={800} color="#FF8C00" fontSize="16px">
+                                                <Typography fontWeight={800} color="#FFC107" fontSize="16px">
                                                     NPRs. {item.price}
                                                 </Typography>
                                                 <Box sx={{ bgcolor: '#fff7ed', p: 0.5, borderRadius: '8px' }}>
-                                                    <Plus size={16} color="#FF8C00" />
+                                                    <Plus size={16} color="#FFC107" />
                                                 </Box>
                                             </Box>
                                         </Paper>
@@ -601,7 +601,7 @@ const OrderTaking: React.FC = () => {
                 <Box sx={{ p: 3, borderBottom: '1px solid #f1f5f9' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Typography variant="h6" fontWeight={800} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            Current Order <Chip label={orderItems.length} size="small" sx={{ bgcolor: '#FF8C00', color: 'white', fontWeight: 800, height: 20 }} />
+                            Current Order <Chip label={orderItems.length} size="small" sx={{ bgcolor: '#FFC107', color: 'white', fontWeight: 800, height: 20 }} />
                         </Typography>
                         <IconButton size="small" onClick={() => setOrderItems([])} disabled={orderItems.length === 0}>
                             <Trash2 size={18} color="#94a3b8" />
@@ -620,7 +620,7 @@ const OrderTaking: React.FC = () => {
                                 alignItems: 'center',
                                 gap: 1.5
                             }}>
-                                <UserCircle size={20} color="#FF8C00" />
+                                <UserCircle size={20} color="#FFC107" />
                                 <Box sx={{ flex: 1 }}>
                                     <Typography variant="body2" fontWeight={800} color="#9a3412">{selectedCustomer.name}</Typography>
                                     <Typography variant="caption" color="#c2410c">{selectedCustomer.phone || 'No phone'}</Typography>
@@ -700,7 +700,7 @@ const OrderTaking: React.FC = () => {
                                                     bgcolor: '#f8fafc'
                                                 }}
                                             >
-                                                <Typography variant="body2" fontWeight={700} color="#FF8C00">
+                                                <Typography variant="body2" fontWeight={700} color="#FFC107">
                                                     + Quick Add "{customerSearch}"
                                                 </Typography>
                                             </ListItem>
@@ -716,7 +716,7 @@ const OrderTaking: React.FC = () => {
                             variant="contained"
                             size="small"
                             sx={{
-                                bgcolor: '#FF8C00',
+                                bgcolor: '#FFC107',
                                 boxShadow: 'none',
                                 borderRadius: '20px',
                                 textTransform: 'none',
@@ -755,7 +755,7 @@ const OrderTaking: React.FC = () => {
                                     border: '1px solid #f1f5f9',
                                     bgcolor: '#f8fafc',
                                     transition: 'all 0.2s',
-                                    '&:hover': { border: '1px solid #FF8C00' }
+                                    '&:hover': { border: '1px solid #FFC107' }
                                 }}
                             >
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -770,7 +770,7 @@ const OrderTaking: React.FC = () => {
                                         <IconButton
                                             size="small"
                                             onClick={() => updateQuantity(item.item_id, -1)}
-                                            sx={{ p: 0.5, color: '#FF8C00' }}
+                                            sx={{ p: 0.5, color: '#FFC107' }}
                                         >
                                             <Minus size={16} />
                                         </IconButton>
@@ -780,7 +780,7 @@ const OrderTaking: React.FC = () => {
                                         <IconButton
                                             size="small"
                                             onClick={() => updateQuantity(item.item_id, 1)}
-                                            sx={{ p: 0.5, color: '#FF8C00' }}
+                                            sx={{ p: 0.5, color: '#FFC107' }}
                                         >
                                             <Plus size={16} />
                                         </IconButton>
@@ -815,7 +815,7 @@ const OrderTaking: React.FC = () => {
                     <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                         <Typography variant="h6" fontWeight={800}>Total Payable</Typography>
-                        <Typography variant="h6" fontWeight={800} color="#FF8C00">NPRs. {Math.round(total * 1.05)}</Typography>
+                        <Typography variant="h6" fontWeight={800} color="#FFC107">NPRs. {Math.round(total * 1.05)}</Typography>
                     </Box>
 
                     <Button
@@ -824,7 +824,7 @@ const OrderTaking: React.FC = () => {
                         disabled={orderItems.length === 0}
                         onClick={handlePlaceOrder}
                         sx={{
-                            bgcolor: '#FF8C00',
+                            bgcolor: '#FFC107',
                             mb: 1.5,
                             py: 1.8,
                             fontWeight: 800,
@@ -850,7 +850,7 @@ const OrderTaking: React.FC = () => {
                                 borderRadius: '12px',
                                 textTransform: 'none',
                                 fontWeight: 700,
-                                '&:hover': { bgcolor: 'white', borderColor: '#FF8C00', color: '#FF8C00' }
+                                '&:hover': { bgcolor: 'white', borderColor: '#FFC107', color: '#FFC107' }
                             }}
                         >
                             Draft
@@ -868,7 +868,7 @@ const OrderTaking: React.FC = () => {
                                 borderRadius: '12px',
                                 textTransform: 'none',
                                 fontWeight: 700,
-                                '&:hover': { bgcolor: 'white', borderColor: '#FF8C00', color: '#FF8C00' }
+                                '&:hover': { bgcolor: 'white', borderColor: '#FFC107', color: '#FFC107' }
                             }}
                         >
                             Print
@@ -931,7 +931,7 @@ const OrderTaking: React.FC = () => {
                         variant="contained"
                         startIcon={<Printer size={18} />}
                         onClick={() => handlePrint()}
-                        sx={{ borderRadius: '10px', bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', fontWeight: 700 }}
+                        sx={{ borderRadius: '10px', bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', fontWeight: 700 }}
                     >
                         Print Bill
                     </Button>
@@ -942,3 +942,4 @@ const OrderTaking: React.FC = () => {
 };
 
 export default OrderTaking;
+

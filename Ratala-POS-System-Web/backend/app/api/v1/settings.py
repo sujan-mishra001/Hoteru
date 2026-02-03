@@ -1,5 +1,5 @@
 """
-Settings API endpoints
+Settings API endpoints with branch isolation
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,6 +11,13 @@ from pydantic import BaseModel
 from datetime import datetime
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+
+def apply_branch_filter_settings(query, model, branch_id):
+    """Apply branch_id filter to settings-related queries"""
+    if branch_id is not None and hasattr(model, 'branch_id'):
+        query = query.filter(model.branch_id == branch_id)
+    return query
 
 
 # Pydantic schemas
@@ -299,8 +306,11 @@ async def get_payment_modes(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all payment modes"""
-    return db.query(PaymentMode).order_by(PaymentMode.display_order).all()
+    """Get all payment modes for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(PaymentMode)
+    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
+    return query.order_by(PaymentMode.display_order).all()
 
 
 @router.post("/payment-modes", response_model=PaymentModeResponse)
@@ -309,22 +319,31 @@ async def create_payment_mode(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new payment mode"""
+    """Create a new payment mode in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can create payment modes"
         )
     
-    # Check if payment mode already exists
-    existing = db.query(PaymentMode).filter(PaymentMode.name == payment_mode.name).first()
+    branch_id = current_user.current_branch_id
+    
+    # Check if payment mode already exists in the branch (or globally)
+    query = db.query(PaymentMode).filter(PaymentMode.name == payment_mode.name)
+    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
+    existing = query.first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Payment mode already exists"
+            detail="Payment mode already exists in this branch"
         )
     
-    new_payment_mode = PaymentMode(**payment_mode.model_dump())
+    payment_dict = payment_mode.model_dump()
+    # Set branch_id if the column exists
+    if branch_id is not None and hasattr(PaymentMode, 'branch_id'):
+        payment_dict['branch_id'] = branch_id
+    
+    new_payment_mode = PaymentMode(**payment_dict)
     db.add(new_payment_mode)
     db.commit()
     db.refresh(new_payment_mode)
@@ -338,16 +357,21 @@ async def update_payment_mode(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update a payment mode"""
+    """Update a payment mode in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can update payment modes"
         )
     
-    payment_mode = db.query(PaymentMode).filter(PaymentMode.id == payment_mode_id).first()
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(PaymentMode).filter(PaymentMode.id == payment_mode_id)
+    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
+    payment_mode = query.first()
+    
     if not payment_mode:
-        raise HTTPException(status_code=404, detail="Payment mode not found")
+        raise HTTPException(status_code=404, detail="Payment mode not found or access denied")
     
     for key, value in payment_mode_data.model_dump().items():
         setattr(payment_mode, key, value)
@@ -363,16 +387,21 @@ async def delete_payment_mode(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete a payment mode"""
+    """Delete a payment mode in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can delete payment modes"
         )
     
-    payment_mode = db.query(PaymentMode).filter(PaymentMode.id == payment_mode_id).first()
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(PaymentMode).filter(PaymentMode.id == payment_mode_id)
+    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
+    payment_mode = query.first()
+    
     if not payment_mode:
-        raise HTTPException(status_code=404, detail="Payment mode not found")
+        raise HTTPException(status_code=404, detail="Payment mode not found or access denied")
     
     db.delete(payment_mode)
     db.commit()
@@ -385,8 +414,11 @@ async def get_storage_areas(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all storage areas"""
-    return db.query(StorageArea).all()
+    """Get all storage areas for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(StorageArea)
+    query = apply_branch_filter_settings(query, StorageArea, branch_id)
+    return query.all()
 
 
 @router.post("/storage-areas", response_model=StorageAreaResponse)
@@ -395,14 +427,21 @@ async def create_storage_area(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new storage area"""
+    """Create a new storage area in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can create storage areas"
         )
     
-    new_storage_area = StorageArea(**storage_area.model_dump())
+    branch_id = current_user.current_branch_id
+    area_dict = storage_area.model_dump()
+    
+    # Set branch_id if the column exists
+    if branch_id is not None and hasattr(StorageArea, 'branch_id'):
+        area_dict['branch_id'] = branch_id
+    
+    new_storage_area = StorageArea(**area_dict)
     db.add(new_storage_area)
     db.commit()
     db.refresh(new_storage_area)
@@ -416,16 +455,21 @@ async def update_storage_area(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update a storage area"""
+    """Update a storage area in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can update storage areas"
         )
     
-    storage_area = db.query(StorageArea).filter(StorageArea.id == storage_area_id).first()
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(StorageArea).filter(StorageArea.id == storage_area_id)
+    query = apply_branch_filter_settings(query, StorageArea, branch_id)
+    storage_area = query.first()
+    
     if not storage_area:
-        raise HTTPException(status_code=404, detail="Storage area not found")
+        raise HTTPException(status_code=404, detail="Storage area not found or access denied")
     
     for key, value in storage_area_data.model_dump().items():
         setattr(storage_area, key, value)
@@ -441,16 +485,21 @@ async def delete_storage_area(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete a storage area"""
+    """Delete a storage area in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can delete storage areas"
         )
     
-    storage_area = db.query(StorageArea).filter(StorageArea.id == storage_area_id).first()
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(StorageArea).filter(StorageArea.id == storage_area_id)
+    query = apply_branch_filter_settings(query, StorageArea, branch_id)
+    storage_area = query.first()
+    
     if not storage_area:
-        raise HTTPException(status_code=404, detail="Storage area not found")
+        raise HTTPException(status_code=404, detail="Storage area not found or access denied")
     
     db.delete(storage_area)
     db.commit()
@@ -463,8 +512,11 @@ async def get_discount_rules(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all discount rules"""
-    return db.query(DiscountRule).all()
+    """Get all discount rules for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(DiscountRule)
+    query = apply_branch_filter_settings(query, DiscountRule, branch_id)
+    return query.all()
 
 
 @router.post("/discounts", response_model=DiscountRuleResponse)
@@ -473,14 +525,21 @@ async def create_discount_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new discount rule"""
+    """Create a new discount rule in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can create discount rules"
         )
     
-    new_discount = DiscountRule(**discount.model_dump())
+    branch_id = current_user.current_branch_id
+    discount_dict = discount.model_dump()
+    
+    # Set branch_id if the column exists
+    if branch_id is not None and hasattr(DiscountRule, 'branch_id'):
+        discount_dict['branch_id'] = branch_id
+    
+    new_discount = DiscountRule(**discount_dict)
     db.add(new_discount)
     db.commit()
     db.refresh(new_discount)
@@ -494,19 +553,25 @@ async def update_discount_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update a discount rule"""
+    """Update a discount rule in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can update discount rules"
         )
     
-    discount = db.query(DiscountRule).filter(DiscountRule.id == discount_id).first()
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(DiscountRule).filter(DiscountRule.id == discount_id)
+    query = apply_branch_filter_settings(query, DiscountRule, branch_id)
+    discount = query.first()
+    
     if not discount:
-        raise HTTPException(status_code=404, detail="Discount rule not found")
+        raise HTTPException(status_code=404, detail="Discount rule not found or access denied")
     
     for key, value in discount_data.model_dump().items():
-        setattr(discount, key, value)
+        if hasattr(discount, key) and key != 'branch_id':
+            setattr(discount, key, value)
     
     db.commit()
     db.refresh(discount)
@@ -519,16 +584,21 @@ async def delete_discount_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete a discount rule"""
+    """Delete a discount rule in the current user's branch"""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can delete discount rules"
         )
     
-    discount = db.query(DiscountRule).filter(DiscountRule.id == discount_id).first()
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(DiscountRule).filter(DiscountRule.id == discount_id)
+    query = apply_branch_filter_settings(query, DiscountRule, branch_id)
+    discount = query.first()
+    
     if not discount:
-        raise HTTPException(status_code=404, detail="Discount rule not found")
+        raise HTTPException(status_code=404, detail="Discount rule not found or access denied")
     
     db.delete(discount)
     db.commit()

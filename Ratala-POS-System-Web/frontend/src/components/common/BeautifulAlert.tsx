@@ -136,3 +136,4 @@ const BeautifulAlert: React.FC<BeautifulAlertProps> = ({ open, message, severity
 };
 
 export default BeautifulAlert;
+

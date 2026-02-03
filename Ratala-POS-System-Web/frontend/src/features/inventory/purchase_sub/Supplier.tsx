@@ -114,7 +114,7 @@ const Supplier: React.FC = () => {
                     variant="contained"
                     startIcon={<Plus size={18} />}
                     onClick={() => handleOpenDialog()}
-                    sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
+                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
                 >
                     Add Supplier
                 </Button>
@@ -224,7 +224,7 @@ const Supplier: React.FC = () => {
                         />
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
                             <Button onClick={handleCloseDialog}>Cancel</Button>
-                            <Button variant="contained" onClick={handleSubmit} sx={{ bgcolor: '#FF8C00' }}>
+                            <Button variant="contained" onClick={handleSubmit} sx={{ bgcolor: '#FFC107' }}>
                                 {editingSupplier ? 'Update' : 'Create'}
                             </Button>
                         </Box>
@@ -236,3 +236,4 @@ const Supplier: React.FC = () => {
 };
 
 export default Supplier;
+

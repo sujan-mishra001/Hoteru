@@ -76,3 +76,4 @@ const KOTPrintView = forwardRef<HTMLDivElement, KOTPrintViewProps>(({ kot, branc
 });
 
 export default KOTPrintView;
+

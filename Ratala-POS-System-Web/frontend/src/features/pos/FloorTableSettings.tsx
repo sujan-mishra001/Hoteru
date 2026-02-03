@@ -292,7 +292,7 @@ const FloorTableSettings: React.FC = () => {
                                     startIcon={<Plus size={18} />}
                                     onClick={() => handleOpenFloorDialog()}
                                     sx={{
-                                        bgcolor: '#FF8C00',
+                                        bgcolor: '#FFC107',
                                         '&:hover': { bgcolor: '#e67e00' },
                                         borderRadius: '12px',
                                         textTransform: 'none'
@@ -383,7 +383,7 @@ const FloorTableSettings: React.FC = () => {
                                     startIcon={<Plus size={18} />}
                                     onClick={() => handleOpenTableDialog()}
                                     sx={{
-                                        bgcolor: '#FF8C00',
+                                        bgcolor: '#FFC107',
                                         '&:hover': { bgcolor: '#e67e00' },
                                         borderRadius: '12px',
                                         textTransform: 'none'
@@ -500,7 +500,7 @@ const FloorTableSettings: React.FC = () => {
                         variant="contained"
                         onClick={handleSaveFloor}
                         disabled={!floorForm.name.trim()}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#e67e00' } }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#e67e00' } }}
                     >
                         {editingFloor ? 'Update' : 'Create'}
                     </Button>
@@ -612,7 +612,7 @@ const FloorTableSettings: React.FC = () => {
                         variant="contained"
                         onClick={handleSaveTable}
                         disabled={!tableForm.table_id.trim() || !tableForm.floor_id}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#e67e00' } }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#e67e00' } }}
                     >
                         {editingTable ? 'Update' : 'Create'}
                     </Button>
@@ -639,3 +639,4 @@ const FloorTableSettings: React.FC = () => {
 };
 
 export default FloorTableSettings;
+

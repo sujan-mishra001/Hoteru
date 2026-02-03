@@ -365,13 +365,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Text(
           "Table Service",
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
         centerTitle: false,
         automaticallyImplyLeading: false,
@@ -543,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ));
-        }
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddTableDialog,

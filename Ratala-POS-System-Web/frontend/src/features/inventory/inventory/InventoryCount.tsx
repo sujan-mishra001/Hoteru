@@ -99,7 +99,7 @@ const InventoryCount: React.FC = () => {
                     startIcon={<ClipboardCheck size={18} />}
                     onClick={handleOpenDialog}
                     sx={{
-                        bgcolor: '#FF8C00',
+                        bgcolor: '#FFC107',
                         '&:hover': { bgcolor: '#FF7700' },
                         textTransform: 'none',
                         borderRadius: '12px',
@@ -184,7 +184,7 @@ const InventoryCount: React.FC = () => {
                 <DialogTitle sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{ p: 1, bgcolor: '#FFF7ED', borderRadius: '12px' }}>
-                            <ClipboardCheck size={24} color="#FF8C00" />
+                            <ClipboardCheck size={24} color="#FFC107" />
                         </Box>
                         <Typography variant="h5" sx={{ fontWeight: 800 }}>Record Physical Count</Typography>
                     </Box>
@@ -220,7 +220,7 @@ const InventoryCount: React.FC = () => {
                                             </Typography>
                                         </Box>
                                         <Box sx={{ p: 1.5, bgcolor: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                                            <Package size={32} color="#FF8C00" />
+                                            <Package size={32} color="#FFC107" />
                                         </Box>
                                     </Box>
                                 </CardContent>
@@ -275,7 +275,7 @@ const InventoryCount: React.FC = () => {
                                 onClick={handleSubmit}
                                 disabled={!formData.product_id}
                                 sx={{
-                                    bgcolor: '#FF8C00',
+                                    bgcolor: '#FFC107',
                                     '&:hover': { bgcolor: '#FF7700' },
                                     px: 4,
                                     py: 1.2,
@@ -296,3 +296,4 @@ const InventoryCount: React.FC = () => {
 };
 
 export default InventoryCount;
+

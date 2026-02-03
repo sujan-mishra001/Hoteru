@@ -52,7 +52,7 @@ export const WelcomeCard: React.FC<{
                     width: 140,
                     height: 140,
                     borderRadius: '50%',
-                    bgcolor: '#FF8C0008',
+                    bgcolor: '#FFC10708',
                     zIndex: 1
                 }} />
 
@@ -60,7 +60,7 @@ export const WelcomeCard: React.FC<{
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                         <Box>
                             <Typography variant="h4" fontWeight={900} color="#2C1810" sx={{ letterSpacing: '-0.02em' }}>
-                                {greeting}, <span style={{ color: '#FF8C00' }}>{username}</span>
+                                {greeting}, <span style={{ color: '#FFC107' }}>{username}</span>
                             </Typography>
                             <Typography variant="body1" color="#64748b" sx={{ mt: 1, fontWeight: 500 }}>
                                 {isSessionActive
@@ -71,7 +71,7 @@ export const WelcomeCard: React.FC<{
                                 }
                             </Typography>
                         </Box>
-                        <Avatar sx={{ bgcolor: '#FF8C0015', color: '#FF8C00', width: 56, height: 56, fontSize: '1.5rem', border: '2px solid #FF8C0020' }}>
+                        <Avatar sx={{ bgcolor: '#FFC10715', color: '#FFC107', width: 56, height: 56, fontSize: '1.5rem', border: '2px solid #FFC10720' }}>
                             {username.charAt(0).toUpperCase()}
                         </Avatar>
                     </Box>
@@ -83,7 +83,7 @@ export const WelcomeCard: React.FC<{
                                     variant="contained"
                                     onClick={onGoToPOS}
                                     sx={{
-                                        bgcolor: '#FF8C00',
+                                        bgcolor: '#FFC107',
                                         color: 'white',
                                         boxShadow: '0 8px 20px -4px rgba(255, 140, 0, 0.4)',
                                         '&:hover': { bgcolor: '#FF7700', transform: 'translateY(-2px)' },
@@ -126,7 +126,7 @@ export const WelcomeCard: React.FC<{
                                     variant="contained"
                                     onClick={onGoToPOS}
                                     sx={{
-                                        bgcolor: '#FF8C00',
+                                        bgcolor: '#FFC107',
                                         color: 'white',
                                         boxShadow: '0 8px 20px -4px rgba(255, 140, 0, 0.4)',
                                         '&:hover': { bgcolor: '#FF7700', transform: 'translateY(-2px)' },
@@ -203,7 +203,7 @@ export const WelcomeCard: React.FC<{
                                     borderRadius: '12px',
                                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
                                     display: 'flex',
-                                    color: '#FF8C00'
+                                    color: '#FFC107'
                                 }}>
                                     <Clock size={20} />
                                 </Box>
@@ -235,7 +235,7 @@ export const OccupancyCard: React.FC<{ percentage: number; occupied: number; tot
     // Determine status color based on occupancy
     const statusColor = useMemo(() => {
         if (percentage >= 80) return '#ef4444'; // High occupancy - red
-        if (percentage >= 50) return '#FF8C00'; // Medium occupancy - orange
+        if (percentage >= 50) return '#FFC107'; // Medium occupancy - orange
         return '#22c55e'; // Low occupancy - green
     }, [percentage]);
 
@@ -353,7 +353,7 @@ export const PeakTimeChart: React.FC<{ data: number[]; salesData?: number[] }> =
                     ranges: [{
                         from: 0,
                         to: maxValue,
-                        color: '#FF8C00'
+                        color: '#FFC107'
                     }]
                 }
             }
@@ -404,7 +404,7 @@ export const PeakTimeChart: React.FC<{ data: number[]; salesData?: number[] }> =
                 lines: { show: false }
             }
         },
-        colors: ['#FF8C00']
+        colors: ['#FFC107']
     };
 
     const series = [{
@@ -434,7 +434,7 @@ export const PeakTimeChart: React.FC<{ data: number[]; salesData?: number[] }> =
                     size="small"
                     sx={{
                         bgcolor: '#fff7ed',
-                        color: '#FF8C00',
+                        color: '#FFC107',
                         fontWeight: 700,
                         fontSize: '0.7rem'
                     }}
@@ -458,3 +458,4 @@ export const PeakTimeChart: React.FC<{ data: number[]; salesData?: number[] }> =
         </Paper>
     );
 };
+

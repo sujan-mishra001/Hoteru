@@ -49,7 +49,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return bills.fold(0, (sum, bill) => sum + bill.amount);
   }
 
-  Future<void> _printBill(BuildContext context, int tableNumber, List<CartItem> cart, double total, DateTime date) async {
+  Future<void> _printBill(BuildContext context, int? tableNumber, List<CartItem> cart, double total, DateTime date) async {
     final doc = pw.Document();
     
     // Calculate total quantity
@@ -76,7 +76,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                      pw.Column(
                        crossAxisAlignment: pw.CrossAxisAlignment.start,
                        children: [
-                          pw.Text('Table: T$tableNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
+                          pw.Text(tableNumber != null ? 'Table: T$tableNumber' : 'Takeaway', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
                           pw.SizedBox(height: 2),
                           pw.Text('Date: ${DateFormat('MMM dd, yyyy').format(date)}', style: const pw.TextStyle(fontSize: 10)),
                           pw.Text('User: $userName', style: pw.TextStyle(fontSize: 10)),
@@ -512,7 +512,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Table ${bill.tableNumber}",
+                        bill.tableNumber != null
+                            ? "Table ${bill.tableNumber}"
+                            : "Takeaway Order",
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

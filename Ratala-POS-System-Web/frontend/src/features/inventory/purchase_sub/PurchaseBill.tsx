@@ -141,7 +141,7 @@ const PurchaseBill: React.FC = () => {
                     variant="contained"
                     startIcon={<Plus size={18} />}
                     onClick={() => setOpenDialog(true)}
-                    sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px', fontWeight: 700 }}
+                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px', fontWeight: 700 }}
                 >
                     New Purchase Bill
                 </Button>
@@ -164,7 +164,7 @@ const PurchaseBill: React.FC = () => {
                         {loading ? (
                             <TableRow>
                                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                                    <CircularProgress sx={{ color: '#FF8C00' }} size={24} />
+                                    <CircularProgress sx={{ color: '#FFC107' }} size={24} />
                                 </TableCell>
                             </TableRow>
                         ) : bills.length === 0 ? (
@@ -173,7 +173,7 @@ const PurchaseBill: React.FC = () => {
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                                         <FileText size={48} color="#cbd5e1" />
                                         <Typography color="text.secondary" fontWeight={500}>No purchase bills found</Typography>
-                                        <Button size="small" variant="text" sx={{ color: '#FF8C00' }} onClick={() => setOpenDialog(true)}>
+                                        <Button size="small" variant="text" sx={{ color: '#FFC107' }} onClick={() => setOpenDialog(true)}>
                                             Create your first bill
                                         </Button>
                                     </Box>
@@ -205,7 +205,7 @@ const PurchaseBill: React.FC = () => {
                                         <Button
                                             size="small"
                                             variant="text"
-                                            sx={{ color: '#FF8C00', textTransform: 'none', fontWeight: 600 }}
+                                            sx={{ color: '#FFC107', textTransform: 'none', fontWeight: 600 }}
                                             onClick={() => handleViewDetails(bill)}
                                         >
                                             View Details
@@ -295,7 +295,7 @@ const PurchaseBill: React.FC = () => {
                         variant="contained"
                         onClick={handleCreateBill}
                         disabled={submitting || suppliers.length === 0}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, borderRadius: '8px', fontWeight: 700 }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, borderRadius: '8px', fontWeight: 700 }}
                     >
                         {submitting ? 'Creating...' : 'Create Bill'}
                     </Button>
@@ -319,7 +319,7 @@ const PurchaseBill: React.FC = () => {
                                 </Box>
                                 <Box sx={{ textAlign: 'right' }}>
                                     <Typography variant="caption" color="text.secondary">Total Amount</Typography>
-                                    <Typography fontWeight={700} color="#FF8C00">NPR {selectedBill.total_amount?.toLocaleString()}</Typography>
+                                    <Typography fontWeight={700} color="#FFC107">NPR {selectedBill.total_amount?.toLocaleString()}</Typography>
                                 </Box>
                             </Box>
 
@@ -357,7 +357,7 @@ const PurchaseBill: React.FC = () => {
                         variant="contained"
                         onClick={handleUpdateBill}
                         disabled={submitting}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, borderRadius: '8px', fontWeight: 700 }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, borderRadius: '8px', fontWeight: 700 }}
                     >
                         {submitting ? 'Updating...' : 'Update Status'}
                     </Button>
@@ -379,4 +379,5 @@ const PurchaseBill: React.FC = () => {
 };
 
 export default PurchaseBill;
+
 

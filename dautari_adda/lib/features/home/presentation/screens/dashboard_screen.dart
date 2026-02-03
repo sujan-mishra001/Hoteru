@@ -75,18 +75,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Text(
           'Business Overview',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.black54),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.black87, size: 20),
             onPressed: _loadDashboardData,
           ),
           const SizedBox(width: 8),

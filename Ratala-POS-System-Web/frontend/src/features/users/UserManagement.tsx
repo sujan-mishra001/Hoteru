@@ -161,7 +161,7 @@ const UserManagement: React.FC = () => {
                         variant="contained"
                         startIcon={<UserPlus size={18} />}
                         onClick={() => handleOpenDialog()}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', borderRadius: '10px' }}
                     >
                         Add Staff Member
                     </Button>
@@ -203,7 +203,7 @@ const UserManagement: React.FC = () => {
                                             size="small"
                                             sx={{
                                                 bgcolor: '#fff7ed',
-                                                color: '#FF8C00',
+                                                color: '#FFC107',
                                                 fontWeight: 800,
                                                 textTransform: 'capitalize'
                                             }}
@@ -308,7 +308,7 @@ const UserManagement: React.FC = () => {
                         onClick={handleSaveUser}
                         variant="contained"
                         disabled={processing}
-                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#FF7700' }, fontWeight: 700 }}
+                        sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, fontWeight: 700 }}
                     >
                         {processing ? <CircularProgress size={24} color="inherit" /> : editingUser ? 'Update User' : 'Create User'}
                     </Button>
@@ -329,3 +329,4 @@ const UserManagement: React.FC = () => {
 };
 
 export default UserManagement;
+

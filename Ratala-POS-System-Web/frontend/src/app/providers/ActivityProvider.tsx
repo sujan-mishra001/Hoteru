@@ -73,3 +73,4 @@ export const ActivityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         </ActivityContext.Provider>
     );
 };
+

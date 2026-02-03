@@ -97,7 +97,7 @@ export const SalesSummary: React.FC<{
                     <Grid size={{ xs: 7 }}>
                         <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <DollarSign size={20} color="#FF8C00" />
+                                <DollarSign size={20} color="#FFC107" />
                                 <Typography variant="h4" fontWeight={900}>NPRs. {totalSales.toLocaleString()}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
@@ -191,7 +191,7 @@ export const OrderDetail: React.FC<{
         {
             label: 'Takeaway',
             count: takeawayCount,
-            color: '#FF8C00',
+            color: '#FFC107',
             progress: totalOrders > 0 ? Math.round((takeawayCount / totalOrders) * 100) : 0,
             icon: '🛍️'
         },
@@ -300,3 +300,4 @@ export const OrderDetail: React.FC<{
         </Paper>
     );
 };
+

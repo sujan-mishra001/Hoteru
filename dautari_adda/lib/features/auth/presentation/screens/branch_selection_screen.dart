@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
+import 'package:dautari_adda/features/home/data/branch_service.dart';
 import 'package:dautari_adda/features/home/presentation/screens/main_navigation_screen.dart';
+import 'package:dautari_adda/features/auth/presentation/screens/login_screen.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BranchSelectionScreen extends StatefulWidget {
   const BranchSelectionScreen({super.key});
@@ -13,31 +16,148 @@ class BranchSelectionScreen extends StatefulWidget {
 
 class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
   final AuthService _authService = AuthService();
+  final BranchService _branchService = BranchService();
   List<dynamic> _branches = [];
   bool _isLoading = true;
   int? _selectedBranchId;
+  String _userRole = 'user';
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
-    _loadBranches();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
+    await _loadUserProfile();
+    await _loadBranches();
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await _authService.getUserProfile();
+      if (profile != null) {
+        setState(() {
+          _userRole = profile['role'] ?? 'user';
+          _isAdmin = _userRole.toLowerCase() == 'admin';
+        });
+      } else {
+        // If profile is null, it likely means the token is invalid
+        _handleLogout();
+      }
+    } catch (e) {
+      print('DEBUG: Profile load error: $e');
+      if (mounted) ToastService.show(context, "Error loading user profile", isError: true);
+    }
+  }
+
+  void _handleLogout() async {
+    await _authService.logout();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
+    }
   }
 
   Future<void> _loadBranches() async {
-    setState(() => _isLoading = true);
     try {
-      final branches = await _authService.getUserBranches();
+      // Use getBranches() for admins to see all, or getMyBranches() for specific assignments
+      final branches = _isAdmin 
+          ? await _branchService.getBranches() 
+          : await _branchService.getMyBranches();
+      
       setState(() {
         _branches = branches;
-        _isLoading = false;
-        if (_branches.length == 1) {
+        if (_branches.isNotEmpty && _branches.length == 1) {
           _selectedBranchId = _branches[0]['id'];
         }
       });
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) ToastService.show(context, "Failed to load branches", isError: true);
     }
+  }
+
+  void _showAddBranchDialog() {
+    final nameController = TextEditingController();
+    final codeController = TextEditingController();
+    final addressController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Create New Branch', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Branch Name',
+                hintText: 'e.g. Dautari Adda - Baneshwor',
+                labelStyle: GoogleFonts.poppins(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeController,
+              decoration: InputDecoration(
+                labelText: 'Branch Code',
+                hintText: 'e.g. BSN-01',
+                labelStyle: GoogleFonts.poppins(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: addressController,
+              decoration: InputDecoration(
+                labelText: 'Location/Address',
+                hintText: 'e.g. Kathmandu, Nepal',
+                labelStyle: GoogleFonts.poppins(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isEmpty || codeController.text.isEmpty) {
+                ToastService.show(context, "Name and Code are required", isError: true);
+                return;
+              }
+              try {
+                await _branchService.createBranch(
+                  name: nameController.text,
+                  code: codeController.text,
+                  location: addressController.text,
+                );
+                Navigator.pop(context);
+                _loadBranches();
+                ToastService.show(context, "Branch created successfully");
+              } catch (e) {
+                ToastService.show(context, e.toString(), isError: true);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC107),
+              foregroundColor: Colors.black87,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Create', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleBranchSelect(int branchId) async {
@@ -69,6 +189,12 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
+          if (_isAdmin)
+            IconButton(
+              icon: const Icon(Icons.add_business_rounded, color: Colors.black87),
+              tooltip: 'Add Branch',
+              onPressed: _showAddBranchDialog,
+            ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.black87),
             onPressed: () async {
@@ -96,7 +222,7 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Welcome Back!',
+                        _isAdmin ? 'Organization Admin' : 'Welcome Staff!',
                         style: GoogleFonts.poppins(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -105,7 +231,9 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Please select a branch to continue to the POS system.',
+                        _isAdmin 
+                          ? 'Manage your branches or select one to enter the dashboard.'
+                          : 'Please select your assigned branch to continue.',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.black54,
@@ -209,25 +337,51 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
 
   Widget _buildNoBranchesView() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.store_mall_directory_outlined, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 24),
-          Text(
-            'No branches assigned',
-            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'You are not associated with any branch yet. Please contact your administrator.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(color: Colors.grey),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.storefront_outlined, size: 80, color: Colors.grey.shade300),
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            Text(
+              _isAdmin ? 'No Branches Created' : 'No Branches Assigned',
+              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _isAdmin 
+                  ? 'Your organization needs at least one branch to start using the POS system.' 
+                  : 'You are not associated with any branch yet. Please contact your administrator to get assigned.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(color: Colors.grey[600], height: 1.5),
+            ),
+            const SizedBox(height: 32),
+            if (_isAdmin)
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: _showAddBranchDialog,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text('Create First Branch', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFC107),
+                    foregroundColor: Colors.black87,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

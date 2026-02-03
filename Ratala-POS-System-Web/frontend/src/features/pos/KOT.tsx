@@ -149,7 +149,7 @@ const KOT: React.FC = () => {
                                 flex: 1,
                                 borderRadius: '20px',
                                 textTransform: 'none',
-                                bgcolor: statusFilter === status ? '#FF8C00' : 'white',
+                                bgcolor: statusFilter === status ? '#FFC107' : 'white',
                                 color: statusFilter === status ? 'white' : '#64748b',
                                 border: statusFilter === status ? 'none' : '1px solid #e2e8f0',
                                 '&:hover': { bgcolor: statusFilter === status ? '#FF7700' : '#f1f5f9' }
@@ -177,7 +177,7 @@ const KOT: React.FC = () => {
                                     cursor: 'pointer',
                                     borderRadius: '12px',
                                     border: '2px solid',
-                                    borderColor: selectedKot?.id === kot.id ? '#FF8C00' : 'transparent',
+                                    borderColor: selectedKot?.id === kot.id ? '#FFC107' : 'transparent',
                                     transition: 'all 0.2s',
                                     '&:hover': { bgcolor: '#fff' }
                                 }}
@@ -268,7 +268,7 @@ const KOT: React.FC = () => {
                                     >
                                         <Box>
                                             <Typography variant="subtitle1" fontWeight={700}>
-                                                <span style={{ color: '#FF8C00', marginRight: '12px' }}>{item.quantity}x</span>
+                                                <span style={{ color: '#FFC107', marginRight: '12px' }}>{item.quantity}x</span>
                                                 {item.menu_item?.name}
                                             </Typography>
                                             {item.notes && (
@@ -294,7 +294,7 @@ const KOT: React.FC = () => {
                                 onClick={() => handlePrintKot()}
                                 sx={{
                                     py: 1,
-                                    bgcolor: '#FF8C00',
+                                    bgcolor: '#FFC107',
                                     '&:hover': { bgcolor: '#e67e00' },
                                     borderRadius: '12px',
                                     fontWeight: 800,
@@ -320,3 +320,4 @@ const KOT: React.FC = () => {
 };
 
 export default KOT;
+

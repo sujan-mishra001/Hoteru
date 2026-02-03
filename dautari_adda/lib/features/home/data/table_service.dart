@@ -1,34 +1,78 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/services/api_service.dart';
 import 'menu_data.dart';
 
 class BillRecord {
+  final int? id;
+  final String? orderNumber;
   final String? userId;
-  final int tableNumber;
+  final int? tableId;
+  final int? tableNumber; // For backward compatibility
   final double amount;
+  final double grossAmount;
+  final double discount;
+  final double netAmount;
   final String paymentMethod;
+  final String status;
+  final String orderType; // Table, Takeaway, Self Delivery, Delivery Partner, Pay First
   final DateTime date;
   final List<CartItem> items;
 
   BillRecord({
+    this.id,
+    this.orderNumber,
     this.userId,
-    required this.tableNumber,
+    this.tableId,
+    this.tableNumber,
     required this.amount,
+    this.grossAmount = 0,
+    this.discount = 0,
+    this.netAmount = 0,
     required this.paymentMethod,
+    this.status = 'Paid',
+    this.orderType = 'Table',
     required this.date,
     required this.items,
   });
 
   Map<String, dynamic> toMap() {
     return {
+      if (id != null) 'id': id,
+      if (orderNumber != null) 'order_number': orderNumber,
       'user_id': userId,
-      'table_number': tableNumber,
+      'table_id': tableId,
+      'table_number': tableNumber ?? tableId,
       'amount': amount,
+      'gross_amount': grossAmount,
+      'discount': discount,
+      'net_amount': netAmount,
       'payment_method': paymentMethod,
+      'status': status,
+      'order_type': orderType,
       'date': date.toIso8601String(),
       'items': items.map((i) => i.toMap()).toList(),
     };
+  }
+
+  factory BillRecord.fromMap(Map<String, dynamic> map) {
+    return BillRecord(
+      id: map['id']?.toInt(),
+      orderNumber: map['order_number'],
+      userId: map['created_by']?.toString(),
+      tableId: map['table_id']?.toInt(),
+      tableNumber: map['table_id']?.toInt() ?? map['table_number']?.toInt(),
+      amount: (map['total_amount'] ?? map['amount'] ?? 0).toDouble(),
+      grossAmount: (map['gross_amount'] ?? 0).toDouble(),
+      discount: (map['discount'] ?? 0).toDouble(),
+      netAmount: (map['net_amount'] ?? 0).toDouble(),
+      paymentMethod: map['payment_type'] ?? map['payment_method'] ?? 'Cash',
+      status: map['status'] ?? 'Paid',
+      orderType: map['order_type'] ?? 'Table',
+      date: map['created_at'] != null ? DateTime.parse(map['created_at']) : DateTime.now(),
+      items: [],
+    );
   }
 }
 
@@ -42,7 +86,7 @@ class CartItem {
 
   Map<String, dynamic> toMap() {
     return {
-      'menu_item_id': 1, // Placeholder: in real app, MenuItem should have ID
+      'menu_item_id': menuItem.id ?? 1,
       'quantity': quantity,
       'price': menuItem.price,
     };
@@ -53,14 +97,21 @@ class FloorInfo {
   final int id;
   final String name;
   final int displayOrder;
+  final bool isActive; // From backend model
 
-  FloorInfo({required this.id, required this.name, required this.displayOrder});
+  FloorInfo({
+    required this.id,
+    required this.name,
+    required this.displayOrder,
+    this.isActive = true,
+  });
 
   factory FloorInfo.fromJson(Map<String, dynamic> json) {
     return FloorInfo(
       id: json['id'],
       name: json['name'],
       displayOrder: json['display_order'] ?? 0,
+      isActive: json['is_active'] ?? true,
     );
   }
 }
@@ -74,6 +125,12 @@ class TableInfo {
   final int capacity;
   final int kotCount;
   final double totalAmount;
+  final String tableType; // From backend model: Regular, VIP, Outdoor
+  final bool isActive; // From backend model
+  final int displayOrder; // From backend model
+  final String isHoldTable; // From backend model: Yes, No
+  final String? holdTableName; // From backend model
+  final int? branchId; // From backend model for branch isolation
 
   TableInfo({
     required this.id,
@@ -84,6 +141,12 @@ class TableInfo {
     this.capacity = 4,
     this.kotCount = 0,
     this.totalAmount = 0,
+    this.tableType = 'Regular',
+    this.isActive = true,
+    this.displayOrder = 0,
+    this.isHoldTable = 'No',
+    this.holdTableName,
+    this.branchId,
   });
 
   factory TableInfo.fromJson(Map<String, dynamic> json) {
@@ -96,6 +159,12 @@ class TableInfo {
       capacity: json['capacity'] ?? 4,
       kotCount: json['kot_count'] ?? 0,
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      tableType: json['table_type'] ?? 'Regular',
+      isActive: json['is_active'] ?? true,
+      displayOrder: json['display_order'] ?? 0,
+      isHoldTable: json['is_hold_table'] ?? 'No',
+      holdTableName: json['hold_table_name'],
+      branchId: json['branch_id']?.toInt(),
     );
   }
 }
@@ -106,9 +175,29 @@ class TableService extends ChangeNotifier {
 
   final ApiService _apiService = ApiService();
 
+  int? _currentBranchId;
+
   TableService._internal() {
-    _loadState();
+    _loadBranchId();
   }
+
+  Future<void> _loadBranchId() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentBranchId = prefs.getInt('selectedBranchId');
+    if (_currentBranchId != null) {
+      _loadState();
+    }
+  }
+
+  Future<void> setBranchId(int branchId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('selectedBranchId', branchId);
+    _currentBranchId = branchId;
+    await _loadState();
+    notifyListeners();
+  }
+
+  int? get currentBranchId => _currentBranchId;
 
   final Map<int, bool> _tableStatus = {};
   final Map<int, List<CartItem>> _tableCarts = {};
@@ -149,7 +238,11 @@ class TableService extends ChangeNotifier {
 
   Future<void> fetchFloors() async {
     try {
-      final response = await _apiService.get('/floors');
+      String endpoint = '/floors';
+      if (_currentBranchId != null) {
+        endpoint += '?branch_id=$_currentBranchId';
+      }
+      final response = await _apiService.get(endpoint);
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         _floors = data.map((json) => FloorInfo.fromJson(json)).toList();
@@ -164,11 +257,17 @@ class TableService extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final String url = floorId != null ? '/tables?floor_id=$floorId' : '/tables';
+      String url = '/tables';
+      final params = <String>[];
+      if (_currentBranchId != null) params.add('branch_id=$_currentBranchId');
+      if (floorId != null) params.add('floor_id=$floorId');
+      if (params.isNotEmpty) url += '?${params.join("&")}';
       final response = await _apiService.get(url);
       
       // Also fetch active orders to sync table booking
-      final ordersResponse = await _apiService.get('/orders?status=Pending');
+      String ordersUrl = '/orders?status=Pending';
+      if (_currentBranchId != null) ordersUrl += '&branch_id=$_currentBranchId';
+      final ordersResponse = await _apiService.get(ordersUrl);
       
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
@@ -246,7 +345,9 @@ class TableService extends ChangeNotifier {
     
     try {
       // Fetch past bills
-      final billsResponse = await _apiService.get('/orders?status=Paid');
+      String billsUrl = '/orders?status=Paid';
+      if (_currentBranchId != null) billsUrl += '&branch_id=$_currentBranchId';
+      final billsResponse = await _apiService.get(billsUrl);
       if (billsResponse.statusCode == 200) {
         final List billsJson = jsonDecode(billsResponse.body);
         _pastBills = billsJson.map((json) => BillRecord(
@@ -265,16 +366,18 @@ class TableService extends ChangeNotifier {
 
   Future<bool> confirmOrder(int tableId, List<CartItem> items) async {
     try {
-      final response = await _apiService.post('/orders', {
+      final requestBody = {
         'table_id': tableId,
         'order_type': 'Table',
         'status': 'Pending',
+        'branch_id': _currentBranchId,
         'items': items.map((i) => {
           'menu_item_id': i.menuItem.id,
           'quantity': i.quantity,
           'price': i.menuItem.price,
         }).toList(),
-      });
+      };
+      final response = await _apiService.post('/orders', requestBody);
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         _tableCarts[tableId] = [];
@@ -307,6 +410,7 @@ class TableService extends ChangeNotifier {
           'order_type': 'Table',
           'status': 'Paid',
           'payment_type': paymentMethod,
+          'branch_id': _currentBranchId,
           'items': items.map((i) => {
             'menu_item_id': i.menuItem.id,
             'quantity': i.quantity,

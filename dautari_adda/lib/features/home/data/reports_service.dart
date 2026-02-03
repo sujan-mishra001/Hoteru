@@ -1,5 +1,6 @@
-import 'dart:convert';
 import 'package:dautari_adda/core/services/api_service.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class ReportsService {
   final ApiService _apiService = ApiService();
@@ -130,13 +131,18 @@ class ReportsService {
     }
   }
 
-  // Export sales report as Excel
-  Future<String?> exportSalesReport({
+  // Export any report as PDF or Excel
+  Future<Uint8List?> exportReport({
+    required String reportType,
+    required String format, // 'pdf' or 'excel'
     String? startDate,
     String? endDate,
   }) async {
     try {
-      String endpoint = '/reports/export/sales';
+      String endpoint = reportType == 'sessions' && format == 'pdf'
+          ? '/reports/export/sessions/pdf'
+          : '/reports/export/$format/$reportType';
+          
       final params = <String>[];
       if (startDate != null) params.add('start_date=$startDate');
       if (endDate != null) params.add('end_date=$endDate');
@@ -147,9 +153,34 @@ class ReportsService {
       
       final response = await _apiService.get(endpoint);
       if (response.statusCode == 200) {
-        // Return file URL or base64 data
-        final data = jsonDecode(response.body);
-        return data['url'] ?? data['file'];
+        return response.bodyBytes;
+      }
+      return null;
+    } catch (e) {
+      print('DEBUG: Export error: $e');
+      return null;
+    }
+  }
+
+  // Export Master Excel
+  Future<Uint8List?> exportMasterExcel() async {
+    try {
+      final response = await _apiService.get('/reports/export/all/excel');
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Export Sessions PDF
+  Future<Uint8List?> exportSessionsPDF() async {
+    try {
+      final response = await _apiService.get('/reports/export/sessions/pdf');
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
       }
       return null;
     } catch (e) {

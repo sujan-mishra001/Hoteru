@@ -66,7 +66,7 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         sx={{
                             display: 'block',
                             fontWeight: 700,
-                            color: '#FF8C00',
+                            color: '#FFC107',
                             mt: 0.5,
                             fontSize: '10px'
                         }}
@@ -91,12 +91,12 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                         gap: 0.5,
                                         p: 1,
                                         borderRadius: '12px',
-                                        border: isActive ? '1px solid #FF8C00' : '1px solid transparent',
+                                        border: isActive ? '1px solid #FFC107' : '1px solid transparent',
                                         bgcolor: isActive ? '#fff7ed' : 'transparent',
-                                        color: isActive ? '#FF8C00' : '#94a3b8',
+                                        color: isActive ? '#FFC107' : '#94a3b8',
                                         transition: 'all 0.2s',
                                         '&:hover': {
-                                            color: '#FF8C00',
+                                            color: '#FFC107',
                                             bgcolor: '#fff7ed'
                                         }
                                     }}
@@ -117,7 +117,7 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         <Tooltip title="Dashboard" placement="right">
                             <IconButton
                                 onClick={() => navigate(`/welcome-${user?.role || 'worker'}`)}
-                                sx={{ color: '#94a3b8', '&:hover': { color: '#FF8C00' } }}
+                                sx={{ color: '#94a3b8', '&:hover': { color: '#FFC107' } }}
                             >
                                 <LayoutDashboard size={20} />
                             </IconButton>
@@ -142,7 +142,7 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         <Avatar sx={{
                             width: 32,
                             height: 32,
-                            bgcolor: open ? '#FF8C00' : '#f1f5f9',
+                            bgcolor: open ? '#FFC107' : '#f1f5f9',
                             color: open ? 'white' : '#94a3b8',
                             fontSize: '14px',
                             fontWeight: 700,
@@ -150,7 +150,7 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         }}>
                             {user?.username?.charAt(0).toUpperCase() || 'A'}
                         </Avatar>
-                        <Typography variant="caption" sx={{ fontSize: '10px', color: open ? '#FF8C00' : '#94a3b8', fontWeight: 600 }}>Account</Typography>
+                        <Typography variant="caption" sx={{ fontSize: '10px', color: open ? '#FFC107' : '#94a3b8', fontWeight: 600 }}>Account</Typography>
                     </Box>
 
                     <Menu
@@ -217,3 +217,4 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export default POSLayout;
+

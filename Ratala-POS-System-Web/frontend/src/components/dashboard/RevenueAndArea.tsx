@@ -114,7 +114,7 @@ export const SalesByArea: React.FC<{
     const statusColor = useMemo(() => {
         if (!occupancy) return '#22c55e';
         if (occupancy.percentage >= 80) return '#ef4444';
-        if (occupancy.percentage >= 50) return '#FF8C00';
+        if (occupancy.percentage >= 50) return '#FFC107';
         return '#22c55e';
     }, [occupancy]);
 
@@ -227,7 +227,7 @@ export const SalesByArea: React.FC<{
 
                     <Box sx={{ mt: 3 }}>
                         <Typography variant="caption" color="#94a3b8" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#FF8C00' }} />
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#FFC107' }} />
                             High Performing Zone
                         </Typography>
                         <Typography variant="body2" fontWeight={800} sx={{ mt: 0.5, ml: 2, color: '#2C1810' }}>
@@ -239,4 +239,5 @@ export const SalesByArea: React.FC<{
         </Paper>
     );
 };
+
 

@@ -1,5 +1,5 @@
 """
-Delivery partner management routes
+Delivery partner management routes with branch isolation
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
@@ -11,13 +11,23 @@ from app.models import DeliveryPartner
 router = APIRouter()
 
 
+def apply_branch_filter_delivery(query, branch_id):
+    """Apply branch_id filter to DeliveryPartner queries"""
+    if branch_id is not None and hasattr(DeliveryPartner, 'branch_id'):
+        query = query.filter(DeliveryPartner.branch_id == branch_id)
+    return query
+
+
 @router.get("")
 async def get_delivery_partners(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all delivery partners"""
-    partners = db.query(DeliveryPartner).all()
+    """Get all delivery partners for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(DeliveryPartner)
+    query = apply_branch_filter_delivery(query, branch_id)
+    partners = query.all()
     return partners
 
 
@@ -27,7 +37,13 @@ async def create_delivery_partner(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create a new delivery partner"""
+    """Create a new delivery partner in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    # Set branch_id if the column exists
+    if branch_id is not None and hasattr(DeliveryPartner, 'branch_id'):
+        partner_data['branch_id'] = branch_id
+    
     new_partner = DeliveryPartner(**partner_data)
     db.add(new_partner)
     db.commit()

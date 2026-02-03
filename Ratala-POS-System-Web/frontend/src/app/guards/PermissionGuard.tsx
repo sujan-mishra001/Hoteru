@@ -27,3 +27,4 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({ requiredPermissions, 
 };
 
 export default PermissionGuard;
+

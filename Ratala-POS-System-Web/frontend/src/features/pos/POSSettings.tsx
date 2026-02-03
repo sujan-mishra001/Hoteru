@@ -241,7 +241,7 @@ const POSSettings: React.FC = () => {
                                         borderRadius: '12px',
                                         textTransform: 'none',
                                         fontWeight: 700,
-                                        bgcolor: isEditingProfile ? 'transparent' : '#FF8C00',
+                                        bgcolor: isEditingProfile ? 'transparent' : '#FFC107',
                                         '&:hover': { bgcolor: isEditingProfile ? '#fff7ed' : '#e67e00' }
                                     }}
                                 >
@@ -315,7 +315,7 @@ const POSSettings: React.FC = () => {
                                             px: 4,
                                             py: 1.5,
                                             borderRadius: '12px',
-                                            bgcolor: '#FF8C00',
+                                            bgcolor: '#FFC107',
                                             fontWeight: 800,
                                             '&:hover': { bgcolor: '#e67e00' }
                                         }}
@@ -338,7 +338,7 @@ const POSSettings: React.FC = () => {
                                     variant="contained"
                                     startIcon={<Plus size={18} />}
                                     onClick={() => subTab === 0 ? setCategoryDialog(true) : setGroupDialog(true)}
-                                    sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#e67e00' } }}
+                                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#e67e00' } }}
                                 >
                                     Add {subTab === 0 ? 'Category' : 'Group'}
                                 </Button>
@@ -388,7 +388,7 @@ const POSSettings: React.FC = () => {
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                                 <Typography variant="h6" fontWeight={800}>Menu Items</Typography>
-                                <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setItemDialog(true)} sx={{ bgcolor: '#FF8C00' }}>Add Item</Button>
+                                <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setItemDialog(true)} sx={{ bgcolor: '#FFC107' }}>Add Item</Button>
                             </Box>
                             <TableContainer component={Paper} sx={{ borderRadius: '16px' }}>
                                 <Table>
@@ -528,3 +528,4 @@ const POSSettings: React.FC = () => {
 };
 
 export default POSSettings;
+

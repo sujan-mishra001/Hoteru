@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import { authAPI } from '../../services/api';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Box, TextField, Button, IconButton, InputAdornment, Typography, Alert } from '@mui/material';
 
@@ -28,8 +29,7 @@ const Signup: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-            await axios.post(`${API_BASE_URL}/signup`, {
+            await authAPI.signup({
                 email,
                 full_name: fullName,
                 password,
@@ -107,7 +107,7 @@ const Signup: React.FC = () => {
                 sx={{
                     mt: 2,
                     py: 1.5,
-                    bgcolor: '#FF8C00',
+                    bgcolor: '#FFC107',
                     '&:hover': { bgcolor: '#FF7700' },
                     borderRadius: '12px',
                     fontWeight: 800,
@@ -119,7 +119,7 @@ const Signup: React.FC = () => {
 
             <Box sx={{ textAlign: 'center', mt: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                    Already have an account? <Link to="/login" style={{ color: '#FF8C00', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
+                    Already have an account? <Link to="/login" style={{ color: '#FFC107', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
                 </Typography>
             </Box>
         </Box>
@@ -127,3 +127,4 @@ const Signup: React.FC = () => {
 };
 
 export default Signup;
+

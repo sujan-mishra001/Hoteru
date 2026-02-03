@@ -38,7 +38,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (savedItems != null && savedItems.isNotEmpty) {
       _applyNavigationItems(savedItems);
     } else {
-      _applyNavigationItems(['home', 'orders', 'profile']);
+      _applyNavigationItems(['home', 'orders', 'profile', 'menu', 'expenses']);
     }
   }
 
@@ -154,72 +154,44 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         children: _navigationItems.map((item) => item.screen).toList(),
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24, top: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, -5)),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
           ],
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: _navigationItems.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final isSelected = _currentIndex == index;
-              
-              return GestureDetector(
-                onTap: () => setState(() => _currentIndex = index),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFFFC107) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        item.icon,
-                        color: isSelected ? Colors.black87 : Colors.white60,
-                        size: 22,
-                      ),
-                      if (isSelected) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          item.label,
-                          style: GoogleFonts.poppins(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFFFFC107),
+          unselectedItemColor: Colors.grey[400],
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          elevation: 0,
+          items: _navigationItems.map((item) {
+            return BottomNavigationBarItem(
+              icon: Icon(item.icon),
+              label: item.label,
+            );
+          }).toList(),
         ),
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90),
+        padding: const EdgeInsets.only(bottom: 10),
         child: FloatingActionButton.small(
           onPressed: _showNavigationSettings,
           backgroundColor: Colors.white,
           elevation: 2,
-          child: const Icon(Icons.tune_rounded, color: Color(0xFF0F172A), size: 18),
+          child: const Icon(Icons.tune_rounded, color: const Color(0xFF0F172A), size: 18),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
