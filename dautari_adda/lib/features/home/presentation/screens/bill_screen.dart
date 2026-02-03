@@ -308,7 +308,7 @@ class BillScreen extends StatelessWidget {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 if (isBooked) {
                                   showDialog(
                                     context: context,

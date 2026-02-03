@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/home/data/table_service.dart';
 import 'bill_screen.dart';
@@ -277,7 +278,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
     );
   }
-}
 
   Widget _buildFilterTab(String label, OrderStatus status, int count) {
     final isSelected = _selectedStatus == status;
