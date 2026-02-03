@@ -6,6 +6,7 @@ class MenuItem {
   final String? image;
   final bool available;
   final int? categoryId;
+  final int? groupId;
 
   const MenuItem({
     this.id,
@@ -15,6 +16,7 @@ class MenuItem {
     this.image,
     this.available = true,
     this.categoryId,
+    this.groupId,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +28,7 @@ class MenuItem {
       if (image != null) 'image_url': image,
       'is_available': available,
       if (categoryId != null) 'category_id': categoryId,
+      if (groupId != null) 'group_id': groupId,
     };
   }
 
@@ -38,6 +41,7 @@ class MenuItem {
       image: map['image_url'],
       available: map['is_available'] ?? true,
       categoryId: map['category_id']?.toInt(),
+      groupId: map['group_id']?.toInt(),
     );
   }
 }

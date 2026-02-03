@@ -61,12 +61,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
 
       if (success) {
-        ToastService.showSuccess('Settings saved successfully');
+        if (mounted) ToastService.showSuccess(context, 'Settings saved successfully');
       } else {
-        ToastService.showError('Failed to save settings');
+        if (mounted) ToastService.showError(context, 'Failed to save settings');
       }
     } catch (e) {
-      ToastService.showError('Error saving settings');
+      if (mounted) ToastService.showError(context, 'Error saving settings');
     }
     setState(() => _isLoading = false);
   }
@@ -144,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       children: [
                         SwitchListTile(
-                          leading: const Icon(Icons.print),
+                          secondary: const Icon(Icons.print),
                           title: const Text('Auto Print Receipt'),
                           subtitle: const Text('Automatically print after each sale'),
                           value: _autoPrint,
@@ -163,14 +163,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       children: [
                         SwitchListTile(
-                          leading: const Icon(Icons.notifications),
+                          secondary: const Icon(Icons.notifications),
                           title: const Text('Enable Notifications'),
                           value: _notificationsEnabled,
                           onChanged: (value) => setState(() => _notificationsEnabled = value),
                         ),
                         const Divider(),
                         SwitchListTile(
-                          leading: const Icon(Icons.volume_up),
+                          secondary: const Icon(Icons.volume_up),
                           title: const Text('Sound'),
                           subtitle: const Text('Play sound on notifications'),
                           value: _soundEnabled,
@@ -178,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         const Divider(),
                         SwitchListTile(
-                          leading: const Icon(Icons.vibration),
+                          secondary: const Icon(Icons.vibration),
                           title: const Text('Vibration'),
                           subtitle: const Text('Vibrate on notifications'),
                           value: _vibrationEnabled,
@@ -197,7 +197,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       children: [
                         SwitchListTile(
-                          leading: const Icon(Icons.dark_mode),
+                          secondary: const Icon(Icons.dark_mode),
                           title: const Text('Dark Mode'),
                           subtitle: const Text('Use dark theme'),
                           value: _darkMode,
@@ -224,13 +224,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ListTile(
                           leading: const Icon(Icons.privacy_tip),
                           title: const Text('Privacy Policy'),
-                          onTap: () => ToastService.showInfo('Privacy Policy'),
+                          onTap: () => ToastService.showInfo(context, 'Privacy Policy'),
                         ),
                         const Divider(),
                         ListTile(
                           leading: const Icon(Icons.description),
                           title: const Text('Terms of Service'),
-                          onTap: () => ToastService.showInfo('Terms of Service'),
+                          onTap: () => ToastService.showInfo(context, 'Terms of Service'),
                         ),
                       ],
                     ),

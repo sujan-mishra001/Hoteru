@@ -25,7 +25,7 @@ class _DeliveryPartnersScreenState extends State<DeliveryPartnersScreen> {
     try {
       _partners = await _deliveryService.getDeliveryPartners();
     } catch (e) {
-      ToastService.showError('Failed to load delivery partners');
+      if (mounted) ToastService.showError(context, 'Failed to load delivery partners');
     }
     setState(() => _isLoading = false);
   }
@@ -118,7 +118,7 @@ class _DeliveryPartnersScreenState extends State<DeliveryPartnersScreen> {
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isEmpty) {
-                ToastService.showError('Name is required');
+                ToastService.showError(context, 'Name is required');
                 return;
               }
               
@@ -129,10 +129,10 @@ class _DeliveryPartnersScreenState extends State<DeliveryPartnersScreen> {
               });
               
               if (success) {
-                ToastService.showSuccess('Partner added successfully');
+                if (mounted) ToastService.showSuccess(context, 'Partner added successfully');
                 _loadPartners();
               } else {
-                ToastService.showError('Failed to add partner');
+                if (mounted) ToastService.showError(context, 'Failed to add partner');
               }
               Navigator.pop(context);
             },
@@ -171,10 +171,10 @@ class _DeliveryPartnersScreenState extends State<DeliveryPartnersScreen> {
               });
               
               if (success) {
-                ToastService.showSuccess('Partner updated successfully');
+                if (mounted) ToastService.showSuccess(context, 'Partner updated successfully');
                 _loadPartners();
               } else {
-                ToastService.showError('Failed to update partner');
+                if (mounted) ToastService.showError(context, 'Failed to update partner');
               }
               Navigator.pop(context);
             },
@@ -198,10 +198,10 @@ class _DeliveryPartnersScreenState extends State<DeliveryPartnersScreen> {
             onPressed: () async {
               final success = await _deliveryService.deleteDeliveryPartner(partner['id']);
               if (success) {
-                ToastService.showSuccess('Partner deleted successfully');
+                if (mounted) ToastService.showSuccess(context, 'Partner deleted successfully');
                 _loadPartners();
               } else {
-                ToastService.showError('Failed to delete partner');
+                if (mounted) ToastService.showError(context, 'Failed to delete partner');
               }
               Navigator.pop(context);
             },

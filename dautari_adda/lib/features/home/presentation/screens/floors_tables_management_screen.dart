@@ -34,7 +34,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
         _tables = results[1];
       });
     } catch (e) {
-      ToastService.showError('Failed to load data');
+      if (mounted) ToastService.showError(context, 'Failed to load data');
     }
     setState(() => _isLoading = false);
   }
@@ -162,7 +162,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isEmpty) {
-                ToastService.showError('Floor name is required');
+                ToastService.showError(context, 'Floor name is required');
                 return;
               }
               
@@ -171,10 +171,10 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
               });
               
               if (success) {
-                ToastService.showSuccess('Floor added successfully');
+                if (mounted) ToastService.showSuccess(context, 'Floor added successfully');
                 _loadData();
               } else {
-                ToastService.showError('Failed to add floor');
+                if (mounted) ToastService.showError(context, 'Failed to add floor');
               }
               Navigator.pop(context);
             },
@@ -204,10 +204,12 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
             DropdownButtonFormField<int>(
               value: selectedFloorId,
               decoration: const InputDecoration(labelText: 'Floor'),
-              items: _floors.map((f) => DropdownMenuItem(
-                value: f['id'],
-                child: Text(f['name']),
-              )).toList(),
+              items: _floors.map<DropdownMenuItem<int>>((f) {
+                return DropdownMenuItem<int>(
+                  value: f['id'] as int,
+                  child: Text(f['name'] ?? 'Unknown'),
+                );
+              }).toList(),
               onChanged: (value) => selectedFloorId = value,
             ),
             TextField(
@@ -222,7 +224,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
           ElevatedButton(
             onPressed: () async {
               if (tableIdController.text.isEmpty || selectedFloorId == null) {
-                ToastService.showError('Please fill all fields');
+                ToastService.showError(context, 'Please fill all fields');
                 return;
               }
               
@@ -234,10 +236,10 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
               });
               
               if (success) {
-                ToastService.showSuccess('Table added successfully');
+                if (mounted) ToastService.showSuccess(context, 'Table added successfully');
                 _loadData();
               } else {
-                ToastService.showError('Failed to add table');
+                if (mounted) ToastService.showError(context, 'Failed to add table');
               }
               Navigator.pop(context);
             },
@@ -259,7 +261,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
             ListTile(
               leading: const Icon(Icons.edit, color: Colors.orange),
               title: const Text('Edit Table'),
-              onPressed: () {
+              onTap: () {
                 Navigator.pop(context);
                 _showEditTableDialog(table);
               },
@@ -267,7 +269,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
             ListTile(
               leading: const Icon(Icons.update, color: Colors.blue),
               title: const Text('Change Status'),
-              onPressed: () {
+              onTap: () {
                 Navigator.pop(context);
                 _showChangeStatusDialog(table);
               },
@@ -275,7 +277,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Delete Table'),
-              onPressed: () {
+              onTap: () {
                 Navigator.pop(context);
                 _confirmDeleteTable(table);
               },
@@ -288,6 +290,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
 
   void _showEditTableDialog(dynamic table) {
     final tableIdController = TextEditingController(text: table['table_id']?.toString());
+    final seatsController = TextEditingController(text: table['seats']?.toString() ?? '4');
     int seats = table['seats'] ?? 4;
 
     showDialog(
@@ -302,7 +305,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
               decoration: const InputDecoration(labelText: 'Table ID/Number'),
             ),
             TextField(
-              initialValue: seats.toString(),
+              controller: seatsController,
               decoration: const InputDecoration(labelText: 'Number of Seats'),
               keyboardType: TextInputType.number,
               onChanged: (value) => seats = int.tryParse(value) ?? 4,
@@ -319,10 +322,10 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
               });
               
               if (success) {
-                ToastService.showSuccess('Table updated successfully');
+                if (mounted) ToastService.showSuccess(context, 'Table updated successfully');
                 _loadData();
               } else {
-                ToastService.showError('Failed to update table');
+                if (mounted) ToastService.showError(context, 'Failed to update table');
               }
               Navigator.pop(context);
             },
@@ -355,10 +358,10 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
             onPressed: () async {
               final success = await _service.updateTableStatus(table['id'], selectedStatus);
               if (success) {
-                ToastService.showSuccess('Status updated successfully');
+                if (mounted) ToastService.showSuccess(context, 'Status updated successfully');
                 _loadData();
               } else {
-                ToastService.showError('Failed to update status');
+                if (mounted) ToastService.showError(context, 'Failed to update status');
               }
               Navigator.pop(context);
             },
@@ -382,10 +385,10 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
             onPressed: () async {
               final success = await _service.deleteFloor(floor['id']);
               if (success) {
-                ToastService.showSuccess('Floor deleted successfully');
+                if (mounted) ToastService.showSuccess(context, 'Floor deleted successfully');
                 _loadData();
               } else {
-                ToastService.showError('Failed to delete floor');
+                if (mounted) ToastService.showError(context, 'Failed to delete floor');
               }
               Navigator.pop(context);
             },
@@ -409,10 +412,10 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
             onPressed: () async {
               final success = await _service.deleteTable(table['id']);
               if (success) {
-                ToastService.showSuccess('Table deleted successfully');
+                if (mounted) ToastService.showSuccess(context, 'Table deleted successfully');
                 _loadData();
               } else {
-                ToastService.showError('Failed to delete table');
+                if (mounted) ToastService.showError(context, 'Failed to delete table');
               }
               Navigator.pop(context);
             },

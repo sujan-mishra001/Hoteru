@@ -219,9 +219,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               DropdownButtonFormField<String>(
                 value: selectedRole,
                 decoration: const InputDecoration(labelText: 'Role'),
-                items: _roles.map((role) {
-                  return DropdownMenuItem(
-                    value: role['name'],
+                items: _roles.map<DropdownMenuItem<String>>((role) {
+                  return DropdownMenuItem<String>(
+                    value: role['name'] as String,
                     child: Text(role['name']),
                   );
                 }).toList(),
@@ -285,9 +285,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               DropdownButtonFormField<String>(
                 value: selectedRole,
                 decoration: const InputDecoration(labelText: 'Role'),
-                items: _roles.map((role) {
-                  return DropdownMenuItem(
-                    value: role['name'],
+                items: _roles.map<DropdownMenuItem<String>>((role) {
+                  return DropdownMenuItem<String>(
+                    value: role['name'] as String,
                     child: Text(role['name']),
                   );
                 }).toList(),

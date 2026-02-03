@@ -10,28 +10,58 @@ class MenuService {
     try {
       // 1. Fetch Categories
       final catResponse = await _apiService.get('/menu/categories');
-      // 2. Fetch Items
+      // 2. Fetch Groups (Sub-categories)
+      final groupResponse = await _apiService.get('/menu/groups');
+      // 3. Fetch Items
       final itemResponse = await _apiService.get('/menu/items');
 
-      if (catResponse.statusCode == 200 && itemResponse.statusCode == 200) {
+      if (catResponse.statusCode == 200 && groupResponse.statusCode == 200 && itemResponse.statusCode == 200) {
         final List categoriesJson = jsonDecode(catResponse.body);
+        final List groupsJson = jsonDecode(groupResponse.body);
         final List itemsJson = jsonDecode(itemResponse.body);
 
-        // Map items to categories
+        // Map items and groups to categories
         List<MenuCategory> menu = categoriesJson.map((cat) {
           final catId = cat['id'];
-          final List catItems = itemsJson.where((i) => i['category_id'] == catId).toList();
           
+          // Get groups belonging to this category
+          final List categoryGroups = groupsJson.where((g) => g['category_id'] == catId).toList();
+          
+          // Get items belonging to this category but NOT in any group
+          final List topLevelItems = itemsJson.where((i) => i['category_id'] == catId && i['group_id'] == null).toList();
+          
+          // Create nested sub-categories from groups
+          final List<MenuCategory> subCategories = categoryGroups.map((group) {
+            final groupId = group['id'];
+            final List groupItems = itemsJson.where((i) => i['group_id'] == groupId).toList();
+            
+            return MenuCategory(
+              id: groupId,
+              name: group['name'],
+              items: groupItems.map((i) => MenuItem(
+                id: i['id'],
+                name: i['name'],
+                price: (i['price'] as num).toDouble(),
+                description: i['description'],
+                image: i['image_url'],
+                available: i['is_available'] ?? true,
+                categoryId: catId,
+              )).toList(),
+            );
+          }).toList();
+
           return MenuCategory(
             id: catId,
             name: cat['name'],
-            items: catItems.map((i) => MenuItem(
+            subCategories: subCategories,
+            items: topLevelItems.map((i) => MenuItem(
               id: i['id'],
               name: i['name'],
               price: (i['price'] as num).toDouble(),
               description: i['description'],
               image: i['image_url'],
               available: i['is_available'] ?? true,
+              categoryId: catId,
             )).toList(),
           );
         }).toList();
@@ -40,6 +70,7 @@ class MenuService {
       }
       return [];
     } catch (e) {
+      print("Error fetching menu: $e");
       return [];
     }
   }

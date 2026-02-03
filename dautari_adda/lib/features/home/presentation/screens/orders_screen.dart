@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/home/data/table_service.dart';
 import 'bill_screen.dart';
 
@@ -19,21 +20,28 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final tableService = TableService();
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          "Active Orders",
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          "Manage Orders",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87),
         ),
-        backgroundColor: const Color(0xFFFFC107),
+        backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded, color: Colors.black54),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: ListenableBuilder(
         listenable: tableService,
         builder: (context, _) {
           final activeTableIds = tableService.activeTableIds;
           
-          // Filter based on selected status
           final filteredTableIds = activeTableIds.where((tableId) {
             if (_selectedStatus == OrderStatus.all) return true;
             final isBooked = tableService.isTableBooked(tableId);
@@ -43,137 +51,59 @@ class _OrdersScreenState extends State<OrdersScreen> {
           }).toList();
 
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Summary Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFC107),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "${activeTableIds.length}",
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const Text(
-                              "Active Tables",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.shopping_bag,
-                            size: 32,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              // SaaS Summary Stats
+              _buildSaaSSummaryHeader(activeTableIds.length),
 
-              // Filter Tabs
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              // Filter Segment
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Row(
                   children: [
-                    _buildFilterTab("All", OrderStatus.all, activeTableIds.length),
-                    const SizedBox(width: 8),
-                    _buildFilterTab(
-                      "Pending",
-                      OrderStatus.pending,
-                      activeTableIds.where((id) => !tableService.isTableBooked(id)).length,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterTab(
-                      "Booked",
-                      OrderStatus.booked,
-                      activeTableIds.where((id) => tableService.isTableBooked(id)).length,
-                    ),
+                    _buildSaaSTab("Active", OrderStatus.all, isSelected: _selectedStatus == OrderStatus.all),
+                    const SizedBox(width: 12),
+                    _buildSaaSTab("Drafts", OrderStatus.pending, isSelected: _selectedStatus == OrderStatus.pending),
+                    const SizedBox(width: 12),
+                    _buildSaaSTab("Booked", OrderStatus.booked, isSelected: _selectedStatus == OrderStatus.booked),
                   ],
                 ),
               ),
-
-              const Divider(height: 1),
 
               // Orders List
               Expanded(
                 child: filteredTableIds.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.inbox_outlined,
-                              size: 64,
-                              color: Colors.grey[300],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _selectedStatus == OrderStatus.all
-                                  ? "No Active Orders"
-                                  : "No ${_selectedStatus.name.toUpperCase()} Orders",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              "Orders will appear here",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
+                    ? _buildEmptyState()
                     : ListView.separated(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                         itemCount: filteredTableIds.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
                         itemBuilder: (context, index) {
                           final tableId = filteredTableIds[index];
+                          
+                          // Check if it's an active backend order
+                          final backendOrder = tableService.activeOrders.firstWhere(
+                            (o) => o['table_id'] == tableId,
+                            orElse: () => null,
+                          );
+
                           final cart = tableService.getCart(tableId);
-                          final total = tableService.getTableTotal(tableId);
                           final tableName = tableService.getTableName(tableId);
                           final isBooked = tableService.isTableBooked(tableId);
                           
-                          if (cart.isEmpty) return const SizedBox.shrink();
+                          double total = tableService.getTableTotal(tableId);
+                          if (backendOrder != null) {
+                            total = (backendOrder['total_amount'] as num).toDouble();
+                          }
 
-                          return _buildOrderCard(
+                          return _buildModernOrderCard(
                             context,
                             tableId,
                             tableName,
                             cart,
                             total,
                             isBooked,
+                            backendOrder,
                           );
                         },
                       ),
@@ -184,6 +114,170 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
     );
   }
+
+  Widget _buildSaaSSummaryHeader(int count) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.1), blurRadius: 15, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Order Management",
+                  style: GoogleFonts.poppins(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$count tables require attention",
+                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 28),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaaSTab(String label, OrderStatus status, {required bool isSelected}) {
+    return GestureDetector(
+      onTap: () => setState(() => _selectedStatus = status),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFFC107) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? const Color(0xFFFFC107) : const Color(0xFFE2E8F0)),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            color: isSelected ? Colors.black87 : const Color(0xFF64748B),
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernOrderCard(
+    BuildContext context,
+    int tableId,
+    String tableName,
+    List<CartItem> cart,
+    double total,
+    bool isBooked,
+    dynamic backendOrder,
+  ) {
+    final statusColor = isBooked ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+    final statusLabel = isBooked ? "BOOKED" : "DRAFT";
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => BillScreen(tableNumber: tableId)));
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(Icons.table_restaurant_rounded, color: statusColor, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(tableName, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: const Color(0xFF1E293B))),
+                        Text(backendOrder != null ? "Order #${backendOrder['order_number']}" : "Local Draft", style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500])),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Text(statusLabel, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                  ),
+                ],
+              ),
+              const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1, color: Color(0xFFF1F5F9))),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Total Amount", style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+                      Text("Rs ${NumberFormat('#,###').format(total)}", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B))),
+                    ],
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => BillScreen(tableNumber: tableId)));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      foregroundColor: const Color(0xFF1E293B),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: Text("View Details", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_rounded, size: 64, color: Colors.grey[200]),
+          const SizedBox(height: 16),
+          Text("No active orders found", style: GoogleFonts.poppins(color: Colors.grey[400], fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
 
   Widget _buildFilterTab(String label, OrderStatus status, int count) {
     final isSelected = _selectedStatus == status;

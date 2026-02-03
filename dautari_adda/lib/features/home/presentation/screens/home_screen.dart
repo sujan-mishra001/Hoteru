@@ -364,20 +364,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          "Dautari Adda",
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          "Table Service",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87),
         ),
-        backgroundColor: const Color(0xFFFFC107),
+        backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.layers_rounded, color: Colors.black87),
+            icon: const Icon(Icons.layers_rounded, color: Colors.black54),
             onPressed: _showAddFloorDialog,
-            tooltip: 'Add Floor',
+            tooltip: 'Manage Floors',
           ),
           ListenableBuilder(
             listenable: _tableService,
@@ -388,8 +389,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded, color: Colors.black87),
-                    tooltip: 'Pending Orders',
+                    icon: const Icon(Icons.notifications_none_rounded, color: Colors.black54),
+                    tooltip: 'Active Tables',
                     onPressed: () => _showNotifications(context, _tableService, activeIds),
                   ),
                   if (activeCount > 0)
@@ -399,21 +400,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFFFC107), width: 1.5),
+                          color: const Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                         child: Text(
                           '$activeCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -430,73 +424,26 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, child) {
           final floors = _tableService.floors;
           final tables = _tableService.tables;
-          final allBills = _tableService.pastBills;
-          
-          final now = DateTime.now();
-          final todayBills = allBills.where((bill) {
-            return bill.date.year == now.year &&
-                   bill.date.month == now.month &&
-                   bill.date.day == now.day;
-          }).toList();
-          final todayRevenue = todayBills.fold(0.0, (sum, bill) => sum + bill.amount);
 
-          return Column(
+          return RefreshIndicator(
+            onRefresh: () => _tableService.fetchTables(),
+            color: const Color(0xFFFFC107),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Statistics Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFFC107), Color(0xFFFFD54F)],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(36),
-                    bottomRight: Radius.circular(36),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x22FFC107),
-                      blurRadius: 15,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  bottom: false,
-                  child: Row(
-                    children: [
-                      _buildEnhancedStatCard(
-                        icon: Icons.receipt_long_rounded,
-                        label: "Active Orders",
-                        value: "${_tableService.activeTableIds.length}",
-                        color: Colors.black87,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildEnhancedStatCard(
-                        icon: Icons.account_balance_wallet_rounded,
-                        label: "Today's Revenue",
-                        value: "Rs ${todayRevenue.toStringAsFixed(0)}",
-                        color: Colors.black87,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // SaaS Quick Stats
+              _buildSaaSQuickStats(),
 
-              // Food Categories Quick Links
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
+              // Quick Category Filter
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                 child: Text(
-                  "Food Categories",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                  "Menu Quick Access",
+                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
                 ),
               ),
               SizedBox(
-                height: 50,
+                height: 48,
                 child: _isLoadingMenu 
                   ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC107))))
                   : ListView.builder(
@@ -505,21 +452,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemCount: _categories.length,
                       itemBuilder: (context, index) {
                         final cat = _categories[index];
-                        return _buildQuickCategory(
-                          _getIconForCategory(cat.name), 
-                          cat.name, 
-                          _getColorForCategory(cat.name), 
-                          context
-                        );
+                        return _buildSaaSCategoryChip(cat.name, context);
                       },
                     ),
               ),
+
+              // Floor Selection
               if (floors.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  child: Text(
-                    "Select Floor",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Floor Layout",
+                        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                      ),
+                      Text(
+                        "${tables.length} Tables",
+                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(
@@ -533,19 +486,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       final isSelected = _selectedFloorId == floor.id;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(floor.name),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => _selectedFloorId = floor.id);
-                              _tableService.fetchTables(floorId: floor.id);
-                            }
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() => _selectedFloorId = floor.id);
+                            _tableService.fetchTables(floorId: floor.id);
                           },
-                          selectedColor: const Color(0xFFFFC107),
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.black : Colors.grey[700],
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF0F172A) : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isSelected ? const Color(0xFF0F172A) : Colors.grey.shade200),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              floor.name,
+                              style: GoogleFonts.poppins(
+                                color: isSelected ? Colors.white : Colors.grey[700],
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ),
                       );
@@ -554,139 +516,217 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
 
-              // Tables Section Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      floors.any((f) => f.id == _selectedFloorId) 
-                        ? "${floors.firstWhere((f) => f.id == _selectedFloorId).name} Tables"
-                        : "Tables",
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFFFFC107)),
-                      onPressed: _showAddTableDialog,
-                      tooltip: 'Add Table',
-                    ),
-                  ],
-                ),
-              ),
-
               // Tables Grid
               Expanded(
-                child: _tableService.isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-                  : tables.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.table_restaurant_outlined, size: 64, color: Colors.grey[300]),
-                            const SizedBox(height: 16),
-                            const Text("No tables found", style: TextStyle(color: Colors.grey)),
-                            if (_selectedFloorId != null)
-                              TextButton(
-                                onPressed: _showAddTableDialog,
-                                child: const Text("Add First Table"),
-                              ),
-                          ],
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: _tableService.isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
+                    : tables.isEmpty
+                      ? _buildEmptyTablesState()
+                      : GridView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.85,
+                          ),
+                          itemCount: tables.length,
+                          itemBuilder: (context, index) {
+                            final table = tables[index];
+                            return _buildSaaSTableCard(table);
+                          },
                         ),
-                      )
-                    : GridView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                          childAspectRatio: 0.9,
-                        ),
-                        itemCount: tables.length,
-                        itemBuilder: (context, index) {
-                          final table = tables[index];
-                          final isBooked = _tableService.isTableBooked(table.id);
-                          final hasItems = _tableService.getCart(table.id).isNotEmpty;
-                          
-                          return InkWell(
-                            onTap: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MenuScreen(
-                                    tableNumber: table.id,
-                                    navigationItems: widget.navigationItems,
-                                  ),
-                                ),
-                              );
-                              if (result is int && widget.onTabChange != null) {
-                                widget.onTabChange!(result);
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isBooked 
-                                      ? Colors.red.withOpacity(0.5) 
-                                      : hasItems 
-                                          ? Colors.orange.withOpacity(0.5) 
-                                          : Colors.grey.withOpacity(0.1),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.03),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: (isBooked ? Colors.red : hasItems ? Colors.orange : const Color(0xFFFFC107)).withOpacity(0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.table_bar_rounded,
-                                      size: 24,
-                                      color: isBooked ? Colors.red : hasItems ? Colors.orange : const Color(0xFFFFC107),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    table.tableId,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    isBooked ? "BOOKED" : hasItems ? "PENDING" : "OPEN",
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: isBooked ? Colors.red : hasItems ? Colors.orange : Colors.green,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                ),
               ),
-              const SizedBox(height: 16),
             ],
-          );
+          ));
         }
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddTableDialog,
+        backgroundColor: const Color(0xFF0F172A),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  Widget _buildSaaSQuickStats() {
+    final activeCount = _tableService.activeTableIds.length;
+    
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFC107), Color(0xFFFFD54F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Quick Snapshot",
+                style: GoogleFonts.poppins(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                activeCount == 0 ? "All Tables Available" : "$activeCount Tables Active",
+                style: GoogleFonts.poppins(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.analytics_outlined, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  "Reports",
+                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaaSCategoryChip(String label, BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 16),
+      child: ActionChip(
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MenuScreen(
+                tableNumber: 1, 
+                initialSearch: label,
+                navigationItems: widget.navigationItems,
+              ),
+            ),
+          );
+          if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+        },
+        label: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+  }
+
+  Widget _buildSaaSTableCard(TableInfo table) {
+    final isBooked = _tableService.isTableBooked(table.id);
+    final hasItems = _tableService.getCart(table.id).isNotEmpty;
+    
+    Color statusColor = const Color(0xFF10B981); // Green
+    String statusText = "OPEN";
+    
+    if (isBooked) {
+      statusColor = const Color(0xFFEF4444); // Red
+      statusText = "BOOKED";
+    } else if (hasItems) {
+      statusColor = const Color(0xFFF59E0B); // Orange
+      statusText = "DRAFT";
+    }
+
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MenuScreen(
+              tableNumber: table.id,
+              navigationItems: widget.navigationItems,
+            ),
+          ),
+        );
+        if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: statusColor.withOpacity(0.2), width: 1.5),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.table_bar_rounded, size: 24, color: statusColor),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              table.tableId,
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF1E293B)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                statusText,
+                style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyTablesState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.table_restaurant_outlined, size: 64, color: Colors.grey[200]),
+          const SizedBox(height: 16),
+          Text(
+            "No Tables Configured",
+            style: GoogleFonts.poppins(color: Colors.grey[400], fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          if (_selectedFloorId != null)
+            ElevatedButton(
+              onPressed: _showAddTableDialog,
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107), foregroundColor: Colors.black87),
+              child: const Text("Add First Table"),
+            ),
+        ],
       ),
     );
   }

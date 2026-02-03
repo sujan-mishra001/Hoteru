@@ -116,14 +116,31 @@ class TableService extends ChangeNotifier {
   List<BillRecord> _pastBills = [];
   List<FloorInfo> _floors = [];
   List<TableInfo> _tables = [];
+  List<dynamic> _activeOrders = [];
   bool _isLoading = false;
 
   List<BillRecord> get pastBills => _pastBills;
   List<FloorInfo> get floors => _floors;
   List<TableInfo> get tables => _tables;
+  List<dynamic> get activeOrders => _activeOrders;
   bool get isLoading => _isLoading;
 
-  List<int> get activeTableIds => _tables.where((t) => t.status != 'Available' || (_tableCarts[t.id]?.isNotEmpty ?? false)).map((t) => t.id).toList();
+  List<int> get activeTableIds {
+    final ids = <int>{};
+    // Include tables from active orders in backend
+    for (var order in _activeOrders) {
+      if (order['table_id'] != null) ids.add(order['table_id']);
+    }
+    // Include tables with local items
+    for (var entry in _tableCarts.entries) {
+      if (entry.value.isNotEmpty) ids.add(entry.key);
+    }
+    // Include tables marked as Occupied/BillRequested in backend
+    for (var table in _tables) {
+      if (table.status != 'Available') ids.add(table.id);
+    }
+    return ids.toList();
+  }
 
   String getTableName(int id) {
     final table = _tables.firstWhere((t) => t.id == id, orElse: () => TableInfo(id: id, tableId: 'T$id', floor: '', floorId: 0, status: ''));
@@ -149,16 +166,25 @@ class TableService extends ChangeNotifier {
     try {
       final String url = floorId != null ? '/tables?floor_id=$floorId' : '/tables';
       final response = await _apiService.get(url);
+      
+      // Also fetch active orders to sync table booking
+      final ordersResponse = await _apiService.get('/orders?status=Pending');
+      
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         _tables = data.map((json) => TableInfo.fromJson(json)).toList();
         for (var table in _tables) {
           _tableStatus[table.id] = table.status != 'Available';
         }
-        notifyListeners();
       }
+      
+      if (ordersResponse.statusCode == 200) {
+        _activeOrders = jsonDecode(ordersResponse.body);
+      }
+      
+      notifyListeners();
     } catch (e) {
-      debugPrint("Error fetching tables: $e");
+      debugPrint("Error fetching tables/orders: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -237,23 +263,66 @@ class TableService extends ChangeNotifier {
     }
   }
 
-  Future<bool> addBill(int tableId, List<CartItem> items, String paymentMethod) async {
+  Future<bool> confirmOrder(int tableId, List<CartItem> items) async {
     try {
       final response = await _apiService.post('/orders', {
         'table_id': tableId,
         'order_type': 'Table',
-        'status': 'Paid',
-        'payment_type': paymentMethod,
-        'items': items.map((i) => i.toMap()).toList(),
+        'status': 'Pending',
+        'items': items.map((i) => {
+          'menu_item_id': i.menuItem.id,
+          'quantity': i.quantity,
+          'price': i.menuItem.price,
+        }).toList(),
       });
       
       if (response.statusCode == 200 || response.statusCode == 201) {
-        _loadState();
         _tableCarts[tableId] = [];
+        await fetchTables();
         return true;
       }
       return false;
     } catch (e) {
+      debugPrint("Error confirming order: $e");
+      return false;
+    }
+  }
+
+  Future<bool> addBill(int tableId, List<CartItem> items, String paymentMethod) async {
+    try {
+      // Find active order for this table if any
+      final backendOrder = _activeOrders.firstWhere((o) => o['table_id'] == tableId, orElse: () => null);
+      
+      dynamic response;
+      if (backendOrder != null) {
+        // Update existing order to Paid
+        response = await _apiService.patch('/orders/${backendOrder['id']}', {
+          'status': 'Paid',
+          'payment_type': paymentMethod,
+        });
+      } else {
+        // Create new Paid order (walk-in or quick pay)
+        response = await _apiService.post('/orders', {
+          'table_id': tableId,
+          'order_type': 'Table',
+          'status': 'Paid',
+          'payment_type': paymentMethod,
+          'items': items.map((i) => {
+            'menu_item_id': i.menuItem.id,
+            'quantity': i.quantity,
+            'price': i.menuItem.price,
+          }).toList(),
+        });
+      }
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _tableCarts[tableId] = [];
+        await _loadState();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error processing bill: $e");
       return false;
     }
   }

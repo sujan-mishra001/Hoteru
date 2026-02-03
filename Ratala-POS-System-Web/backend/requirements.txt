@@ -12,3 +12,4 @@ openpyxl
 pandas
 xlsxwriter
 pydantic
+email-validator

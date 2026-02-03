@@ -14,6 +14,11 @@ import '../screens/purchase_management_screen.dart';
 import '../screens/delivery_partners_screen.dart';
 import '../screens/floors_tables_management_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/dashboard_screen.dart';
+import '../screens/cashier_screen.dart';
+import '../screens/day_book_screen.dart';
+import '../screens/communications_screen.dart';
+import '../screens/food_cost_screen.dart';
 
 class CommonDrawer extends StatelessWidget {
   const CommonDrawer({super.key});
@@ -61,11 +66,27 @@ class CommonDrawer extends StatelessWidget {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.dashboard),
+            title: const Text("Dashboard"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.shopping_bag),
             title: const Text("Orders"),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (context) => const OrdersScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.payments),
+            title: const Text("Cashier"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const CashierScreen()));
             },
           ),
           ListTile(
@@ -92,6 +113,14 @@ class CommonDrawer extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const QrManagementScreen()));
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.book),
+            title: const Text("Day Book"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const DayBookScreen()));
+            },
+          ),
           const Divider(),
           // Management Section
           const Padding(
@@ -103,7 +132,7 @@ class CommonDrawer extends StatelessWidget {
             title: const Text("Menu & Categories"),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (context) => MenuScreen(tableNumber: 1, isOrderingMode: false)));
             },
           ),
           ListTile(
@@ -112,6 +141,22 @@ class CommonDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.attach_money),
+            title: const Text("Food Cost Analysis"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const FoodCostScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.message),
+            title: const Text("Communications"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunicationsScreen()));
             },
           ),
           ListTile(

@@ -292,129 +292,122 @@ class _MenuScreenState extends State<MenuScreen> {
     final filteredData = _getFilteredMenu();
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: TextField(
-            controller: _searchController,
-            decoration: const InputDecoration(
-              hintText: "Search dishes...",
-              border: InputBorder.none,
-              prefixIcon: Icon(Icons.search, color: Colors.black54, size: 20),
-              hintStyle: TextStyle(color: Colors.black54, fontSize: 14),
-              contentPadding: EdgeInsets.symmetric(vertical: 10),
-            ),
-            style: const TextStyle(color: Colors.black, fontSize: 16),
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-            },
-          ),
+        title: Text(
+          widget.isOrderingMode ? "Place Order" : "Menu Directory",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
         ),
-        backgroundColor: const Color(0xFFFFC107),
+        backgroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(_isEditMode ? Icons.edit_off_rounded : Icons.edit_rounded, color: Colors.black87),
-            tooltip: "Toggle Management Mode",
+            icon: Icon(_isEditMode ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined, color: Colors.black54),
+            tooltip: "Management Mode",
             onPressed: () => setState(() => _isEditMode = !_isEditMode),
           ),
           if (widget.isOrderingMode)
             IconButton(
-              icon: const Icon(Icons.receipt_long_rounded, color: Colors.black87),
-              tooltip: "View Bill",
+              icon: const Icon(Icons.receipt_long_rounded, color: Colors.black54),
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BillScreen(tableNumber: widget.tableNumber),
-                  ),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => BillScreen(tableNumber: widget.tableNumber)));
               },
-            )
+            ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
         children: [
-          // Table Header
+          // SaaS Context Bar
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFC107),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-            ),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            color: Colors.white,
+            child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(Icons.table_restaurant_rounded, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.isOrderingMode ? "Ordering for" : "Menu View",
-                      style: const TextStyle(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.w500),
-                    ),
-                    if (widget.isOrderingMode)
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: widget.tableNumber,
-                          isDense: true,
-                          dropdownColor: const Color(0xFFFFC107),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                          onChanged: (newValue) {
-                            if (newValue != null) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MenuScreen(
-                                    tableNumber: newValue,
-                                    isOrderingMode: true,
-                                    navigationItems: widget.navigationItems,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          items: _tableService.tables.map<DropdownMenuItem<int>>((TableInfo table) {
-                            return DropdownMenuItem<int>(
-                              value: table.id,
-                              child: Text(table.tableId),
-                            );
-                          }).toList(),
-                        ),
-                      )
-                    else
-                      const Text(
-                        "All Items",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+                        child: const Icon(Icons.table_restaurant_rounded, size: 18, color: Colors.white),
                       ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Serving Table",
+                              style: GoogleFonts.poppins(fontSize: 10, color: Colors.white60, fontWeight: FontWeight.w500),
+                            ),
+                            if (widget.isOrderingMode)
+                              DropdownButtonHideUnderline(
+                                child: DropdownButton<int>(
+                                  value: widget.tableNumber,
+                                  isDense: true,
+                                  dropdownColor: const Color(0xFF1E293B),
+                                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.white),
+                                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                                  onChanged: (newValue) {
+                                    if (newValue != null) {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => MenuScreen(
+                                            tableNumber: newValue,
+                                            isOrderingMode: true,
+                                            navigationItems: widget.navigationItems,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  items: _tableService.tables.map<DropdownMenuItem<int>>((TableInfo table) {
+                                    return DropdownMenuItem<int>(
+                                      value: table.id,
+                                      child: Text(table.tableId),
+                                    );
+                                  }).toList(),
+                                ),
+                              )
+                            else
+                              Text("Public View", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "Search dishes, drinks...",
+                      border: InputBorder.none,
+                      prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                      hintStyle: GoogleFonts.poppins(color: const Color(0xFF64748B), fontSize: 14),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    style: GoogleFonts.poppins(color: const Color(0xFF1E293B), fontSize: 14),
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                  ),
                 ),
               ],
             ),
@@ -422,15 +415,17 @@ class _MenuScreenState extends State<MenuScreen> {
           
           if (_isEditMode)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: ElevatedButton.icon(
                 onPressed: () => _showAddCategoryDialog(),
-                icon: const Icon(Icons.add_box_rounded),
-                label: const Text("Add New Main Category"),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: Text("Create New Root Category", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black87,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 45),
+                  backgroundColor: const Color(0xFFFFC107),
+                  foregroundColor: Colors.black87,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
                 ),
               ),
             ),
@@ -439,7 +434,7 @@ class _MenuScreenState extends State<MenuScreen> {
             child: _isLoading 
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 16, 12, 100),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                     itemCount: filteredData.length,
                     itemBuilder: (context, index) {
                       final cat = filteredData[index];
@@ -512,17 +507,25 @@ class _MenuScreenState extends State<MenuScreen> {
         collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
         title: Text(
           category.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.black87),
+          style: TextStyle(
+            fontWeight: rootCategory == category ? FontWeight.bold : FontWeight.w600, 
+            fontSize: rootCategory == category ? 17 : 15, 
+            color: Colors.black87
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFC107).withOpacity(0.1),
+            color: (rootCategory == category ? const Color(0xFFFFC107) : Colors.blueGrey).withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.restaurant_menu_rounded, color: Color(0xFFFFC107), size: 18),
+          child: Icon(
+            rootCategory == category ? Icons.restaurant_menu_rounded : Icons.label_important_outline_rounded, 
+            color: rootCategory == category ? const Color(0xFFFFC107) : Colors.blueGrey, 
+            size: rootCategory == category ? 18 : 16
+          ),
         ),
         trailing: _isEditMode 
             ? PopupMenuButton<String>(
@@ -703,8 +706,12 @@ class _MenuScreenState extends State<MenuScreen> {
               if (parent == null) {
                 await _menuService.addCategory(controller.text.trim(), 'KOT');
               } else {
-                // Backend doesn't support nested categories yet, adding as flat
-                await _menuService.addCategory(controller.text.trim(), 'KOT');
+                // Sub-categories are Menu Groups in the backend
+                await _menuService.addMenuGroup({
+                  'name': controller.text.trim(),
+                  'category_id': parent.id,
+                  'description': 'Created via Mobile App'
+                });
               }
               Navigator.pop(context);
               _loadData(); // Manually refresh
@@ -740,7 +747,8 @@ class _MenuScreenState extends State<MenuScreen> {
               final itemData = {
                 'name': nameController.text.trim(),
                 'price': double.tryParse(priceController.text) ?? 0.0,
-                'category_id': category.id,
+                'category_id': rootCategory.id,
+                'group_id': category != rootCategory ? category.id : null,
                 'kot_bot': 'KOT', // Default
               };
               
@@ -791,7 +799,11 @@ class _MenuScreenState extends State<MenuScreen> {
               final newName = controller.text.trim();
               
               if (category.id != null) {
-                await _menuService.updateCategory(category.id!, newName);
+                if (category == rootCategory) {
+                  await _menuService.updateCategory(category.id!, newName);
+                } else {
+                  await _menuService.updateMenuGroup(category.id!, {'name': newName});
+                }
               }
               
               Navigator.pop(context);
@@ -816,7 +828,11 @@ class _MenuScreenState extends State<MenuScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               if (category.id != null) {
-                await _menuService.deleteCategory(category.id!);
+                if (category == rootCategory) {
+                  await _menuService.deleteCategory(category.id!);
+                } else {
+                  await _menuService.deleteMenuGroup(category.id!);
+                }
               }
               Navigator.pop(context);
               _loadData();

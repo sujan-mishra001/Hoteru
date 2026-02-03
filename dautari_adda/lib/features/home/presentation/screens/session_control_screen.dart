@@ -204,9 +204,9 @@ class _SessionControlScreenState extends State<SessionControlScreen> {
                 DropdownButtonFormField<int>(
                   value: selectedBranchId,
                   decoration: const InputDecoration(labelText: 'Branch'),
-                  items: _branches.map((branch) {
-                    return DropdownMenuItem(
-                      value: branch['id'],
+                  items: _branches.map<DropdownMenuItem<int>>((branch) {
+                    return DropdownMenuItem<int>(
+                      value: branch['id'] as int,
                       child: Text(branch['name']),
                     );
                   }).toList(),
@@ -371,6 +371,9 @@ class _SessionControlScreenState extends State<SessionControlScreen> {
     final startTime = DateTime.parse(session['start_time']);
     final formattedDate = DateFormat('MMM dd, yyyy').format(startTime);
     final formattedTime = DateFormat('hh:mm a').format(startTime);
+    final user = session['user'];
+    final fullName = user != null ? user['full_name'] : 'Unknown';
+    final role = user != null ? user['role'] : 'Staff';
     
     String statusText;
     Color statusColor;
@@ -384,38 +387,77 @@ class _SessionControlScreenState extends State<SessionControlScreen> {
 
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: statusColor.withOpacity(0.2),
-          child: Icon(
-            isActive ? Icons.lock_open : Icons.lock,
-            color: statusColor,
-          ),
-        ),
-        title: Text('Session #${session['id']}'),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('$formattedDate at $formattedTime'),
-            Text('Opening Cash: Rs. ${session['opening_cash']}'),
-          ],
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            statusText,
-            style: TextStyle(
-              color: statusColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
         onTap: () => _showSessionDetails(session),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: const Color(0xFFFFC107).withOpacity(0.1),
+                    child: Text(fullName[0].toUpperCase(), style: const TextStyle(color: Color(0xFFFFC107), fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(role, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      statusText,
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('START TIME', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(formattedTime, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text('ORDERS', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('${session['total_orders'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('SALES', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('Rs. ${session['total_sales'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

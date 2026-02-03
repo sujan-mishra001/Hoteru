@@ -3,6 +3,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/login_screen.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
 
+// Management Screens
+import 'organization_management_screen.dart';
+import 'branch_management_screen.dart';
+import 'users_management_screen.dart';
+import 'customers_management_screen.dart';
+import 'roles_management_screen.dart';
+import 'inventory_management_screen.dart';
+import 'kot_management_screen.dart';
+import 'session_control_screen.dart';
+import 'reports_screen.dart';
+import 'settings_screen.dart';
+import 'purchase_management_screen.dart';
+import 'delivery_partners_screen.dart';
+import 'floors_tables_management_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -183,15 +198,122 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             const SizedBox(height: 32),
 
-            // Menu Items
+            // Management Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    "Administration",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMenuItem(
+                    icon: Icons.business_rounded,
+                    title: 'Organizations',
+                    subtitle: 'Manage organizations and accounts',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OrganizationManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.location_city_rounded,
+                    title: 'Branches',
+                    subtitle: 'Manage your restaurant branches',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BranchManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.people_alt_rounded,
+                    title: 'Staff Management',
+                    subtitle: 'Manage users and system roles',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UsersManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.security_rounded,
+                    title: 'Roles & Permissions',
+                    subtitle: 'Define access control levels',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RolesManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.table_restaurant_rounded,
+                    title: 'Floors & Tables',
+                    subtitle: 'Layout and table configuration',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FloorsTablesManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.person_search_rounded,
+                    title: 'Customers',
+                    subtitle: 'Manage customer database',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CustomersManagementScreen())),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text(
+                    "Operations",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMenuItem(
+                    icon: Icons.inventory_2_rounded,
+                    title: 'Inventory',
+                    subtitle: 'Track stock and materials',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.soup_kitchen_rounded,
+                    title: 'Kitchen (KOT)',
+                    subtitle: 'Monitor kitchen & bar tickets',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KotManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.shopping_cart_rounded,
+                    title: 'Purchases',
+                    subtitle: 'Manage supplier bills and returns',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PurchaseManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.delivery_dining_rounded,
+                    title: 'Delivery Partners',
+                    subtitle: 'Manage external delivery services',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DeliveryPartnersScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.timer_rounded,
+                    title: 'Staff Sessions',
+                    subtitle: 'Manage duty shifts and sessions',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SessionControlScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.bar_chart_rounded,
+                    title: 'Reports & Analytics',
+                    subtitle: 'View sales and performance data',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen())),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text(
+                    "System",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMenuItem(
+                    icon: Icons.settings_rounded,
+                    title: 'Settings',
+                    subtitle: 'General application preferences',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())),
+                  ),
+                  const SizedBox(height: 12),
                   _buildMenuItem(
                     icon: Icons.info_outline_rounded,
                     title: 'About App',
-                    subtitle: 'Version, License & Software info',
+                    subtitle: 'Version: 1.0.0 (Dautari Adda POS)',
                     onTap: () {
                       showAboutDialog(
                         context: context,
@@ -210,7 +332,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         children: [
-                          const Text("Professional restaurant management system for Dautari Adda."),
+                          const Text("Professional POS & Restaurant Management System."),
                         ],
                       );
                     },

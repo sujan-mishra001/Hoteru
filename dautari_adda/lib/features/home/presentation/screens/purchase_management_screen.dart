@@ -40,7 +40,7 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
         _purchaseReturns = results[2];
       });
     } catch (e) {
-      ToastService.showError('Failed to load data');
+      if (mounted) ToastService.showError(context, 'Failed to load data');
     }
     setState(() => _isLoading = false);
   }
@@ -191,7 +191,7 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isEmpty) {
-                ToastService.showError('Name is required');
+                ToastService.showError(context, 'Name is required');
                 return;
               }
               
@@ -203,10 +203,10 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
               });
               
               if (success) {
-                ToastService.showSuccess('Supplier added successfully');
+                if (mounted) ToastService.showSuccess(context, 'Supplier added successfully');
                 _loadAllData();
               } else {
-                ToastService.showError('Failed to add supplier');
+                if (mounted) ToastService.showError(context, 'Failed to add supplier');
               }
               Navigator.pop(context);
             },
@@ -248,10 +248,10 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
               });
               
               if (success) {
-                ToastService.showSuccess('Supplier updated successfully');
+                if (mounted) ToastService.showSuccess(context, 'Supplier updated successfully');
                 _loadAllData();
               } else {
-                ToastService.showError('Failed to update supplier');
+                if (mounted) ToastService.showError(context, 'Failed to update supplier');
               }
               Navigator.pop(context);
             },
@@ -275,10 +275,10 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
             onPressed: () async {
               final success = await _purchaseService.deleteSupplier(supplier['id']);
               if (success) {
-                ToastService.showSuccess('Supplier deleted successfully');
+                if (mounted) ToastService.showSuccess(context, 'Supplier deleted successfully');
                 _loadAllData();
               } else {
-                ToastService.showError('Failed to delete supplier');
+                if (mounted) ToastService.showError(context, 'Failed to delete supplier');
               }
               Navigator.pop(context);
             },
@@ -311,10 +311,12 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
             DropdownButtonFormField<int>(
               value: selectedSupplierId,
               decoration: const InputDecoration(labelText: 'Supplier'),
-              items: _suppliers.map((s) => DropdownMenuItem(
-                value: s['id'],
-                child: Text(s['name']),
-              )).toList(),
+              items: _suppliers.map<DropdownMenuItem<int>>((s) {
+                return DropdownMenuItem<int>(
+                  value: s['id'] as int,
+                  child: Text(s['name'] ?? 'Unknown'),
+                );
+              }).toList(),
               onChanged: (value) => selectedSupplierId = value,
             ),
           ],
@@ -324,7 +326,7 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
           ElevatedButton(
             onPressed: () async {
               if (amountController.text.isEmpty || selectedSupplierId == null) {
-                ToastService.showError('Please fill all fields');
+                ToastService.showError(context, 'Please fill all fields');
                 return;
               }
               
@@ -335,10 +337,10 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
               });
               
               if (success) {
-                ToastService.showSuccess('Purchase bill created successfully');
+                if (mounted) ToastService.showSuccess(context, 'Purchase bill created successfully');
                 _loadAllData();
               } else {
-                ToastService.showError('Failed to create purchase bill');
+                if (mounted) ToastService.showError(context, 'Failed to create purchase bill');
               }
               Navigator.pop(context);
             },
@@ -365,10 +367,12 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
             DropdownButtonFormField<int>(
               value: selectedBillId,
               decoration: const InputDecoration(labelText: 'Purchase Bill'),
-              items: _purchaseBills.map((b) => DropdownMenuItem(
-                value: b['id'],
-                child: Text(b['bill_number']),
-              )).toList(),
+              items: _purchaseBills.map<DropdownMenuItem<int>>((b) {
+                return DropdownMenuItem<int>(
+                  value: b['id'] as int,
+                  child: Text(b['bill_number'] ?? 'Unknown'),
+                );
+              }).toList(),
               onChanged: (value) => selectedBillId = value,
             ),
             TextField(
@@ -387,7 +391,7 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
           ElevatedButton(
             onPressed: () async {
               if (amountController.text.isEmpty || selectedBillId == null) {
-                ToastService.showError('Please fill all fields');
+                ToastService.showError(context, 'Please fill all fields');
                 return;
               }
               
@@ -398,10 +402,10 @@ class _PurchaseManagementScreenState extends State<PurchaseManagementScreen> wit
               });
               
               if (success) {
-                ToastService.showSuccess('Purchase return created successfully');
+                if (mounted) ToastService.showSuccess(context, 'Purchase return created successfully');
                 _loadAllData();
               } else {
-                ToastService.showError('Failed to create purchase return');
+                if (mounted) ToastService.showError(context, 'Failed to create purchase return');
               }
               Navigator.pop(context);
             },

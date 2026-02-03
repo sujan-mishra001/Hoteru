@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:dautari_adda/features/home/presentation/screens/main_navigation_screen.dart';
+import 'package:dautari_adda/features/auth/presentation/screens/branch_selection_screen.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/signup_screen.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/forgot_password_screen.dart';
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ToastService.show(context, "Login Successful");
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+          MaterialPageRoute(builder: (context) => const BranchSelectionScreen()),
         );
       }
     } catch (e) {

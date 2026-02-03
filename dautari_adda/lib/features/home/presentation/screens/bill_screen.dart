@@ -320,14 +320,16 @@ class BillScreen extends StatelessWidget {
                                     ),
                                   );
                                 } else if (cart.isNotEmpty) {
-                                  tableService.updateTableStatus(tableNumber, 'Occupied');
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Table Booked Successfully!"),
-                                      behavior: SnackBarBehavior.floating,
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
+                                  final success = await tableService.confirmOrder(tableNumber, cart);
+                                  if (success && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text("Table Booked Successfully!"),
+                                        behavior: SnackBarBehavior.floating,
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
                                 }
                               },
                               style: ElevatedButton.styleFrom(

@@ -243,6 +243,14 @@ export const rolesAPI = {
   getPermissions: () => api.get('/roles/permissions'),
 };
 
+// OTP API
+export const otpAPI = {
+  sendOTP: (email: string, type: string = 'signup') => api.post('/otp/send-otp', { email, type }),
+  verifyOTP: (email: string, code: string) => api.post('/otp/verify-otp', { email, code }),
+  completePasswordReset: (data: any) => api.post('/otp/complete-password-reset', data),
+  health: () => api.get('/otp/health'),
+};
+
 // ... keep existing ones and add to export if needed
 // Actually, it's better to export all individual APIs as they were.
 
