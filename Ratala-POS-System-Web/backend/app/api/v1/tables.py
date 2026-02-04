@@ -75,7 +75,7 @@ async def get_tables(
         # Get active order for this table
         active_order = db.query(Order).filter(
             Order.table_id == table.id,
-            Order.status.in_(["Pending", "In Progress"])
+            Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
         ).first()
         
         if active_order:

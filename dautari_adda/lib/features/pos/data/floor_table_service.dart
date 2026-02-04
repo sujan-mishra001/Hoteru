@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
 
 class FloorTableService {
@@ -7,7 +8,12 @@ class FloorTableService {
   // Floors
   Future<List<dynamic>> getFloors() async {
     try {
-      final response = await _apiService.get('/floors');
+      final prefs = await SharedPreferences.getInstance();
+      final branchId = prefs.getInt('selectedBranchId');
+      String url = '/floors';
+      if (branchId != null) url += '?branch_id=$branchId';
+      
+      final response = await _apiService.get(url);
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -47,7 +53,16 @@ class FloorTableService {
   // Tables
   Future<List<dynamic>> getTables({int? floorId}) async {
     try {
-      final url = floorId != null ? '/tables?floor_id=$floorId' : '/tables';
+      final prefs = await SharedPreferences.getInstance();
+      final branchId = prefs.getInt('selectedBranchId');
+      
+      final params = <String>[];
+      if (floorId != null) params.add('floor_id=$floorId');
+      if (branchId != null) params.add('branch_id=$branchId');
+      
+      String url = '/tables';
+      if (params.isNotEmpty) url += '?${params.join('&')}';
+      
       final response = await _apiService.get(url);
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

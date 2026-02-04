@@ -29,7 +29,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ordersAPI, tablesAPI, settingsAPI } from '../../../services/api';
 import { useReactToPrint } from 'react-to-print';
 import BillView from './BillView';
-import { Dialog, DialogContent, DialogActions } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useBranch } from '../../../app/providers/BranchProvider';
@@ -49,6 +49,10 @@ const Billing: React.FC = () => {
     const [order, setOrder] = useState<any>(null);
     const [paymentModes, setPaymentModes] = useState<any[]>([]);
     const [selectedPaymentMode, setSelectedPaymentMode] = useState('Cash');
+    const [qrCodes, setQrCodes] = useState<any[]>([]);
+    const [qrDialogOpen, setQrDialogOpen] = useState(false);
+    const [selectedQR, setSelectedQR] = useState<any>(null);
+    const [largeQRDialogOpen, setLargeQRDialogOpen] = useState(false);
     const [paidAmount, setPaidAmount] = useState<number>(0);
     const [billDialogOpen, setBillDialogOpen] = useState(false);
     const [isPaid, setIsPaid] = useState(false);
@@ -109,12 +113,14 @@ const Billing: React.FC = () => {
                 setPaidAmount(activeOrder.net_amount);
             }
 
-            // 3. Get Payment Modes & Company Settings
-            const [settingsRes, companyRes] = await Promise.all([
+            // 3. Get Payment Modes, QRs & Company Settings
+            const [settingsRes, companyRes, qrRes] = await Promise.all([
                 settingsAPI.getPaymentModes(),
-                settingsAPI.getCompanySettings()
+                settingsAPI.getCompanySettings(),
+                settingsAPI.get('/qr-codes?is_active=true')
             ]);
             setPaymentModes(settingsRes.data || []);
+            setQrCodes(qrRes.data || []);
             setCompanySettings(companyRes.data);
 
         } catch (error) {
@@ -324,26 +330,48 @@ const Billing: React.FC = () => {
                                         }}
                                     >
                                         <Banknote size={24} color={selectedPaymentMode === 'Cash' ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />
-                                        <Typography variant="body2" fontWeight={800} color={selectedPaymentMode === 'Cash' ? '#FFC107' : '#64748b'}>Cash</Typography>
+                                        <Typography variant="body2" fontWeight={800} color={selectedPaymentMode === 'Cash' ? '#FFC107' : '#64748b'}>Cash Payment</Typography>
                                     </Box>
                                 </Grid>
-                                {paymentModes.filter(m => m.name !== 'Cash').map((mode) => (
-                                    <Grid size={{ xs: 6 }} key={mode.id}>
-                                        <Box
-                                            onClick={() => setSelectedPaymentMode(mode.name)}
-                                            sx={{
-                                                p: 2.5, borderRadius: '20px', border: '2px solid',
-                                                borderColor: selectedPaymentMode === mode.name ? '#FFC107' : '#f1f5f9',
-                                                bgcolor: selectedPaymentMode === mode.name ? '#fff7ed' : 'white',
-                                                cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-                                                '&:hover': { borderColor: '#FFC107' }
-                                            }}
-                                        >
-                                            {mode.name.toLowerCase().includes('card') ? <CreditCard size={24} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} /> : <Smartphone size={24} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />}
-                                            <Typography variant="body2" fontWeight={800} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'}>{mode.name}</Typography>
-                                        </Box>
-                                    </Grid>
-                                ))}
+                                {(() => {
+                                    // Find a QR mode to put beside Cash
+                                    const qrModes = paymentModes.filter(m => m.name.toLowerCase().includes('qr') || m.name.toLowerCase().includes('fonepay'));
+                                    const otherModes = paymentModes.filter(m => m.name !== 'Cash' && !qrModes.find(q => q.id === m.id));
+                                    
+                                    // Combine them: QR modes first (to be beside cash), then others
+                                    return [...qrModes, ...otherModes].map((mode) => {
+                                        const isQR = mode.name.toLowerCase().includes('qr') || mode.name.toLowerCase().includes('fonepay');
+                                        const displayName = isQR ? "QR Pay" : mode.name;
+                                        
+                                        return (
+                                            <Grid size={{ xs: 6 }} key={mode.id}>
+                                                <Box
+                                                    onClick={() => {
+                                                        if (isQR) {
+                                                            setQrDialogOpen(true);
+                                                        } else {
+                                                            setSelectedPaymentMode(mode.name);
+                                                        }
+                                                    }}
+                                                    sx={{
+                                                        p: 2.5, borderRadius: '20px', border: '2px solid',
+                                                        borderColor: selectedPaymentMode.startsWith('QR Pay') && isQR ? '#FFC107' : selectedPaymentMode === mode.name ? '#FFC107' : '#f1f5f9',
+                                                        bgcolor: (selectedPaymentMode.startsWith('QR Pay') && isQR) || selectedPaymentMode === mode.name ? '#fff7ed' : 'white',
+                                                        cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
+                                                        '&:hover': { borderColor: '#FFC107' }
+                                                    }}
+                                                >
+                                                    {mode.name.toLowerCase().includes('card') ? (
+                                                        <CreditCard size={24} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />
+                                                    ) : (
+                                                        <Smartphone size={24} color={(selectedPaymentMode.startsWith('QR Pay') && isQR) || selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />
+                                                    )}
+                                                    <Typography variant="body2" fontWeight={800} color={(selectedPaymentMode.startsWith('QR Pay') && isQR) || selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'}>{displayName}</Typography>
+                                                </Box>
+                                            </Grid>
+                                        );
+                                    });
+                                })()}
                                 <Grid size={{ xs: 12 }}>
                                     <Tooltip title={!order?.customer_id ? "Assign a customer to enable Credit payment" : ""}>
                                         <Box
@@ -457,6 +485,91 @@ const Billing: React.FC = () => {
                     </Stack>
                 </Grid>
             </Grid>
+
+            {/* QR Selection Dialog */}
+            <Dialog open={qrDialogOpen} onClose={() => setQrDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+                <DialogTitle sx={{ fontWeight: 800 }}>Select QR Provider</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={1}>
+                        {qrCodes.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">No QR codes configured.</Typography>
+                        ) : (
+                            qrCodes.map((qr) => (
+                                <Box
+                                    key={qr.id}
+                                    onClick={() => {
+                                        setSelectedQR(qr);
+                                        setQrDialogOpen(false);
+                                        setLargeQRDialogOpen(true);
+                                    }}
+                                    sx={{
+                                        p: 2, borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer',
+                                        '&:hover': { bgcolor: '#f8fafc', borderColor: '#FFC107' },
+                                        display: 'flex', alignItems: 'center', gap: 2
+                                    }}
+                                >
+                                    <Smartphone size={20} color="#64748b" />
+                                    <Typography fontWeight={700}>{qr.name}</Typography>
+                                </Box>
+                            ))
+                        )}
+                    </Stack>
+                </DialogContent>
+                <DialogActions><Button onClick={() => setQrDialogOpen(false)}>Cancel</Button></DialogActions>
+            </Dialog>
+
+            {/* Large QR Dialog (80% screen) */}
+            <Dialog
+                open={largeQRDialogOpen}
+                onClose={() => setLargeQRDialogOpen(false)}
+                maxWidth="md"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: '24px',
+                        height: '80vh',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }
+                }}
+            >
+                <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                    <Typography variant="h5" fontWeight={900}>{selectedQR?.name}</Typography>
+                    <IconButton onClick={() => setLargeQRDialogOpen(false)}><X size={24} /></IconButton>
+                </Box>
+                <DialogContent sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4, bgcolor: '#f8fafc' }}>
+                    {selectedQR && (
+                        <Box
+                            component="img"
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${selectedQR.image_url}`}
+                            sx={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                objectFit: 'contain',
+                                borderRadius: '16px',
+                                boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
+                            }}
+                        />
+                    )}
+                </DialogContent>
+                <Box sx={{ p: 3, borderTop: '1px solid #f1f5f9' }}>
+                    <Button
+                        fullWidth
+                        variant="contained"
+                        size="large"
+                        onClick={() => {
+                            setSelectedPaymentMode(`QR Pay (${selectedQR?.name})`);
+                            setLargeQRDialogOpen(false);
+                        }}
+                        sx={{
+                            py: 2, borderRadius: '16px', bgcolor: '#16a34a', fontWeight: 900, fontSize: '1.1rem',
+                            '&:hover': { bgcolor: '#15803d' }
+                        }}
+                    >
+                        Confirm Payment Received
+                    </Button>
+                </Box>
+            </Dialog>
 
             {/* Bill Preview Dialog */}
             <Dialog

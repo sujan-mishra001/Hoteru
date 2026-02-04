@@ -53,7 +53,7 @@ const TableCard: React.FC<{
     onClick: () => void;
     onPaymentClick: () => void;
 }> = ({ table, onClick, onPaymentClick }) => {
-    const isOccupied = table.active_order_id !== null;
+    const isOccupied = table.status !== 'Available' || table.active_order_id !== null;
     const [duration, setDuration] = useState<string>('');
 
     // Timer logic

@@ -1,19 +1,88 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
+import 'dart:convert';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import 'package:dautari_adda/core/api/api_service.dart';
 import 'package:dautari_adda/features/pos/data/table_service.dart';
+import 'package:dautari_adda/features/pos/data/menu_data.dart';
 
-class BillScreen extends StatelessWidget {
+class BillScreen extends StatefulWidget {
   final int tableNumber;
   final List<Map<String, dynamic>>? navigationItems;
 
   const BillScreen({super.key, required this.tableNumber, this.navigationItems});
 
-  Future<void> _printBill(BuildContext context, int tableNumber, List<CartItem> cart, double total, TableService tableService) async {
+  @override
+  State<BillScreen> createState() => _BillScreenState();
+}
+
+class _BillScreenState extends State<BillScreen> {
+  final TableService _tableService = TableService();
+  bool _isLoadingOrder = true;
+  Map<String, dynamic>? _existingOrder;
+  List<CartItem> _displayCart = [];
+  bool _hasExistingOrder = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingOrder();
+  }
+
+  Future<void> _loadExistingOrder() async {
+    setState(() => _isLoadingOrder = true);
+    
+    try {
+      final orderData = await _tableService.getActiveOrderForTable(widget.tableNumber);
+      
+      if (orderData != null && mounted) {
+        setState(() {
+          _existingOrder = orderData;
+          _hasExistingOrder = true;
+          
+          // Convert backend order items to CartItem format for display
+          if (orderData['items'] != null) {
+            _displayCart = (orderData['items'] as List).map((item) {
+              return CartItem(
+                menuItem: MenuItem(
+                  id: item['menu_item_id'],
+                  name: item['menu_item']?['name'] ?? 'Unknown Item',
+                  price: (item['price'] as num).toDouble(),
+                  category: '',
+                  image: '',
+                ),
+                quantity: item['quantity'],
+              );
+            }).toList();
+          }
+        });
+      } else if (mounted) {
+        // No existing order, use local cart
+        setState(() {
+          _hasExistingOrder = false;
+          _displayCart = _tableService.getCart(widget.tableNumber);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading existing order: $e");
+      if (mounted) {
+        setState(() {
+          _hasExistingOrder = false;
+          _displayCart = _tableService.getCart(widget.tableNumber);
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingOrder = false);
+      }
+    }
+  }
+
+  Future<void> _printBill(BuildContext context, int tableNumber, List<CartItem> cart, double total) async {
     final doc = pw.Document();
     
     // Calculate total quantity
@@ -41,7 +110,7 @@ class BillScreen extends StatelessWidget {
                      pw.Column(
                        crossAxisAlignment: pw.CrossAxisAlignment.start,
                        children: [
-                          pw.Text('Table: ${tableService.getTableName(tableNumber)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
+                          pw.Text('Table: ${_tableService.getTableName(tableNumber)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
                           pw.SizedBox(height: 2),
                           pw.Text('Date: ${DateFormat('MMM dd, yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 10)),
                           pw.Text('User: $userName', style: const pw.TextStyle(fontSize: 10)),
@@ -99,16 +168,16 @@ class BillScreen extends StatelessWidget {
                pw.Row(
                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                  children: [
-                    pw.Text('Service Charge (${tableService.serviceChargeRate.toStringAsFixed(0)}%):', style: const pw.TextStyle(fontSize: 10)),
-                    pw.Text('Rs ${tableService.getServiceCharge(tableNumber).toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 10)),
+                    pw.Text('Service Charge (${_tableService.serviceChargeRate.toStringAsFixed(0)}%):', style: const pw.TextStyle(fontSize: 10)),
+                    pw.Text('Rs ${_tableService.getServiceCharge(tableNumber).toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 10)),
                  ]
                ),
-               if (tableService.taxRate > 0)
+               if (_tableService.taxRate > 0)
                  pw.Row(
                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                    children: [
-                      pw.Text('Tax (${tableService.taxRate.toStringAsFixed(0)}%):', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Text('Rs ${tableService.getTaxAmount(tableNumber).toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Tax (${_tableService.taxRate.toStringAsFixed(0)}%):', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Rs ${_tableService.getTaxAmount(tableNumber).toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 10)),
                    ]
                  ),
                pw.Divider(),
@@ -116,7 +185,7 @@ class BillScreen extends StatelessWidget {
                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                  children: [
                     pw.Text('GRAND TOTAL:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-                    pw.Text('Rs ${tableService.getNetTotal(tableNumber).toStringAsFixed(0)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                    pw.Text('Rs ${_tableService.getNetTotal(tableNumber).toStringAsFixed(0)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
                  ]
                ),
                pw.SizedBox(height: 10),
@@ -143,13 +212,31 @@ class BillScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tableService = TableService();
     return ListenableBuilder(
-      listenable: tableService,
+      listenable: _tableService,
       builder: (context, child) {
-        final cart = tableService.getCart(tableNumber);
-        final total = tableService.getTableTotal(tableNumber);
-        final isBooked = tableService.isTableBooked(tableNumber);
+        // Use display cart (either from backend order or local cart)
+        final cart = _displayCart;
+        final total = cart.fold(0.0, (sum, item) => sum + item.totalPrice);
+        final isBooked = _hasExistingOrder || _tableService.isTableBooked(widget.tableNumber);
+
+        if (_isLoadingOrder) {
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: Text(
+                "Bill Overview • ${_tableService.getTableName(widget.tableNumber)}",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+              ),
+              backgroundColor: const Color(0xFFFFC107),
+              elevation: 0,
+            ),
+            body: const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107))),
+          );
+        }
 
         return Scaffold(
           backgroundColor: Colors.grey[50],
@@ -159,7 +246,7 @@ class BillScreen extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
             ),
             title: Text(
-              "Bill Overview • ${tableService.getTableName(tableNumber)}",
+              "Bill Overview • ${_tableService.getTableName(widget.tableNumber)}",
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
             ),
             backgroundColor: const Color(0xFFFFC107),
@@ -168,7 +255,7 @@ class BillScreen extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.print_rounded, color: Colors.black87),
                 tooltip: "Print Bill",
-                onPressed: () => _printBill(context, tableNumber, cart, total, tableService),
+                onPressed: cart.isEmpty ? null : () => _printBill(context, widget.tableNumber, cart, total),
               ),
             ],
           ),
@@ -333,17 +420,17 @@ class BillScreen extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text("Service Charge (${tableService.serviceChargeRate.toStringAsFixed(0)}%)", style: TextStyle(color: Colors.grey[600])),
-                              Text("Rs ${tableService.getServiceCharge(tableNumber).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text("Service Charge (${_tableService.serviceChargeRate.toStringAsFixed(0)}%)", style: TextStyle(color: Colors.grey[600])),
+                              Text("Rs ${_tableService.getServiceCharge(widget.tableNumber).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold)),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          if (tableService.taxRate > 0) ...[
+                          if (_tableService.taxRate > 0) ...[
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text("Tax (${tableService.taxRate.toStringAsFixed(0)}%)", style: TextStyle(color: Colors.grey[600])),
-                                Text("Rs ${tableService.getTaxAmount(tableNumber).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text("Tax (${_tableService.taxRate.toStringAsFixed(0)}%)", style: TextStyle(color: Colors.grey[600])),
+                                Text("Rs ${_tableService.getTaxAmount(widget.tableNumber).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold)),
                               ],
                             ),
                             const SizedBox(height: 12),
@@ -358,29 +445,58 @@ class BillScreen extends StatelessWidget {
                                 style: TextStyle(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w500),
                               ),
                               Text(
-                                "Rs ${tableService.getNetTotal(tableNumber).toStringAsFixed(0)}",
+                                "Rs ${_tableService.getNetTotal(widget.tableNumber).toStringAsFixed(0)}",
                                 style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFFFFC107)),
                               ),
                             ],
                           ),
                           const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                if (isBooked) {
+                          
+                          // Action Button
+                          if (_hasExistingOrder) ...[
+                            // Table already has an order - only allow payment
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () async {
                                   showDialog(
                                     context: context,
                                     builder: (context) => _PaymentDialog(
-                                      tableNumber: tableNumber, 
+                                      tableNumber: widget.tableNumber, 
                                       total: total, 
                                       cart: cart,
-                                      tableService: tableService
+                                      tableService: _tableService,
+                                      existingOrderId: _existingOrder?['id'],
                                     ),
                                   );
-                                } else if (cart.isNotEmpty) {
-                                  final success = await tableService.confirmOrder(tableNumber, cart);
-                                  if (success && context.mounted) {
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  elevation: 0,
+                                ),
+                                child: const Text(
+                                  "Proceed to Payment",
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              "⚠️ This table already has an active order. You can only complete payment.",
+                              style: TextStyle(fontSize: 13, color: Colors.orange[700], fontWeight: FontWeight.w600),
+                              textAlign: TextAlign.center,
+                            ),
+                          ] else ...[
+                            // No existing order - allow booking
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: cart.isEmpty ? null : () async {
+                                  final success = await _tableService.confirmOrder(widget.tableNumber, cart);
+                                  if (success && mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text("Table Booked Successfully!"),
@@ -388,22 +504,32 @@ class BillScreen extends StatelessWidget {
                                         backgroundColor: Colors.green,
                                       ),
                                     );
+                                    // Reload to show updated state
+                                    await _loadExistingOrder();
+                                  } else if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text("Failed to book table. Please try again."),
+                                        behavior: SnackBarBehavior.floating,
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
                                   }
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isBooked ? Colors.green : const Color(0xFFFFC107),
-                                foregroundColor: isBooked ? Colors.white : Colors.black87,
-                                padding: const EdgeInsets.symmetric(vertical: 18),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                elevation: 0,
-                              ),
-                              child: Text(
-                                isBooked ? "Proceed to Payment" : "Confirm Order & Book",
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFFC107),
+                                  foregroundColor: Colors.black87,
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  elevation: 0,
+                                ),
+                                child: const Text(
+                                  "Confirm Order & Book",
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -429,8 +555,8 @@ class BillScreen extends StatelessWidget {
               selectedFontSize: 12,
               unselectedFontSize: 12,
               elevation: 0,
-              items: navigationItems != null
-                  ? navigationItems!.map((item) {
+              items: widget.navigationItems != null
+                  ? widget.navigationItems!.map((item) {
                       return BottomNavigationBarItem(
                         icon: Icon(item['icon'] as IconData),
                         label: item['label'] as String,
@@ -456,12 +582,14 @@ class _PaymentDialog extends StatefulWidget {
   final double total;
   final List<CartItem> cart;
   final TableService tableService;
+  final int? existingOrderId;
 
   const _PaymentDialog({
     required this.tableNumber,
     required this.total,
     required this.cart,
     required this.tableService,
+    this.existingOrderId,
   });
 
   @override
@@ -469,6 +597,116 @@ class _PaymentDialog extends StatefulWidget {
 }
 
 class _PaymentDialogState extends State<_PaymentDialog> {
+  final ApiService _apiService = ApiService();
+  List<dynamic> _qrCodes = [];
+  bool _loadingQRs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchQRCodes();
+  }
+
+  Future<void> _fetchQRCodes() async {
+    setState(() => _loadingQRs = true);
+    try {
+      final response = await _apiService.get('/qr-codes?is_active=true');
+      if (response.statusCode == 200) {
+        setState(() => _qrCodes = jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint("Error fetching QR codes: $e");
+    } finally {
+      setState(() => _loadingQRs = false);
+    }
+  }
+
+  void _showQRSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Select QR Provider"),
+        content: _loadingQRs 
+          ? const Center(child: CircularProgressIndicator())
+          : _qrCodes.isEmpty
+            ? const Text("No QR codes configured. Please add them in settings.")
+            : SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _qrCodes.length,
+                  itemBuilder: (context, index) {
+                    final qr = _qrCodes[index];
+                    return ListTile(
+                      leading: const Icon(Icons.qr_code),
+                      title: Text(qr['name']),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showLargeQR(qr);
+                      },
+                    );
+                  },
+                ),
+              ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        ],
+      ),
+    );
+  }
+
+  void _showLargeQR(dynamic qr) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.85,
+          height: MediaQuery.of(context).size.height * 0.8,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(qr['name'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: Center(
+                  child: Image.network(
+                    "${ApiService.baseHostUrl}${qr['image_url']}",
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 100, color: Colors.grey),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _processPayment("QR Pay (${qr['name']})");
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text("Confirm Payment Received", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _processPayment(String method) async {
     // Show loading
@@ -530,6 +768,21 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                   label: const Text("Pay with Cash"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // QR Option
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showQRSelectionDialog(), 
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  label: const Text("Pay with QR"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),

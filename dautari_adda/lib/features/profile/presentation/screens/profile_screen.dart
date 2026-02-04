@@ -12,6 +12,7 @@ import 'package:dautari_adda/features/customers/presentation/screens/customers_m
 import 'package:dautari_adda/features/admin/presentation/screens/roles_management_screen.dart';
 import 'package:dautari_adda/features/inventory/presentation/screens/inventory_management_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/kot_management_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/menu_management_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/session_control_screen.dart';
 import 'package:dautari_adda/features/analytics/presentation/screens/reports_screen.dart';
 import 'settings_screen.dart';
@@ -270,6 +271,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Kitchen (KOT)',
                     subtitle: 'Monitor kitchen & bar tickets',
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KotManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.restaurant_menu_rounded,
+                    title: 'Menu Management',
+                    subtitle: 'Manage categories, groups and dishes',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuManagementScreen())),
                   ),
                   const SizedBox(height: 12),
                   _buildMenuItem(

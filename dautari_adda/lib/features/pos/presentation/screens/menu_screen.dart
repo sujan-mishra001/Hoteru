@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/pos/data/menu_data.dart';
@@ -31,7 +32,8 @@ class _MenuScreenState extends State<MenuScreen> {
   String _searchQuery = "";
   List<MenuCategory> _fullMenu = [];
   bool _isLoading = true;
-  bool _isEditMode = false;
+  Timer? _refreshTimer;
+  DateTime? _lastSyncTime;
 
   @override
   void initState() {
@@ -39,6 +41,14 @@ class _MenuScreenState extends State<MenuScreen> {
     _searchQuery = widget.initialSearch ?? "";
     _searchController = TextEditingController(text: _searchQuery);
     _loadMenu();
+    
+    // Auto-refresh every 15 seconds for real-time sync with web app
+    _refreshTimer = Timer.periodic(Duration(seconds: 15), (timer) {
+      if (mounted) {
+        _tableService.fetchTables();
+        setState(() => _lastSyncTime = DateTime.now());
+      }
+    });
   }
 
   Future<void> _loadMenu() async {
@@ -64,6 +74,7 @@ class _MenuScreenState extends State<MenuScreen> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -306,11 +317,6 @@ class _MenuScreenState extends State<MenuScreen> {
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(_isEditMode ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined, color: Colors.black87, size: 20),
-            tooltip: "Management Mode",
-            onPressed: () => setState(() => _isEditMode = !_isEditMode),
-          ),
           if (widget.isOrderingMode)
             IconButton(
               icon: const Icon(Icons.receipt_long_rounded, color: Colors.black87, size: 20),
@@ -414,23 +420,6 @@ class _MenuScreenState extends State<MenuScreen> {
             ),
           ),
           
-          if (_isEditMode)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: ElevatedButton.icon(
-                onPressed: () => _showAddCategoryDialog(),
-                icon: const Icon(Icons.add_rounded, size: 20),
-                label: Text("Create New Root Category", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC107),
-                  foregroundColor: Colors.black87,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-              ),
-            ),
-          
           Expanded(
             child: _isLoading 
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
@@ -519,8 +508,8 @@ class _MenuScreenState extends State<MenuScreen> {
   }
 
   Widget _buildCategoryTile(MenuCategory category, MenuCategory rootCategory) {
-    // Only hide empty categories if NOT in edit mode
-    if (!_isEditMode && category.subCategories.isEmpty && category.items.isEmpty) {
+    // Only hide empty categories
+    if (category.subCategories.isEmpty && category.items.isEmpty) {
       if (category.name != "Drink" && category.name != "Smoking") return const SizedBox.shrink();
     }
 
@@ -563,26 +552,6 @@ class _MenuScreenState extends State<MenuScreen> {
             size: rootCategory == category ? 18 : 16
           ),
         ),
-        trailing: _isEditMode 
-            ? PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, color: Colors.black54),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'edit': _showEditCategoryDialog(category, rootCategory); break;
-                    case 'delete': _confirmDeleteCategory(category, rootCategory); break;
-                    case 'sub': _showAddCategoryDialog(parent: category, rootCategory: rootCategory); break;
-                    case 'item': _showAddItemDialog(category, rootCategory); break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_rounded, color: Colors.orange), title: Text("Rename"), dense: true)),
-                  const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline_rounded, color: Colors.red), title: Text("Delete"), dense: true)),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(value: 'sub', child: ListTile(leading: Icon(Icons.add_circle_outline_rounded, color: Colors.blue), title: Text("Add Sub-category"), dense: true)),
-                  const PopupMenuItem(value: 'item', child: ListTile(leading: Icon(Icons.add_box_outlined, color: Colors.green), title: Text("Add Dish"), dense: true)),
-                ],
-              )
-            : null,
         childrenPadding: const EdgeInsets.only(bottom: 8),
         backgroundColor: Theme.of(context).cardColor,
         children: [
@@ -619,7 +588,7 @@ class _MenuScreenState extends State<MenuScreen> {
                       child: InkWell(
                         onTap: widget.isOrderingMode 
                             ? () => _showItemDetails(item) 
-                            : (_isEditMode ? () => _showEditItemDialog(item, category, rootCategory) : null),
+                            : null,
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           decoration: BoxDecoration(
@@ -649,28 +618,20 @@ class _MenuScreenState extends State<MenuScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
-                                          child: Text(
-                                            item.name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                              color: Colors.black87,
-                                              height: 1.1,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        if (_isEditMode && !widget.isOrderingMode)
-                                          Padding(
-                                            padding: const EdgeInsets.only(left: 4),
-                                            child: GestureDetector(
-                                              onTap: () => _confirmDeleteItem(item, category, rootCategory),
-                                              child: const Icon(Icons.remove_circle_rounded, size: 18, color: Colors.redAccent),
+                                            child: Text(
+                                              item.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: Colors.black87,
+                                                height: 1.1,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
                                     const SizedBox(height: 4),
                                     Text(
                                       "Rs ${item.price}",

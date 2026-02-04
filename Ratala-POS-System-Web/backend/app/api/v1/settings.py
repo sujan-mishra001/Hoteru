@@ -314,7 +314,25 @@ async def get_payment_modes(
     branch_id = current_user.current_branch_id
     query = db.query(PaymentMode)
     query = apply_branch_filter_settings(query, PaymentMode, branch_id)
-    return query.order_by(PaymentMode.display_order).all()
+    modes = query.order_by(PaymentMode.display_order).all()
+    
+    if not modes:
+        # Seed default modes if none exist
+        defaults = [
+            PaymentMode(name="Cash", display_order=1),
+            PaymentMode(name="QR Pay", display_order=2),
+            PaymentMode(name="Credit Card", display_order=3)
+        ]
+        if branch_id:
+            for d in defaults:
+                d.branch_id = branch_id
+        
+        for d in defaults:
+            db.add(d)
+        db.commit()
+        modes = query.order_by(PaymentMode.display_order).all()
+        
+    return modes
 
 
 @router.post("/payment-modes", response_model=PaymentModeResponse)

@@ -668,6 +668,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSaaSTableCard(TableInfo table) {
     final isBooked = _tableService.isTableBooked(table.id);
     final hasItems = _tableService.getCart(table.id).isNotEmpty;
+    final hasKOT = table.kotCount > 0;
     
     Color statusColor = const Color(0xFF10B981); // Green
     String statusText = "OPEN";
@@ -703,36 +704,65 @@ class _HomeScreenState extends State<HomeScreen> {
             BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.table_bar_rounded, size: 24, color: statusColor),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.table_bar_rounded, size: 24, color: statusColor),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  table.tableId,
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor),
+                  ),
+                ),
+                // Display KOT/BOT count if exists
+                if (hasKOT) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    "KOT: ${table.kotCount}",
+                    style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              table.tableId,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
+            // Amount badge in top-right corner if booked
+            if (isBooked && table.totalAmount > 0)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFC107),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    "Rs ${table.totalAmount.toStringAsFixed(0)}",
+                    style: GoogleFonts.poppins(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                ),
               ),
-              child: Text(
-                statusText,
-                style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor),
-              ),
-            ),
           ],
         ),
       ),

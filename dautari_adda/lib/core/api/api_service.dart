@@ -127,6 +127,9 @@ class ApiService {
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
     print('API_DEBUG: POST MULTIPART $endpoint -> ${response.statusCode}');
+    if (response.statusCode >= 400) {
+      print('API_DEBUG: ERROR BODY: ${response.body}');
+    }
     return response;
   }
 
@@ -155,6 +158,9 @@ class ApiService {
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
     print('API_DEBUG: PUT MULTIPART $endpoint -> ${response.statusCode}');
+    if (response.statusCode >= 400) {
+      print('API_DEBUG: ERROR BODY: ${response.body}');
+    }
     return response;
   }
 }

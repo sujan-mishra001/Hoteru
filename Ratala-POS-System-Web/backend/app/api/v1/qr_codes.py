@@ -65,10 +65,12 @@ async def create_qr_code(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new QR code with image upload"""
+    print(f"DEBUG: Creating QR code - Name: {name}, Active: {is_active}, Order: {display_order}, Branch: {branch_id}")
+    print(f"DEBUG: Image received: {image.filename}, Content-Type: {image.content_type}")
     
     # Validate file type
     if not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
+        raise HTTPException(status_code=400, detail=f"File must be an image. Received: {image.content_type}")
     
     # Generate unique filename
     file_extension = os.path.splitext(image.filename)[1]

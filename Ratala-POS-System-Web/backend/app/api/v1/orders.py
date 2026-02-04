@@ -132,7 +132,15 @@ async def create_order(
     if new_order.table_id:
         table = db.query(Table).filter(Table.id == new_order.table_id).first()
         if table:
-            table.status = "Occupied"
+            # If creating a Paid order (direct payment), keep it Available
+            if new_order.status in ['Paid', 'Completed']:
+                table.status = "Available"
+            elif new_order.status == 'Draft':
+                # Optional: Decide if Draft should mark table as Occupied. 
+                # Usually Pending marks it.
+                table.status = "Occupied" 
+            else:
+                table.status = "Occupied"
     
     # Update customer stats if Paid
     if new_order.status in ['Paid', 'Completed'] and new_order.customer_id:

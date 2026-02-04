@@ -132,9 +132,11 @@ class MenuService {
 
   Future<bool> addCategory(String name, String type) async {
     try {
+      await _loadBranchId();
       final response = await _apiService.post('/menu/categories', {
         'name': name,
         'type': type,
+        'branch_id': _currentBranchId,
       });
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
@@ -145,8 +147,10 @@ class MenuService {
   // Update category by ID
   Future<bool> updateCategory(int categoryId, String name) async {
     try {
+      await _loadBranchId();
       final response = await _apiService.patch('/menu/categories/$categoryId', {
         'name': name,
+        'branch_id': _currentBranchId,
       });
       return response.statusCode == 200;
     } catch (e) {
@@ -218,7 +222,10 @@ class MenuService {
 
   Future<bool> addMenuItem(Map<String, dynamic> itemData) async {
     try {
-      final response = await _apiService.post('/menu/items', itemData);
+      await _loadBranchId();
+      final Map<String, dynamic> data = Map.from(itemData);
+      data['branch_id'] = _currentBranchId;
+      final response = await _apiService.post('/menu/items', data);
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       return false;
@@ -227,7 +234,10 @@ class MenuService {
 
   Future<bool> updateMenuItem(int itemId, Map<String, dynamic> itemData) async {
     try {
-      final response = await _apiService.patch('/menu/items/$itemId', itemData);
+      await _loadBranchId();
+      final Map<String, dynamic> data = Map.from(itemData);
+      data['branch_id'] = _currentBranchId;
+      final response = await _apiService.patch('/menu/items/$itemId', data);
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -270,7 +280,10 @@ class MenuService {
 
   Future<bool> addMenuGroup(Map<String, dynamic> groupData) async {
     try {
-      final response = await _apiService.post('/menu/groups', groupData);
+      await _loadBranchId();
+      final Map<String, dynamic> data = Map.from(groupData);
+      data['branch_id'] = _currentBranchId;
+      final response = await _apiService.post('/menu/groups', data);
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       return false;
@@ -279,7 +292,10 @@ class MenuService {
 
   Future<bool> updateMenuGroup(int groupId, Map<String, dynamic> groupData) async {
     try {
-      final response = await _apiService.patch('/menu/groups/$groupId', groupData);
+      await _loadBranchId();
+      final Map<String, dynamic> data = Map.from(groupData);
+      data['branch_id'] = _currentBranchId;
+      final response = await _apiService.patch('/menu/groups/$groupId', data);
       return response.statusCode == 200;
     } catch (e) {
       return false;

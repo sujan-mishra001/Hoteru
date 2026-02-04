@@ -10,10 +10,14 @@ class OrderService {
     String? status,
   }) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final branchId = prefs.getInt('selectedBranchId');
+      
       String endpoint = '/orders';
       final params = <String>[];
       if (orderType != null) params.add('order_type=$orderType');
       if (status != null) params.add('status=$status');
+      if (branchId != null) params.add('branch_id=$branchId');
       
       if (params.isNotEmpty) {
         endpoint += '?${params.join('&')}';

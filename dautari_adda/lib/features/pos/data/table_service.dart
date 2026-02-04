@@ -411,6 +411,7 @@ class TableService extends ChangeNotifier {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         _tableCarts[tableId] = [];
+        // Explicitly refresh tables to sync from backend
         await fetchTables();
         return true;
       }
@@ -418,6 +419,36 @@ class TableService extends ChangeNotifier {
     } catch (e) {
       debugPrint("Error confirming order: $e");
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getActiveOrderForTable(int tableId) async {
+    try {
+      // Fetch all orders and find active one for this table
+      String ordersUrl = '/orders?status=Pending';
+      if (_currentBranchId != null) ordersUrl += '&branch_id=$_currentBranchId';
+      final response = await _apiService.get(ordersUrl);
+      
+      if (response.statusCode == 200) {
+        final List orders = jsonDecode(response.body);
+        final activeOrder = orders.firstWhere(
+          (o) => o['table_id'] == tableId && 
+                 (o['status'] == 'Pending' || o['status'] == 'Draft' || o['status'] == 'In Progress' || o['status'] == 'BillRequested'),
+          orElse: () => null,
+        );
+        
+        if (activeOrder != null) {
+          // Fetch full order details with items
+          final detailsResponse = await _apiService.get('/orders/${activeOrder['id']}');
+          if (detailsResponse.statusCode == 200) {
+            return jsonDecode(detailsResponse.body);
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error fetching active order: $e");
+      return null;
     }
   }
 
@@ -461,6 +492,7 @@ class TableService extends ChangeNotifier {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         _tableCarts[tableId] = [];
+        // Explicitly refresh state to clear bookings
         await _loadState();
         return true;
       }
@@ -499,19 +531,23 @@ class TableService extends ChangeNotifier {
   }
 
   double getServiceCharge(int tableId) {
-    return getTableTotal(tableId) * (serviceChargeRate / 100);
+    // SC applied after discount (though discount is currently 0 in logic)
+    final discountedSubtotal = getTableTotal(tableId);
+    return (discountedSubtotal * (serviceChargeRate / 100)).roundToDouble();
   }
 
   double getTaxAmount(int tableId) {
     final subtotal = getTableTotal(tableId);
     final sc = getServiceCharge(tableId);
-    return (subtotal + sc) * (taxRate / 100);
+    // VAT applied on (Subtotal + SC)
+    return ((subtotal + sc) * (taxRate / 100)).roundToDouble();
   }
 
   double getNetTotal(int tableId) {
     final subtotal = getTableTotal(tableId);
     final sc = getServiceCharge(tableId);
     final tax = getTaxAmount(tableId);
-    return subtotal + sc + tax;
+    // Web app uses Math.round(total * (1 + sc/100) * (1 + tax/100))
+    return (subtotal + sc + tax).roundToDouble();
   }
 }

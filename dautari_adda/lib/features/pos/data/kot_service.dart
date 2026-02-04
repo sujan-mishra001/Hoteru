@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
 
 class KotService {
@@ -6,15 +7,16 @@ class KotService {
 
   Future<List<dynamic>> getKots({String? type, String? status}) async {
     try {
-      String query = '';
-      if (type != null || status != null) {
-        query = '?';
-        if (type != null) query += 'kot_type=$type';
-        if (status != null) {
-          if (type != null) query += '&';
-          query += 'status=$status';
-        }
-      }
+      final prefs = await SharedPreferences.getInstance();
+      final branchId = prefs.getInt('selectedBranchId');
+      
+      final params = <String>[];
+      if (type != null) params.add('kot_type=$type');
+      if (status != null) params.add('status=$status');
+      if (branchId != null) params.add('branch_id=$branchId');
+      
+      String query = params.isNotEmpty ? '?${params.join('&')}' : '';
+      
       final response = await _apiService.get('/kots$query');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

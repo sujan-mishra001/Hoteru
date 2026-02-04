@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
+import 'package:dautari_adda/features/pos/data/table_service.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
 
 class QrManagementScreen extends StatefulWidget {
@@ -175,6 +176,11 @@ class _QrManagementScreenState extends State<QrManagementScreen> {
         'display_order': displayOrder.toString(),
       };
 
+      final currentBranchId = TableService().currentBranchId;
+      if (currentBranchId != null) {
+        formData['branch_id'] = currentBranchId.toString();
+      }
+
       final response = await _apiService.postMultipart(
         '/qr-codes/',
         formData,
@@ -316,6 +322,11 @@ class _QrManagementScreenState extends State<QrManagementScreen> {
         'is_active': isActive.toString(),
         'display_order': displayOrder.toString(),
       };
+
+      final currentBranchId = TableService().currentBranchId;
+      if (currentBranchId != null) {
+        formData['branch_id'] = currentBranchId.toString();
+      }
 
       final files = image != null ? {'image': File(image.path)} : <String, File>{};
 
