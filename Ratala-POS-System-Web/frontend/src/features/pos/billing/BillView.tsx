@@ -4,15 +4,21 @@ import { Box, Typography, Divider, Table, TableBody, TableCell, TableHead, Table
 interface BillViewProps {
     order: any;
     branch?: any;
+    settings?: any;
 }
 
-const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch }, ref) => {
+const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch, settings }, ref) => {
     if (!order) return null;
 
     const subtotal = order.gross_amount || 0;
     const discount = order.discount || 0;
-    const serviceCharge = Math.round(order.net_amount - subtotal + discount) || 0;
-    const total = order.net_amount || 0;
+    const scRate = settings?.service_charge_rate || 5;
+    const taxRate = settings?.tax_rate || 0;
+
+    // Attempt to calculate backward if not clearly stored, but prefer dynamic calculation for preview
+    const serviceCharge = Math.round(subtotal * (scRate / 100));
+    const vat = Math.round((subtotal + serviceCharge) * (taxRate / 100));
+    const total = order.net_amount || (subtotal - discount + serviceCharge + vat);
 
     return (
         <Box
@@ -94,8 +100,14 @@ const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch }, r
                 )}
                 {serviceCharge > 0 && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography sx={{ fontSize: '11px' }}>Service Charge (5%):</Typography>
+                        <Typography sx={{ fontSize: '11px' }}>Service Charge ({scRate}%):</Typography>
                         <Typography sx={{ fontSize: '11px' }}>{serviceCharge}</Typography>
+                    </Box>
+                )}
+                {taxRate > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography sx={{ fontSize: '11px' }}>VAT ({taxRate}%):</Typography>
+                        <Typography sx={{ fontSize: '11px' }}>{vat}</Typography>
                     </Box>
                 )}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>

@@ -4,8 +4,8 @@ Settings API endpoints with branch isolation
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
-from app.dependencies import get_current_user
+from app.db.database import get_db
+from app.core.dependencies import get_current_user
 from app.models import User, CompanySettings, PaymentMode, StorageArea, DiscountRule
 from pydantic import BaseModel
 from datetime import datetime
@@ -36,6 +36,8 @@ class CompanySettingsBase(BaseModel):
     currency: str = "NPR"
     timezone: str = "Asia/Kathmandu"
     tax_rate: float = 13.0
+    service_charge_rate: float = 10.0
+    discount_rate: float = 0.0
     notifications_enabled: bool = True
     sound_enabled: bool = True
     vibration_enabled: bool = True
@@ -165,6 +167,8 @@ async def get_all_settings(
             "company_name": "HOTERU",
             "currency": "NPR",
             "tax_rate": 13.0,
+            "service_charge_rate": 10.0,
+            "discount_rate": 0.0,
             "notifications_enabled": True,
             "sound_enabled": True,
             "vibration_enabled": True,

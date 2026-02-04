@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -89,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: GoogleFonts.poppins(
                           fontSize: 32,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -99,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                         ),
                       ),
                       const SizedBox(height: 56),
@@ -149,12 +148,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             "Remember me",
                             style: GoogleFonts.poppins(
-                              color: Colors.black54, 
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const Spacer(),
                           const Spacer(),
                           TextButton(
                             onPressed: () {
@@ -208,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             "Don't have an account? ",
                             style: GoogleFonts.poppins(
-                              color: Colors.grey[600],
+                              color: Theme.of(context).textTheme.bodySmall?.color,
                               fontSize: 14,
                             ),
                           ),
@@ -237,7 +234,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-                          color: Colors.grey[400],
+                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
                           height: 1.5,
                         ),
                       ),
@@ -255,7 +252,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 'Powered by Ratala IT Company',
                 style: GoogleFonts.poppins(
                   fontSize: 11,
-                  color: Colors.black87,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
                 ),
@@ -284,13 +280,12 @@ class _LoginScreenState extends State<LoginScreen> {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -335,7 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: Colors.grey.shade200),
+                borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -350,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 borderSide: const BorderSide(color: Colors.red, width: 1.5),
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).cardColor,
               contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
             ),
           ),
@@ -359,4 +354,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

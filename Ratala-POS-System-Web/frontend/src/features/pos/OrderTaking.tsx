@@ -33,7 +33,7 @@ import {
     Download
 } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { menuAPI, tablesAPI, ordersAPI, kotAPI, customersAPI } from '../../services/api';
+import { menuAPI, tablesAPI, ordersAPI, kotAPI, customersAPI, settingsAPI } from '../../services/api';
 import { useReactToPrint } from 'react-to-print';
 import { useBranch } from '../../app/providers/BranchProvider';
 import BillView from './billing/BillView';
@@ -101,6 +101,7 @@ const OrderTaking: React.FC = () => {
     const [customerSearch, setCustomerSearch] = useState('');
 
     const [billDialogOpen, setBillDialogOpen] = useState(false);
+    const [companySettings, setCompanySettings] = useState<any>(null);
     const billRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
@@ -134,13 +135,15 @@ const OrderTaking: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [catsRes, groupsRes, itemsRes, custRes] = await Promise.all([
+            const [catsRes, groupsRes, itemsRes, custRes, settingsRes] = await Promise.all([
                 menuAPI.getCategories(),
                 menuAPI.getGroups(),
                 menuAPI.getItems(),
-                customersAPI.getAll()
+                customersAPI.getAll(),
+                settingsAPI.getCompanySettings()
             ]);
 
+            setCompanySettings(settingsRes.data);
             setCustomers(custRes.data || []);
 
             const activeCategories = catsRes.data.filter((c: any) => c.is_active !== false);
@@ -249,7 +252,7 @@ const OrderTaking: React.FC = () => {
                 order_type: table?.is_hold_table === 'Yes' ? 'Takeaway' : 'Table',
                 status: 'Draft',
                 gross_amount: total,
-                net_amount: Math.round(total * 1.05),
+                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)),
                 discount: 0,
                 items: orderItems.map(item => ({
                     menu_item_id: item.item_id,
@@ -294,7 +297,7 @@ const OrderTaking: React.FC = () => {
                 order_type: table?.is_hold_table === 'Yes' ? 'Takeaway' : 'Table',
                 status: 'Pending',
                 gross_amount: total,
-                net_amount: Math.round(total * 1.05), // Including 5% SC for now
+                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)),
                 discount: 0,
                 items: orderItems.map(item => ({
                     menu_item_id: item.item_id,
@@ -808,14 +811,20 @@ const OrderTaking: React.FC = () => {
                         <Typography color="text.secondary" fontWeight={500}>Subtotal</Typography>
                         <Typography fontWeight={700}>NPRs. {total}</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                        <Typography color="text.secondary" fontWeight={500}>Service Charge (5%)</Typography>
-                        <Typography fontWeight={700}>NPRs. {Math.round(total * 0.05)}</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography color="text.secondary" fontWeight={500}>Service Charge ({companySettings?.service_charge_rate || 0}%)</Typography>
+                        <Typography fontWeight={700}>NPRs. {Math.round(total * (companySettings?.service_charge_rate || 0) / 100)}</Typography>
                     </Box>
+                    {companySettings?.tax_rate > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography color="text.secondary" fontWeight={500}>VAT ({companySettings?.tax_rate || 0}%)</Typography>
+                            <Typography fontWeight={700}>NPRs. {Math.round((total + (total * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100)}</Typography>
+                        </Box>
+                    )}
                     <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                         <Typography variant="h6" fontWeight={800}>Total Payable</Typography>
-                        <Typography variant="h6" fontWeight={800} color="#FFC107">NPRs. {Math.round(total * 1.05)}</Typography>
+                        <Typography variant="h6" fontWeight={800} color="#FFC107">NPRs. {Math.round(total * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100))}</Typography>
                     </Box>
 
                     <Button
@@ -895,6 +904,7 @@ const OrderTaking: React.FC = () => {
                             <BillView
                                 ref={billRef}
                                 branch={currentBranch}
+                                settings={companySettings}
                                 order={{
                                     order_number: 'DRAFT',
                                     created_at: new Date().toISOString(),
@@ -902,14 +912,14 @@ const OrderTaking: React.FC = () => {
                                     order_type: tableId ? 'Dine-in' : 'Takeaway',
                                     customer: selectedCustomer,
                                     items: orderItems.map(item => ({
-                                        id: item.item_id,
+                                        id: item.id || Date.now(),
                                         menu_item: { name: item.name },
                                         quantity: item.quantity,
                                         price: item.price,
                                         subtotal: item.quantity * item.price
                                     })),
                                     gross_amount: total,
-                                    net_amount: Math.round(total * 1.05),
+                                    net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)),
                                     discount: 0
                                 }}
                             />

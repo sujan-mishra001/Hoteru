@@ -7,8 +7,8 @@ from typing import Optional
 from datetime import datetime
 import random
 
-from app.database import get_db
-from app.dependencies import get_current_user
+from app.db.database import get_db
+from app.core.dependencies import get_current_user
 from app.models import KOT, Order, KOTItem
 from sqlalchemy.orm import joinedload
 

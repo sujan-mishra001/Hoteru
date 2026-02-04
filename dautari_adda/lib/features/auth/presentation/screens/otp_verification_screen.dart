@@ -67,7 +67,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final result = await _otpService.verifyOtp(email: widget.email, code: code);
+      final result = await _otpService.verifyOtp(
+        email: widget.email,
+        code: code,
+        consume: widget.type != 'reset', // Don't consume for reset, will be consumed in ResetPasswordScreen
+      );
       if (mounted) {
         if (result['success']) {
           ToastService.show(context, 'Verification successful');

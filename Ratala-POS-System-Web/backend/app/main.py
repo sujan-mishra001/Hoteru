@@ -4,11 +4,13 @@ Main FastAPI application
 # Triggering uvicorn reload...
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
 # Force reload for route registration
-from app.config import settings
-from app.database import init_db, get_db
-from app.dependencies import get_password_hash
+from app.core.config import settings
+from app.db.database import init_db, get_db
+from app.core.dependencies import get_password_hash
 from app.models import User as DBUser
 from app.api.v1 import api_router
 
@@ -30,6 +32,11 @@ app.add_middleware(
 
 # Include API routes with prefix
 app.include_router(api_router, prefix=settings.API_PREFIX)
+
+# Mount static files for uploads
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 # Initialize database on startup
@@ -58,7 +65,7 @@ async def root():
     """Root endpoint - API health check"""
     try:
         # Test database connection
-        from app.database import get_engine
+        from app.db.database import get_engine
         from sqlalchemy import text
         engine = get_engine()
         with engine.connect() as conn:

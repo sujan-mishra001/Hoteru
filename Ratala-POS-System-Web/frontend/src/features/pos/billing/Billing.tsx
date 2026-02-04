@@ -52,6 +52,7 @@ const Billing: React.FC = () => {
     const [paidAmount, setPaidAmount] = useState<number>(0);
     const [billDialogOpen, setBillDialogOpen] = useState(false);
     const [isPaid, setIsPaid] = useState(false);
+    const [companySettings, setCompanySettings] = useState<any>(null);
     const billRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
@@ -108,9 +109,13 @@ const Billing: React.FC = () => {
                 setPaidAmount(activeOrder.net_amount);
             }
 
-            // 3. Get Payment Modes
-            const settingsRes = await settingsAPI.getPaymentModes();
+            // 3. Get Payment Modes & Company Settings
+            const [settingsRes, companyRes] = await Promise.all([
+                settingsAPI.getPaymentModes(),
+                settingsAPI.getCompanySettings()
+            ]);
             setPaymentModes(settingsRes.data || []);
+            setCompanySettings(companyRes.data);
 
         } catch (error) {
             console.error("Error loading billing data:", error);
@@ -280,9 +285,15 @@ const Billing: React.FC = () => {
                                 <Typography variant="body2" fontWeight={800} color="#ef4444">- Rs. {order?.discount || 0}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography variant="body2" fontWeight={600} color="#64748b">Service Charge (5%)</Typography>
-                                <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {order ? Math.round(order.net_amount - order.gross_amount + order.discount) : 0}</Typography>
+                                <Typography variant="body2" fontWeight={600} color="#64748b">Service Charge ({companySettings?.service_charge_rate || 0}%)</Typography>
+                                <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {order ? Math.round(order.gross_amount * (companySettings?.service_charge_rate || 0) / 100) : 0}</Typography>
                             </Box>
+                            {companySettings?.tax_rate > 0 && (
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2" fontWeight={600} color="#64748b">VAT ({companySettings?.tax_rate || 0}%)</Typography>
+                                    <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {order ? Math.round((order.gross_amount + (order.gross_amount * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100) : 0}</Typography>
+                                </Box>
+                            )}
                             <Box sx={{
                                 display: 'flex', justifyContent: 'space-between', mt: 2, p: 2.5,
                                 bgcolor: '#1e293b', borderRadius: '16px', color: 'white'
@@ -462,7 +473,7 @@ const Billing: React.FC = () => {
                 <DialogContent sx={{ p: 0, bgcolor: '#f8fafc' }}>
                     <Box sx={{ p: 2 }}>
                         <Paper elevation={0} sx={{ p: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                            <BillView ref={billRef} order={order} branch={currentBranch} />
+                            <BillView ref={billRef} order={order} branch={currentBranch} settings={companySettings} />
                         </Paper>
                     </Box>
                 </DialogContent>

@@ -3,7 +3,7 @@ Settings-related models (Company Settings, Payment Modes, etc.)
 """
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class CompanySettings(Base):
@@ -29,6 +29,8 @@ class CompanySettings(Base):
     currency = Column(String, default="NPR")
     timezone = Column(String, default="Asia/Kathmandu")
     tax_rate = Column(Float, default=13.0)
+    service_charge_rate = Column(Float, default=10.0)
+    discount_rate = Column(Float, default=0.0)
     
     # User Preferences (synchronized with backend for multi-device consistency)
     notifications_enabled = Column(Boolean, default=True)

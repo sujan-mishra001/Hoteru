@@ -1,5 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -30,7 +30,16 @@ class NotificationService {
   }
 
   Future<void> showOrderPendingNotification(int tableId, String tableName) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Check if notifications are enabled globally in app
+    final bool enabled = prefs.getBool('notifications_enabled') ?? true;
+    if (!enabled) return;
+
+    final bool playSound = prefs.getBool('sound_enabled') ?? true;
+    final bool enableVibration = prefs.getBool('vibration_enabled') ?? true;
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'order_channel',
       'Order Notifications',
@@ -38,16 +47,18 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
-      ongoing: true, // Makes it harder to dismiss (optional, good for status tracking)
+      playSound: playSound,
+      enableVibration: enableVibration,
+      ongoing: true,
       autoCancel: false,
     );
     
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );
 
     await flutterLocalNotificationsPlugin.show(
-      tableId, // ID matches Table ID for easy cancellation
+      tableId, 
       'Order Pending',
       '$tableName has a pending order',
       platformChannelSpecifics,

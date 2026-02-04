@@ -1,10 +1,10 @@
 """
 Order-related models (Floors, Tables, Sessions, Orders, Order Items, KOTs)
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class Floor(Base):
@@ -12,7 +12,7 @@ class Floor(Base):
     __tablename__ = "floors"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)  # e.g., "Ground Floor", "Rooftop"
+    name = Column(String, nullable=False)  # e.g., "Ground Floor", "Rooftop"
     display_order = Column(Integer, default=0)  # For ordering floors in UI
     is_active = Column(Boolean, default=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
@@ -20,15 +20,19 @@ class Floor(Base):
     
     tables = relationship("Table", back_populates="floor_rel")
 
+    __table_args__ = (
+        UniqueConstraint('name', 'branch_id', name='uq_floor_name_branch'),
+    )
+
 
 class Table(Base):
     """Table model for restaurant tables"""
     __tablename__ = "tables"
     
     id = Column(Integer, primary_key=True, index=True)
-    table_id = Column(String, unique=True, nullable=False)  # Display name: T1, VIP2, etc.
+    table_id = Column(String, nullable=False)  # Display name: T1, VIP2, etc.
     floor_id = Column(Integer, ForeignKey("floors.id"), nullable=True)
-    floor = Column(String, nullable=False)  # Legacy field for backward compatibility
+    floor = Column(String, nullable=True)  # Legacy field - made nullable
     table_type = Column(String, default="Regular")  # Regular, VIP, Outdoor
     capacity = Column(Integer, default=4)
     status = Column(String, default="Available")  # Available, Occupied, Reserved, BillRequested
@@ -41,6 +45,10 @@ class Table(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     floor_rel = relationship("Floor", back_populates="tables")
+
+    __table_args__ = (
+        UniqueConstraint('table_id', 'branch_id', name='uq_table_id_branch'),
+    )
 
 
 class Session(Base):

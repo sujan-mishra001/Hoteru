@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:dautari_adda/core/services/api_service.dart';
+import 'package:dautari_adda/core/api/api_service.dart';
 
 /// OTP Service for email verification and password reset
 /// 
@@ -55,11 +55,13 @@ class OtpService {
   Future<Map<String, dynamic>> verifyOtp({
     required String email,
     required String code,
+    bool consume = true,
   }) async {
     try {
       final response = await _apiService.post('/otp/verify-otp', {
         'email': email,
         'code': code,
+        'consume': consume,
       });
 
       final data = jsonDecode(response.body);

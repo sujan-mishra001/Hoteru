@@ -7,13 +7,16 @@ import 'package:dautari_adda/features/auth/presentation/screens/branch_selection
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/services/notification_service.dart';
 
+import 'package:dautari_adda/core/theme/theme_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await dotenv.load(fileName: ".env");
 
-  // Initialize Notification Service
+  // Initialize Services
   await NotificationService().init();
+  await ThemeProvider().init();
 
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
@@ -30,16 +33,32 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dautari Adda',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFFC107)),
-        useMaterial3: true,
-      ),
-      home: isLoggedIn 
-          ? const BranchSelectionScreen() 
-          : (hasSeenOnboarding ? const LoginScreen() : const OnboardingScreen()),
+    return ListenableBuilder(
+      listenable: ThemeProvider(),
+      builder: (context, _) {
+        final isDark = ThemeProvider().isDarkMode;
+        
+        return MaterialApp(
+          title: 'Dautari Adda',
+          debugShowCheckedModeBanner: false,
+          themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFFC107)),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFFFFC107),
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+          ),
+          home: isLoggedIn 
+              ? const BranchSelectionScreen() 
+              : (hasSeenOnboarding ? const LoginScreen() : const OnboardingScreen()),
+        );
+      },
     );
   }
 }

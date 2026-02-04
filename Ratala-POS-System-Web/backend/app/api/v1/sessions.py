@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 
-from app.database import get_db
+from app.db.database import get_db
 from app.models.pos_session import POSSession
 from app.models.auth import User
 from app.schemas.pos_session import POSSession as POSSessionSchema, POSSessionCreate, POSSessionUpdate
-from app.dependencies import get_current_user
+from app.core.dependencies import get_current_user
 
 router = APIRouter()
 

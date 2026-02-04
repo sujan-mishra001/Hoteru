@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:dautari_adda/features/home/presentation/screens/menu_screen.dart';
-import 'package:dautari_adda/features/home/data/menu_service.dart';
-import 'package:dautari_adda/features/home/data/menu_data.dart';
-import 'package:dautari_adda/features/home/data/table_service.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/menu_screen.dart';
+import 'package:dautari_adda/features/pos/data/menu_service.dart';
+import 'package:dautari_adda/features/pos/data/menu_data.dart';
+import 'package:dautari_adda/features/pos/data/table_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSettingsTap;
@@ -365,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           "Table Service",
@@ -383,42 +383,76 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ListenableBuilder(
             listenable: _tableService,
-            builder: (context, _) {
-              final activeIds = _tableService.activeTableIds;
-              final activeCount = activeIds.length;
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded, color: Colors.black54),
-                    tooltip: 'Active Tables',
-                    onPressed: () => _showNotifications(context, _tableService, activeIds),
-                  ),
-                  if (activeCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 10,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                        child: Text(
-                          '$activeCount',
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    )
-                ],
-              );
-            },
+            builder: (context, _) => IconButton(
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.black54),
+              onPressed: () => _showNotifications(context, _tableService, _tableService.activeTableIds),
+            ),
           ),
           const SizedBox(width: 8),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(80),
+          child: ListenableBuilder(
+            listenable: _tableService,
+            builder: (context, _) {
+              final activeCount = _tableService.activeTableIds.length;
+              return Container(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "RESTAURANT STATUS",
+                          style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        ),
+                        Text(
+                          activeCount == 0 ? "All Tables Available" : "$activeCount Tables Active",
+                          style: GoogleFonts.poppins(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        if (widget.onTabChange != null && widget.navigationItems != null) {
+                          // Find index of reports in navigation items
+                          final index = widget.navigationItems!.indexWhere((item) => item['id'] == 'reports');
+                          if (index != -1) {
+                            widget.onTabChange!(index);
+                          } else {
+                            // If reports not in navigation, maybe navigate directly or show msg
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Reports tab is not active. Enable it in settings.")),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.analytics_outlined, size: 16, color: Colors.black87),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Analytics",
+                              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
       ),
       body: ListenableBuilder(
         listenable: _tableService,
@@ -432,15 +466,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // SaaS Quick Stats
-              _buildSaaSQuickStats(),
 
               // Quick Category Filter
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                 child: Text(
                   "Menu Quick Access",
-                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
               SizedBox(
@@ -467,7 +499,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         "Floor Layout",
-                        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         "${tables.length} Tables",
@@ -496,15 +528,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFF0F172A) : Colors.white,
+                              color: isSelected ? const Color(0xFFFFC107) : Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isSelected ? const Color(0xFF0F172A) : Colors.grey.shade200),
+                              border: Border.all(color: isSelected ? const Color(0xFFFFC107) : Theme.of(context).dividerColor.withOpacity(0.1)),
+                              boxShadow: isSelected ? [
+                                BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+                              ] : null,
                             ),
                             alignment: Alignment.center,
                             child: Text(
                               floor.name,
                               style: GoogleFonts.poppins(
-                                color: isSelected ? Colors.white : Colors.grey[700],
+                                color: isSelected ? Colors.black87 : Theme.of(context).textTheme.bodySmall?.color,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                 fontSize: 13,
                               ),
@@ -545,11 +580,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ));
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTableDialog,
-        backgroundColor: const Color(0xFF0F172A),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-      ),
     );
   }
 
@@ -588,7 +618,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
@@ -626,9 +656,9 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
         },
-        label: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
-        backgroundColor: Colors.white,
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        label: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+        backgroundColor: Theme.of(context).cardColor,
+        side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
@@ -666,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
       borderRadius: BorderRadius.circular(20),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: statusColor.withOpacity(0.2), width: 1.5),
           boxShadow: [
@@ -687,7 +717,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 12),
             Text(
               table.tableId,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF1E293B)),
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

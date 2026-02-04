@@ -214,6 +214,11 @@ export const settingsAPI = {
   createDiscountRule: (data: any) => api.post('/settings/discount-rules', data),
   updateDiscountRule: (id: number, data: any) => api.put(`/settings/discount-rules/${id}`, data),
   deleteDiscountRule: (id: number) => api.delete(`/settings/discount-rules/${id}`),
+  // QR Codes
+  get: (endpoint: string) => api.get(endpoint),
+  post: (endpoint: string, data: any, config?: any) => api.post(endpoint, data, config),
+  put: (endpoint: string, data: any, config?: any) => api.put(endpoint, data, config),
+  delete: (endpoint: string) => api.delete(endpoint),
 };
 
 // Branches API
@@ -246,7 +251,7 @@ export const rolesAPI = {
 // OTP API
 export const otpAPI = {
   sendOTP: (email: string, type: string = 'signup') => api.post('/otp/send-otp', { email, type }),
-  verifyOTP: (email: string, code: string) => api.post('/otp/verify-otp', { email, code }),
+  verifyOTP: (email: string, code: string, consume: boolean = true) => api.post('/otp/verify-otp', { email, code, consume }),
   completePasswordReset: (data: any) => api.post('/otp/complete-password-reset', data),
   health: () => api.get('/otp/health'),
 };

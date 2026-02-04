@@ -1,9 +1,9 @@
 """
 Customer models
 """
-from sqlalchemy import Column, Integer, String, DateTime, Float
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class Customer(Base):
@@ -19,5 +19,6 @@ class Customer(Base):
     total_spent = Column(Float, default=0.0)
     total_visits = Column(Integer, default=0)
     due_amount = Column(Float, default=0.0)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

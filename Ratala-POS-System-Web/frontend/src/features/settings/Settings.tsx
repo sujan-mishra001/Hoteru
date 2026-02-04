@@ -21,10 +21,10 @@ import {
     TableHead,
     TableRow,
     InputAdornment,
+    Chip,
     Avatar,
     CircularProgress,
-    Chip,
-    IconButton
+    IconButton,
 } from '@mui/material';
 import {
     Settings as SettingsIcon,
@@ -33,15 +33,12 @@ import {
     User,
     Wallet,
     CreditCard,
-    Printer,
     ArrowLeftRight,
-    Smartphone,
     Package,
     Square,
     Truck,
     Warehouse,
     QrCode,
-    Tag,
     GitMerge,
     Monitor,
     Search,
@@ -49,8 +46,10 @@ import {
     ChevronRight,
     Plus,
     MoreVertical,
-    MapPin
+    MapPin,
+    Printer
 } from 'lucide-react';
+import QRManagement from './QRManagement';
 import { menuAPI, settingsAPI, branchAPI } from '../../services/api';
 
 const Settings: React.FC = () => {
@@ -58,6 +57,20 @@ const Settings: React.FC = () => {
     const [mainTab, setMainTab] = useState(0); // 0: General, 1: Restaurant
     const [subTab, setSubTab] = useState('company-profile');
     const [loading, setLoading] = useState(false);
+    const [companySettings, setCompanySettings] = useState<any>({
+        company_name: '',
+        email: '',
+        phone: '',
+        address: '',
+        vat_pan_no: '',
+        registration_no: '',
+        start_date: '',
+        invoice_prefix: 'INV',
+        tax_rate: 13,
+        service_charge_rate: 10,
+        discount_rate: 0,
+        show_vat_on_invoice: true
+    });
 
     // States for Update Menu Rate
     const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -80,10 +93,29 @@ const Settings: React.FC = () => {
     const loadCompanySettings = async () => {
         try {
             setLoading(true);
-            await settingsAPI.getCompanySettings();
-            // Data is displayed via static placeholders for now as per design
+            const res = await settingsAPI.getCompanySettings();
+            if (res.data) {
+                setCompanySettings(res.data);
+            }
         } catch (error) {
             console.error('Error loading company settings:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSettingsChange = (field: string, value: any) => {
+        setCompanySettings((prev: any) => ({ ...prev, [field]: value }));
+    };
+
+    const handleSaveSettings = async () => {
+        try {
+            setLoading(true);
+            await settingsAPI.updateCompanySettings(companySettings);
+            alert('Company settings updated successfully!');
+        } catch (error) {
+            console.error('Error updating company settings:', error);
+            alert('Failed to update company settings');
         } finally {
             setLoading(false);
         }
@@ -132,9 +164,7 @@ const Settings: React.FC = () => {
                 { id: 'profile', text: 'Profile', icon: <User size={20} /> },
                 { id: 'opening-balance', text: 'Opening Balance', icon: <Wallet size={20} /> },
                 { id: 'payment-modes', text: 'Payment Modes', icon: <CreditCard size={20} /> },
-                { id: 'add-printer', text: 'Add Printer', icon: <Printer size={20} /> },
                 { id: 'import-export', text: 'Import/Export', icon: <ArrowLeftRight size={20} /> },
-                { id: 'fonepay-setup', text: 'Fonepay Setup', icon: <Smartphone size={20} /> },
                 { id: 'plans-subscription', text: 'Plans & Subscription', icon: <Package size={20} /> },
             ].map((item) => (
                 <ListItem key={item.id} disablePadding>
@@ -168,7 +198,7 @@ const Settings: React.FC = () => {
                 { id: 'manage-delivery', text: 'Manage Delivery Partner', icon: <Truck size={20} /> },
                 { id: 'storage-area', text: 'Storage Area', icon: <Warehouse size={20} /> },
                 { id: 'add-qr-payment', text: 'Add QR Payment', icon: <QrCode size={20} /> },
-                { id: 'manage-discount', text: 'Manage Discount', icon: <Tag size={20} /> },
+                { id: 'printer-setup', text: 'Printer Setup', icon: <Printer size={20} /> },
                 { id: 'add-branches', text: 'Add Branches', icon: <GitMerge size={20} /> },
                 { id: 'digital-menu', text: 'Digital Menu', icon: <Monitor size={20} /> },
             ].map((item) => (
@@ -197,57 +227,103 @@ const Settings: React.FC = () => {
 
     const renderCompanyProfile = () => (
         <Box>
-            <Typography variant="h6" fontWeight={800} sx={{ mb: 3 }}>Company Profile</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" fontWeight={800}>Company Profile</Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<Save size={18} />}
+                    onClick={handleSaveSettings}
+                    sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' }, textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
+                >
+                    Update Settings
+                </Button>
+            </Box>
 
             <Box sx={{ mb: 4 }}>
                 <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2, textTransform: 'uppercase' }}>General Settings</Typography>
                 <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-                    <Grid container spacing={4} alignItems="center">
-                        <Grid size={{ xs: 12, md: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
-                            <Avatar
-                                src="/logo.png"
-                                sx={{ width: 100, height: 100, borderRadius: '16px', bgcolor: '#f8fafc', border: '2px solid #e2e8f0' }}
+                    <Grid container spacing={3}>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <TextField
+                                fullWidth
+                                label="Company Name"
+                                value={companySettings.company_name}
+                                onChange={(e) => handleSettingsChange('company_name', e.target.value)}
+                                sx={{ mb: 2 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Email Address"
+                                value={companySettings.email}
+                                onChange={(e) => handleSettingsChange('email', e.target.value)}
+                                sx={{ mb: 2 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Address"
+                                value={companySettings.address}
+                                onChange={(e) => handleSettingsChange('address', e.target.value)}
                             />
                         </Grid>
-                        <Grid size={{ xs: 12, md: 5 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>COMPANY NAME</Typography>
-                                    <Typography variant="body1" fontWeight={700}>HOTERU</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>EMAIL ADDRESS</Typography>
-                                    <Typography variant="body1">info@hoteru.com</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>ADDRESS</Typography>
-                                    <Typography variant="body1">Kirtipur, Kathmandu</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>REGISTRATION NO.</Typography>
-                                    <Typography variant="body1">23432432</Typography>
-                                </Box>
-                            </Box>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <TextField
+                                fullWidth
+                                label="Contact No."
+                                value={companySettings.phone}
+                                onChange={(e) => handleSettingsChange('phone', e.target.value)}
+                                sx={{ mb: 2 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="VAT/PAN No."
+                                value={companySettings.vat_pan_no}
+                                onChange={(e) => handleSettingsChange('vat_pan_no', e.target.value)}
+                                sx={{ mb: 2 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Registration No."
+                                value={companySettings.registration_no}
+                                onChange={(e) => handleSettingsChange('registration_no', e.target.value)}
+                            />
                         </Grid>
-                        <Grid size={{ xs: 12, md: 5 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>TAGLINE</Typography>
-                                    <Typography variant="body1">HOTERU</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>CONTACT NO.</Typography>
-                                    <Typography variant="body1">9800000000</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>VAT/PAN NO.</Typography>
-                                    <Typography variant="body1">39284032</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>START DATE</Typography>
-                                    <Typography variant="body1">2025-08-26</Typography>
-                                </Box>
-                            </Box>
+                    </Grid>
+                </Paper>
+            </Box>
+
+            <Box sx={{ mb: 4 }}>
+                <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2, textTransform: 'uppercase' }}>Business Rates & Charges</Typography>
+                <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                    <Grid container spacing={3}>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                            <TextField
+                                fullWidth
+                                type="number"
+                                label="Tax Rate (%)"
+                                value={companySettings.tax_rate}
+                                onChange={(e) => handleSettingsChange('tax_rate', parseFloat(e.target.value))}
+                                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                            <TextField
+                                fullWidth
+                                type="number"
+                                label="Service Charge (%)"
+                                value={companySettings.service_charge_rate}
+                                onChange={(e) => handleSettingsChange('service_charge_rate', parseFloat(e.target.value))}
+                                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                            <TextField
+                                fullWidth
+                                type="number"
+                                label="Default Discount (%)"
+                                value={companySettings.discount_rate}
+                                onChange={(e) => handleSettingsChange('discount_rate', parseFloat(e.target.value))}
+                                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                            />
                         </Grid>
                     </Grid>
                 </Paper>
@@ -256,50 +332,22 @@ const Settings: React.FC = () => {
             <Box sx={{ mb: 4 }}>
                 <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2, textTransform: 'uppercase' }}>Invoice Settings</Typography>
                 <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-                    <Grid container spacing={4}>
+                    <Grid container spacing={3}>
                         <Grid size={{ xs: 12, md: 6 }}>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>BILL HEADING</Typography>
-                                <Typography variant="body1">-</Typography>
-                            </Box>
-                            <Box sx={{ mt: 2 }}>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>IS TAX</Typography>
-                                <Typography variant="body1" sx={{ color: 'text.disabled' }}>inactive</Typography>
-                            </Box>
+                            <TextField
+                                fullWidth
+                                label="Invoice Prefix"
+                                value={companySettings.invoice_prefix}
+                                onChange={(e) => handleSettingsChange('invoice_prefix', e.target.value)}
+                            />
                         </Grid>
                         <Grid size={{ xs: 12, md: 6 }}>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>BILL REMARKS</Typography>
-                                <Typography variant="body1">-</Typography>
-                            </Box>
-                        </Grid>
-                    </Grid>
-                </Paper>
-            </Box>
-
-            <Box>
-                <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2, textTransform: 'uppercase' }}>Other Settings</Typography>
-                <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-                    <Grid container spacing={4}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>DELIVERY STATUS</Typography>
-                                <Typography variant="body1">false</Typography>
-                            </Box>
-                            <Box sx={{ mt: 2 }}>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>PAY FIRST</Typography>
-                                <Typography variant="body1">false</Typography>
-                            </Box>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>NOTIFY TABLE TRANSFER</Typography>
-                                <Typography variant="body1">false</Typography>
-                            </Box>
-                            <Box sx={{ mt: 2 }}>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>IP ADDRESS</Typography>
-                                <Typography variant="body1">192.168.1.21</Typography>
-                            </Box>
+                            <TextField
+                                fullWidth
+                                label="Invoice Footer Text"
+                                value={companySettings.invoice_footer_text}
+                                onChange={(e) => handleSettingsChange('invoice_footer_text', e.target.value)}
+                            />
                         </Grid>
                     </Grid>
                 </Paper>
@@ -454,6 +502,36 @@ const Settings: React.FC = () => {
         </Box>
     );
 
+    const renderPrinterSetup = () => (
+        <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" fontWeight={800}>Printer Setup</Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<Plus size={18} />}
+                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, color: '#000', textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
+                >
+                    Add Printer
+                </Button>
+            </Box>
+
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                <Printer size={64} color="#94a3b8" />
+                <Typography variant="h6" sx={{ mt: 2 }} fontWeight={700}>No Printers Configured</Typography>
+                <Typography color="text.secondary" sx={{ mb: 3 }}>
+                    Configure your kitchen, bar, and billing printers here.
+                </Typography>
+                <Button
+                    variant="outlined"
+                    startIcon={<Plus size={18} />}
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                >
+                    Connect New Printer
+                </Button>
+            </Paper>
+        </Box>
+    );
+
     return (
         <Box sx={{ height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
             {/* Top Level Tabs */}
@@ -494,11 +572,13 @@ const Settings: React.FC = () => {
                             )
                         ) : (
                             subTab === 'update-menu-rate' ? renderUpdateMenuRate() :
-                                subTab === 'add-branches' ? renderBranchManagement() : (
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
-                                        <Typography color="text.secondary">Configuration for <strong>{subTab}</strong> coming soon.</Typography>
-                                    </Box>
-                                )
+                                subTab === 'add-qr-payment' ? <QRManagement /> :
+                                    subTab === 'printer-setup' ? renderPrinterSetup() :
+                                        subTab === 'add-branches' ? renderBranchManagement() : (
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
+                                                <Typography color="text.secondary">Configuration for <strong>{subTab}</strong> coming soon.</Typography>
+                                            </Box>
+                                        )
                         )}
                     </Box>
                 </Grid>
@@ -508,4 +588,3 @@ const Settings: React.FC = () => {
 };
 
 export default Settings;
-

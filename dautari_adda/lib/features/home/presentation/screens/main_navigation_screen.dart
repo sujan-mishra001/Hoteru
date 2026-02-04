@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/branch_selection_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/orders_screen.dart';
+import 'package:dautari_adda/features/analytics/presentation/screens/expenses_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/kot_management_screen.dart';
+import 'package:dautari_adda/features/analytics/presentation/screens/reports_screen.dart';
+import 'package:dautari_adda/features/profile/presentation/screens/profile_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/menu_screen.dart';
 import 'home_screen.dart';
-import 'orders_screen.dart';
-import 'expenses_screen.dart';
-import 'qr_management_screen.dart';
-import 'profile_screen.dart';
-import 'menu_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -39,12 +40,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (savedItems != null && savedItems.isNotEmpty) {
       _applyNavigationItems(savedItems);
     } else {
-      _applyNavigationItems(['home', 'orders', 'profile', 'menu', 'expenses']);
+      _applyNavigationItems(['home', 'orders', 'profile', 'kot', 'reports']);
     }
   }
 
   void _applyNavigationItems(List<String> ids) {
     final navMetadata = ids.map((id) => {
+      'id': id,
       'label': _getStaticItemLabel(id),
       'icon': _getStaticItemIcon(id),
     }).toList();
@@ -88,11 +90,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         icon: Icons.receipt_long_rounded,
         screen: const ExpensesScreen(),
       ),
-      'qr': NavigationItem(
-        id: 'qr',
-        label: 'QR Codes',
-        icon: Icons.qr_code_2_rounded,
-        screen: const QrManagementScreen(),
+      'kot': NavigationItem(
+        id: 'kot',
+        label: 'KOT/BOT',
+        icon: Icons.kitchen_rounded,
+        screen: const KotManagementScreen(),
+      ),
+      'reports': NavigationItem(
+        id: 'reports',
+        label: 'Reports',
+        icon: Icons.analytics_rounded,
+        screen: const ReportsScreen(),
       ),
       'profile': NavigationItem(
         id: 'profile',
@@ -111,7 +119,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       'menu',
       'orders',
       'expenses',
-      'qr',
+      'kot',
+      'reports',
       'profile',
     ];
 
@@ -194,14 +203,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             }).toList(),
           ),
         ),
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: FloatingActionButton.small(
-            onPressed: _showNavigationSettings,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            child: const Icon(Icons.tune_rounded, color: const Color(0xFF0F172A), size: 18),
-          ),
+        floatingActionButton: FloatingActionButton.small(
+          onPressed: _showNavigationSettings,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          highlightElevation: 0,
+          child: const Icon(Icons.tune_rounded, color: Colors.grey, size: 20),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
@@ -330,7 +337,8 @@ String _getStaticItemLabel(String id) {
     'menu': 'Menu',
     'orders': 'Orders',
     'expenses': 'Expenses',
-    'qr': 'QR Codes',
+    'kot': 'KOT/BOT',
+    'reports': 'Reports',
     'profile': 'Profile',
   };
   return labels[id] ?? id;
@@ -342,7 +350,8 @@ IconData _getStaticItemIcon(String id) {
     'menu': Icons.restaurant_menu_rounded,
     'orders': Icons.shopping_bag_rounded,
     'expenses': Icons.receipt_long_rounded,
-    'qr': Icons.qr_code_2_rounded,
+    'kot': Icons.kitchen_rounded,
+    'reports': Icons.analytics_rounded,
     'profile': Icons.person_rounded,
   };
   return icons[id] ?? Icons.help_outline_rounded;

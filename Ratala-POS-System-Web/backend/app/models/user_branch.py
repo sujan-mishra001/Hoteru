@@ -4,7 +4,7 @@ User-Branch assignment model for multi-branch access control
 from sqlalchemy import Column, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class UserBranchAssignment(Base):

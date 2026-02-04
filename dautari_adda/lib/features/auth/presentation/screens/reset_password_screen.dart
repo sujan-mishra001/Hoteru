@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:dautari_adda/features/auth/presentation/screens/login_screen.dart';
 import 'package:dautari_adda/features/auth/data/otp_service.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
 
@@ -46,7 +47,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       if (mounted) {
         if (result['success']) {
           ToastService.show(context, 'Password reset successfully. Please login with your new password.');
-          Navigator.of(context).popUntil((route) => route.isFirst);
+          
+          // Clear the navigation stack and go to LoginScreen
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
         } else {
           ToastService.show(context, result['message'], isError: true);
         }

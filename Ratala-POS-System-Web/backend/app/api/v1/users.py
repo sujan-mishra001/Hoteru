@@ -4,11 +4,11 @@ User management routes (Admin only)
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.dependencies import get_current_user, check_admin_role, get_password_hash
+from app.db.database import get_db
+from app.core.dependencies import get_current_user, check_admin_role, get_password_hash
 from app.models import User as DBUser, Role, UserBranchAssignment
 from app.schemas import UserResponse, UserCreateByAdmin, UserUpdate
-from app.config import settings
+from app.core.config import settings
 
 router = APIRouter()
 

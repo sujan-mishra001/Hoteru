@@ -1,9 +1,9 @@
 """
 Delivery-related models
 """
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class DeliveryPartner(Base):
@@ -15,4 +15,5 @@ class DeliveryPartner(Base):
     phone = Column(String, nullable=True)
     vehicle_number = Column(String, nullable=True)
     status = Column(String, default="Active")
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

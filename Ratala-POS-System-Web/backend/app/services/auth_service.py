@@ -4,7 +4,7 @@ Authentication and authorization service
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.models.auth import User
-from app.dependencies import get_password_hash, verify_password
+from app.core.dependencies import get_password_hash, verify_password
 
 
 class AuthService:

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dautari_adda/features/home/data/customer_service.dart';
+import 'package:dautari_adda/features/customers/data/customer_service.dart';
 
 class CommunicationsScreen extends StatefulWidget {
   const CommunicationsScreen({super.key});

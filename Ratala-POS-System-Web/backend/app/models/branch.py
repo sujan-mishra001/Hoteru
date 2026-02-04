@@ -4,7 +4,7 @@ Branch model for multi-location support
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class Branch(Base):
@@ -37,6 +37,8 @@ class Branch(Base):
     # tables = relationship("Table", back_populates="branch")
     # sessions = relationship("Session", back_populates="branch")
     # orders = relationship("Order", back_populates="branch")
+    qr_codes = relationship("QRCode", back_populates="branch", cascade="all, delete-orphan")
+    printers = relationship("Printer", back_populates="branch", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Branch(id={self.id}, code='{self.code}', name='{self.name}', org_id={self.organization_id})>"

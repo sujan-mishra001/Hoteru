@@ -4,7 +4,7 @@ Menu-related models (Categories, Menu Groups, Menu Items)
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class Category(Base):

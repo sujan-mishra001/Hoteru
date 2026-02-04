@@ -7,8 +7,8 @@ from typing import Optional, List
 import random
 from datetime import datetime
 
-from app.database import get_db
-from app.dependencies import get_current_user
+from app.db.database import get_db
+from app.core.dependencies import get_current_user
 from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession
 from app.schemas import OrderResponse
 from app.services.inventory_service import InventoryService
@@ -158,6 +158,7 @@ async def create_order(
 
 
 @router.put("/{order_id}", response_model=OrderResponse)
+@router.patch("/{order_id}", response_model=OrderResponse)
 async def update_order(
     order_id: int,
     order_data: dict = Body(...),

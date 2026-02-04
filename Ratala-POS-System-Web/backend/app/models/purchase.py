@@ -4,7 +4,7 @@ Purchase-related models (Suppliers, Purchase Bills, Purchase Returns)
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class Supplier(Base):
@@ -17,6 +17,7 @@ class Supplier(Base):
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
     address = Column(String, nullable=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -31,6 +32,7 @@ class PurchaseBill(Base):
     status = Column(String, default="Pending")  # Pending, Paid
     order_date = Column(DateTime, default=datetime.utcnow)
     paid_date = Column(DateTime, nullable=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     supplier = relationship("Supplier")
@@ -46,6 +48,7 @@ class PurchaseReturn(Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True) # Direct link to supplier
     total_amount = Column(Float, nullable=False)
     reason = Column(Text, nullable=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     purchase_bill = relationship("PurchaseBill", back_populates="returns")

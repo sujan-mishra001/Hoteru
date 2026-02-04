@@ -5,11 +5,11 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.db.database import get_db
 from app.models import User
 from app.services.otp_service import otp_service
-from app.services.email_service import EmailService
-from app.dependencies import get_password_hash
+from app.core.email import EmailService
+from app.core.dependencies import get_password_hash
 
 router = APIRouter()
 email_service = EmailService()
@@ -23,6 +23,7 @@ class SendOTPRequest(BaseModel):
 class VerifyOTPRequest(BaseModel):
     email: EmailStr
     code: str
+    consume: bool = True
 
 
 class CompletePasswordResetRequest(BaseModel):
@@ -43,10 +44,10 @@ async def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
     if request.type == 'reset':
         user = db.query(User).filter(User.email == request.email).first()
         if not user:
-            return {
-                "success": False,
-                "message": "User does not exist"
-            }
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User with this email does not exist"
+            )
     
     # Generate OTP
     otp = otp_service.generate_otp()
@@ -78,10 +79,20 @@ async def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
 @router.post("/verify-otp")
 async def verify_otp(request: VerifyOTPRequest):
     """Verify OTP code"""
-    success, message = otp_service.verify_otp(request.email, request.code)
+    success, message = otp_service.verify_otp(
+        request.email, 
+        request.code, 
+        consume=request.consume
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
     
     return {
-        "success": success,
+        "success": True,
         "message": message
     }
 
@@ -96,29 +107,40 @@ async def complete_password_reset(
     # Verify OTP
     success, message = otp_service.verify_otp(request.email, request.code)
     if not success:
-        return {
-            "success": False,
-            "message": message
-        }
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
     
     # Find user
     user = db.query(User).filter(User.email == request.email).first()
+    print(f"DEBUG: Password reset attempt for {request.email}")
     if not user:
-        return {
-            "success": False,
-            "message": "User not found"
-        }
+        print(f"DEBUG: User {request.email} not found in DB")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     
     # Update password
     try:
-        user.hashed_password = get_password_hash(request.new_password)
+        print(f"DEBUG: Setting new password for user {user.username}")
+        new_hash = get_password_hash(request.new_password)
+        user.hashed_password = new_hash
+        print(f"DEBUG: New hash generated: {new_hash[:10]}...")
+        
+        db.add(user)
         db.commit()
+        db.refresh(user)
+        
+        print(f"DEBUG: Password updated and committed successfully for {request.email}")
         
         return {
             "success": True,
             "message": "Password updated successfully"
         }
     except Exception as e:
+        print(f"DEBUG: Error updating password: {str(e)}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

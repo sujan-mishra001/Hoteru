@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { authAPI } from '../../services/api';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -15,6 +15,8 @@ const Login: React.FC = () => {
     const { login, user, isAuthenticated } = useAuth();
     const { logActivity } = useActivity();
     const navigate = useNavigate();
+    const location = useLocation();
+    const successMessage = location.state?.message;
 
     // Redirect if already logged in
     useEffect(() => {
@@ -54,6 +56,7 @@ const Login: React.FC = () => {
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: '#1e293b' }}>Welcome Back</Typography>
 
             {error && <Alert severity="error">{error}</Alert>}
+            {successMessage && <Alert severity="success">{successMessage}</Alert>}
 
             <TextField
                 label="Username or Email"
@@ -82,6 +85,12 @@ const Login: React.FC = () => {
                     ),
                 }}
             />
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Link to="/forgot-password" style={{ color: '#FFC107', fontWeight: 600, textDecoration: 'none', fontSize: '0.875rem' }}>
+                    Forgot password?
+                </Link>
+            </Box>
 
             <Button
                 type="submit"

@@ -32,13 +32,14 @@ class OTPService:
             'expires': expiry_time
         }
     
-    def verify_otp(self, email: str, code: str) -> tuple[bool, str]:
+    def verify_otp(self, email: str, code: str, consume: bool = True) -> tuple[bool, str]:
         """
         Verify OTP code
         
         Args:
             email: User email address
             code: OTP code to verify
+            consume: Whether to remove OTP after verification (default: True)
             
         Returns:
             tuple: (success: bool, message: str)
@@ -55,7 +56,8 @@ class OTPService:
         
         # Verify code
         if record['code'] == code:
-            del self.otp_store[email]  # Consume OTP
+            if consume:
+                del self.otp_store[email]  # Consume OTP
             return True, 'OTP verified successfully'
         else:
             return False, 'Invalid OTP'

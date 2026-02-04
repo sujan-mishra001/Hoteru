@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:dautari_adda/core/services/api_service.dart';
+import 'package:dautari_adda/core/api/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   final ApiService _apiService = ApiService();
@@ -105,11 +106,32 @@ class AuthService {
   // Switch branch
   Future<bool> switchBranch(int branchId) async {
     try {
+      print('AUTH_DEBUG: Switching to branch: $branchId');
       final response = await _apiService.post('/auth/select-branch', {
         'branch_id': branchId,
       });
-      return response.statusCode == 200;
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Save the new token received from branch selection
+        if (data['access_token'] != null) {
+          await _apiService.saveToken(data['access_token']);
+        }
+        
+        // Save selected branch ID for other services to use
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('selectedBranchId', branchId);
+        
+        print('AUTH_DEBUG: Branch switch successful, token and branchId saved');
+        return true;
+      } else {
+        final data = jsonDecode(response.body);
+        print('AUTH_DEBUG: Branch switch failed: ${data['detail']}');
+        return false;
+      }
     } catch (e) {
+      print('AUTH_DEBUG: Branch switch error: $e');
       return false;
     }
   }

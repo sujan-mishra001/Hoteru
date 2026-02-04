@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
-import 'package:dautari_adda/features/home/data/branch_service.dart';
+import 'package:dautari_adda/features/admin/data/branch_service.dart';
 import 'package:dautari_adda/features/home/presentation/screens/main_navigation_screen.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/login_screen.dart';
+import 'package:dautari_adda/features/pos/data/table_service.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -165,6 +166,10 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
     try {
       final success = await _authService.switchBranch(branchId);
       if (success && mounted) {
+        // Essential: Update the TableService singleton with the new branch ID
+        // so it uses the correct filtering for subsequent API calls.
+        await TableService().setBranchId(branchId);
+        
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
         );
@@ -179,11 +184,11 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'Select Branch',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.black87),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
@@ -232,7 +237,6 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
                         style: GoogleFonts.poppins(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -291,7 +295,9 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFFFF8E1) : Colors.white,
+        color: isSelected 
+            ? const Color(0xFFFFC107).withOpacity(0.1) 
+            : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isSelected ? const Color(0xFFFFC107) : Colors.grey.shade200,
@@ -351,7 +357,7 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: Theme.of(context).dividerColor.withOpacity(0.05),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.storefront_outlined, size: 80, color: Colors.grey.shade300),
@@ -359,7 +365,7 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
             const SizedBox(height: 24),
             Text(
               _isAdmin ? 'No Branches Created' : 'No Branches Assigned',
-              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Text(

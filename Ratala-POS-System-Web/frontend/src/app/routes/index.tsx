@@ -15,6 +15,9 @@ import PermissionGuard from '../guards/PermissionGuard';
 // Pages
 import Login from '../../features/auth/Login';
 import Signup from '../../features/auth/Signup';
+import ForgotPassword from '../../features/auth/ForgotPassword';
+import OTPVerification from '../../features/auth/OTPVerification';
+import ResetPassword from '../../features/auth/ResetPassword';
 import BranchSelection from '../../features/branches/BranchSelection';
 import BranchCreate from '../../features/branches/BranchCreate';
 import Dashboard from '../../features/dashboard/Dashboard';
@@ -56,6 +59,9 @@ const AppRoutes: React.FC = () => {
             <Route element={<AuthLayout />}>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/verify-otp" element={<OTPVerification />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
             </Route>
 
             {/* Private Routes */}

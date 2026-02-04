@@ -3,7 +3,7 @@ Role model for dynamic role and permission management
 """
 from sqlalchemy import Column, Integer, String, Text, JSON, DateTime
 from datetime import datetime
-from app.database import Base
+from app.db.database import Base
 
 
 class Role(Base):

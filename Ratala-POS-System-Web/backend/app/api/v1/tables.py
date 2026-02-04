@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 
-from app.database import get_db
-from app.dependencies import get_current_user, check_admin_role
+from app.db.database import get_db
+from app.core.dependencies import get_current_user, check_admin_role
 from app.models import Table, Floor, Order, KOT
 
 router = APIRouter()

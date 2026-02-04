@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import func
-from app.database import get_db
-from app.dependencies import get_current_user
+from app.db.database import get_db
+from app.core.dependencies import get_current_user
 from app.models import Order, Product, Customer, User, Branch, Table, Floor, MenuItem, OrderItem
 from app.utils.pdf_generator import generate_pdf_report, generate_invoice_pdf
 from app.utils.excel_generator import generate_excel_report

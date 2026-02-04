@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
-import '../screens/expenses_screen.dart';
-import '../screens/profile_screen.dart'; 
+import 'package:dautari_adda/features/pos/presentation/screens/orders_screen.dart';
+import 'package:dautari_adda/features/analytics/presentation/screens/expenses_screen.dart';
+import 'package:dautari_adda/features/admin/presentation/screens/qr_management_screen.dart';
+import 'package:dautari_adda/features/profile/presentation/screens/profile_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/menu_screen.dart';
+import 'package:dautari_adda/features/analytics/presentation/screens/reports_screen.dart';
+import 'package:dautari_adda/features/admin/presentation/screens/users_management_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/session_control_screen.dart';
+import 'package:dautari_adda/features/admin/presentation/screens/branch_management_screen.dart';
+import 'package:dautari_adda/features/inventory/presentation/screens/purchase_management_screen.dart';
+import 'package:dautari_adda/features/inventory/presentation/screens/delivery_partners_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/floors_tables_management_screen.dart';
+import 'package:dautari_adda/features/profile/presentation/screens/settings_screen.dart';
+import 'package:dautari_adda/features/analytics/presentation/screens/dashboard_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/cashier_screen.dart';
+import 'package:dautari_adda/features/analytics/presentation/screens/day_book_screen.dart';
+import 'package:dautari_adda/features/analytics/presentation/screens/food_cost_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/kot_management_screen.dart';
 import '../screens/home_screen.dart';
-import '../screens/qr_management_screen.dart';
-import '../screens/orders_screen.dart';
-import '../screens/reports_screen.dart';
-import '../screens/users_management_screen.dart';
-import '../screens/session_control_screen.dart';
-import '../screens/branch_management_screen.dart';
-import '../screens/menu_screen.dart';
-import '../screens/purchase_management_screen.dart';
-import '../screens/delivery_partners_screen.dart';
-import '../screens/floors_tables_management_screen.dart';
-import '../screens/settings_screen.dart';
-import '../screens/dashboard_screen.dart';
-import '../screens/cashier_screen.dart';
-import '../screens/day_book_screen.dart';
 import '../screens/communications_screen.dart';
-import '../screens/food_cost_screen.dart';
 
 class CommonDrawer extends StatelessWidget {
   const CommonDrawer({super.key});
@@ -98,19 +99,19 @@ class CommonDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.receipt_long),
-            title: const Text("My Expenses / Bills"),
+            leading: const Icon(Icons.kitchen),
+            title: const Text("KOT / BOT"),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpensesScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const KotManagementScreen()));
             },
           ),
           ListTile(
-            leading: const Icon(Icons.qr_code),
-            title: const Text("QR Codes Management"),
+            leading: const Icon(Icons.analytics),
+            title: const Text("Reports & Analytics"),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const QrManagementScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen()));
             },
           ),
           ListTile(
@@ -136,11 +137,11 @@ class CommonDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.analytics),
-            title: const Text("Reports & Analytics"),
+            leading: const Icon(Icons.receipt_long),
+            title: const Text("My Expenses / Bills"),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpensesScreen()));
             },
           ),
           ListTile(

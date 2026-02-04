@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session, joinedload
 import random
 from datetime import datetime
 
-from app.database import get_db
-from app.dependencies import get_current_user
+from app.db.database import get_db
+from app.core.dependencies import get_current_user
 from app.models import Supplier, PurchaseBill, PurchaseReturn
 
 router = APIRouter()
@@ -72,6 +72,7 @@ async def create_supplier(
 
 
 @router.put("/suppliers/{supplier_id}")
+@router.patch("/suppliers/{supplier_id}")
 async def update_supplier(
     supplier_id: int,
     supplier_data: dict = Body(...),
@@ -188,6 +189,7 @@ async def create_bill(
 
 
 @router.put("/bills/{bill_id}")
+@router.patch("/bills/{bill_id}")
 async def update_bill(
     bill_id: int,
     bill_data: dict = Body(...),
