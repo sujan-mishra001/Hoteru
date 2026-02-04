@@ -199,7 +199,13 @@ class _BranchSelectionScreenState extends State<BranchSelectionScreen> {
             icon: const Icon(Icons.logout_rounded, color: Colors.black87),
             onPressed: () async {
               await _authService.logout();
-              if (mounted) Navigator.of(context).pop();
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('isLoggedIn', false);
+              if (mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              }
             },
           )
         ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dautari_adda/features/auth/presentation/screens/branch_selection_screen.dart';
 import 'home_screen.dart';
 import 'orders_screen.dart';
 import 'expenses_screen.dart';
@@ -148,53 +149,62 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _navigationItems.map((item) => item.screen).toList(),
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
+    return WillPopScope(
+      onWillPop: () async {
+        // Navigate to branch selection screen instead of closing the app
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const BranchSelectionScreen()),
+        );
+        return false; // Prevent default back behavior
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _navigationItems.map((item) => item.screen).toList(),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: const Color(0xFFFFC107),
-          unselectedItemColor: Colors.grey[400],
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          elevation: 0,
-          items: _navigationItems.map((item) {
-            return BottomNavigationBarItem(
-              icon: Icon(item.icon),
-              label: item.label,
-            );
-          }).toList(),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: const Color(0xFFFFC107),
+            unselectedItemColor: Colors.grey[400],
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
+            elevation: 0,
+            items: _navigationItems.map((item) {
+              return BottomNavigationBarItem(
+                icon: Icon(item.icon),
+                label: item.label,
+              );
+            }).toList(),
+          ),
         ),
-      ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: FloatingActionButton.small(
-          onPressed: _showNavigationSettings,
-          backgroundColor: Colors.white,
-          elevation: 2,
-          child: const Icon(Icons.tune_rounded, color: const Color(0xFF0F172A), size: 18),
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: FloatingActionButton.small(
+            onPressed: _showNavigationSettings,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            child: const Icon(Icons.tune_rounded, color: const Color(0xFF0F172A), size: 18),
+          ),
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
