@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:dautari_adda/features/pos/data/menu_service.dart';
+import 'package:dautari_adda/features/pos/data/order_service.dart';
 import 'package:dautari_adda/features/inventory/data/inventory_service.dart';
 import 'package:intl/intl.dart';
 
@@ -11,7 +11,7 @@ class FoodCostScreen extends StatefulWidget {
 }
 
 class _FoodCostScreenState extends State<FoodCostScreen> {
-  final MenuService _menuService = MenuService();
+  final OrderService _orderService = OrderService();
   final InventoryService _inventoryService = InventoryService();
   
   List<Map<String, dynamic>> _menuItems = [];
@@ -38,7 +38,7 @@ class _FoodCostScreenState extends State<FoodCostScreen> {
   Future<void> _loadFoodCost() async {
     setState(() => _isLoading = true);
     try {
-      final items = await _menuService.getAllMenuItems();
+      final items = await _orderService.getAllMenuItems();
       
       // Calculate cost for each item based on ingredients
       final List<Map<String, dynamic>> itemsWithCost = [];

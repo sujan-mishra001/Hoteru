@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/order_overview_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/bill_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/menu_screen.dart';
-import 'package:dautari_adda/features/pos/data/menu_service.dart';
-import 'package:dautari_adda/features/pos/data/menu_data.dart';
 import 'package:dautari_adda/features/pos/data/table_service.dart';
+import 'package:dautari_adda/features/pos/data/pos_models.dart';
+import 'package:dautari_adda/core/services/sync_service.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onSettingsTap;
@@ -22,8 +25,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final MenuService _menuService = MenuService();
   final TableService _tableService = TableService();
+  final SyncService _syncService = SyncService();
   List<MenuCategory> _categories = [];
   bool _isLoadingMenu = true;
   int? _selectedFloorId;
@@ -48,14 +51,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadMenu() async {
-    _menuService.getMenuStream().listen((data) {
-      if (mounted) {
-        setState(() {
-          _categories = data;
-          _isLoadingMenu = false;
-        });
-      }
-    });
+    if (!_syncService.isCacheValid) {
+      await _syncService.syncPOSData();
+    }
+    if (mounted) {
+      setState(() {
+        _categories = _syncService.categories;
+        _isLoadingMenu = false;
+      });
+    }
+    
+    // Listen for updates
+    _syncService.addListener(_onSyncUpdate);
+  }
+
+  void _onSyncUpdate() {
+    if (mounted) {
+      setState(() {
+        _categories = _syncService.categories;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _syncService.removeListener(_onSyncUpdate);
+    super.dispose();
   }
 
   void _showAddFloorDialog() {
@@ -347,7 +368,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => MenuScreen(tableNumber: tableId),
+                                  builder: (context) => BillScreen(tableNumber: tableId),
                                 ),
                               );
                             },
@@ -455,10 +476,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       body: ListenableBuilder(
-        listenable: _tableService,
+        listenable: _syncService,
         builder: (context, child) {
           final floors = _tableService.floors;
           final tables = _tableService.tables;
+          final activeSession = _syncService.activeSession;
 
           return RefreshIndicator(
             onRefresh: () => _tableService.fetchTables(),
@@ -466,29 +488,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Session Status Card
+              _buildSessionCard(activeSession),
 
-              // Quick Category Filter
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                child: Text(
-                  "Menu Quick Access",
-                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-              SizedBox(
-                height: 48,
-                child: _isLoadingMenu 
-                  ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC107))))
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final cat = _categories[index];
-                        return _buildSaaSCategoryChip(cat.name, context);
-                      },
-                    ),
-              ),
 
               // Floor Selection
               if (floors.isNotEmpty) ...[
@@ -647,9 +649,8 @@ class _HomeScreenState extends State<HomeScreen> {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => MenuScreen(
+              builder: (context) => BillScreen(
                 tableNumber: 1, 
-                initialSearch: label,
                 navigationItems: widget.navigationItems,
               ),
             ),
@@ -683,16 +684,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return InkWell(
       onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MenuScreen(
-              tableNumber: table.id,
-              navigationItems: widget.navigationItems,
-            ),
-          ),
-        );
-        if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+        final hasActiveOrder = _tableService.isTableBooked(table.id);
+        
+        if (!hasActiveOrder) {
+          // 1. Table status changes Vacant -> Occupied/Booked
+          await _tableService.updateTableStatus(table.id, 'Occupied');
+          
+          // 2. Create new order -> Proceed to Place Order Page
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MenuScreen(
+                  tableNumber: table.id,
+                  navigationItems: widget.navigationItems,
+                ),
+              ),
+            );
+          }
+        } else {
+          // 3. Active order exists -> Resume existing order -> Go to Order Overview
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderOverviewScreen(
+                  tableId: table.id,
+                  tableName: table.tableId,
+                  navigationItems: widget.navigationItems,
+                ),
+              ),
+            );
+          }
+        }
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
@@ -706,45 +730,51 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Stack(
           children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.table_bar_rounded, size: 24, color: statusColor),
                   ),
-                  child: Icon(Icons.table_bar_rounded, size: 24, color: statusColor),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  table.tableId,
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor),
-                  ),
-                ),
-                // Display KOT/BOT count if exists
-                if (hasKOT) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 12),
                   Text(
-                    "KOT: ${table.kotCount}",
-                    style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                    table.tableId,
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      statusText,
+                      style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  // Display KOT/BOT count if exists
+                  if (hasKOT) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      "KOT: ${table.kotCount}",
+                      style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
             // Amount badge in top-right corner if booked
             if (isBooked && table.totalAmount > 0)
@@ -765,6 +795,134 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSessionCard(Map<String, dynamic>? session) {
+    if (session == null) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.red.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("No Active Session", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.red[700])),
+                  Text("Please start a session to manage orders", style: GoogleFonts.poppins(fontSize: 12, color: Colors.red[900])),
+                ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: _showStartSessionDialog,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, elevation: 0),
+              child: const Text("Start"),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, color: Colors.green),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Session Active", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.green[700])),
+                Text("Opened: ${session['start_time']}", style: GoogleFonts.poppins(fontSize: 10, color: Colors.green[800])),
+              ],
+            ),
+          ),
+          Text("Rs ${session['opening_cash']}", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: () => _showEndSessionDialog(),
+            icon: const Icon(Icons.power_settings_new, color: Colors.red),
+            tooltip: "Close Session",
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStartSessionDialog() {
+    final controller = TextEditingController(text: "0");
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Start POS Session"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Enter opening cash in drawer:"),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: const InputDecoration(prefixText: "Rs ", border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final cash = double.tryParse(controller.text) ?? 0.0;
+              final success = await _syncService.startSession(cash);
+              if (success && mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Session started successfully")));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107)),
+            child: const Text("Start Session"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEndSessionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Close POS Session?"),
+        content: const Text("This will finalize all sales for this shift. Are you sure?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await _syncService.endSession();
+              if (success && mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Session closed successfully")));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("Close Session"),
+          ),
+        ],
       ),
     );
   }
@@ -853,9 +1011,8 @@ class _HomeScreenState extends State<HomeScreen> {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => MenuScreen(
+              builder: (context) => BillScreen(
                 tableNumber: 1, 
-                initialSearch: label,
                 navigationItems: widget.navigationItems,
               ),
             ),

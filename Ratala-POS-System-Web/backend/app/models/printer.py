@@ -21,11 +21,7 @@ class PrinterConnection(str, enum.Enum):
     USB = "usb"
     BLUETOOTH = "bluetooth"
 
-class PrinterUsage(str, enum.Enum):
-    KITCHEN = "kitchen"
-    BAR = "bar"
-    BILLING = "billing"
-    RECEPTION = "reception"
+
 
 class Printer(Base):
     __tablename__ = "printers"
@@ -35,7 +31,6 @@ class Printer(Base):
     ip_address = Column(String, nullable=True) # For network printers
     port = Column(Integer, default=9100)
     connection_type = Column(Enum(PrinterConnection), default=PrinterConnection.NETWORK)
-    printer_usage = Column(Enum(PrinterUsage), default=PrinterUsage.BILLING)
     is_active = Column(Boolean, default=True)
     paper_size = Column(Integer, default=80) # 80mm or 58mm
     brand = Column(Enum(PrinterBrand), default=PrinterBrand.GENERIC)

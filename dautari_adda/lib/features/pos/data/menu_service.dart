@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
-import 'menu_data.dart';
+import 'pos_models.dart';
 
 class MenuService {
   final ApiService _apiService = ApiService();
@@ -58,7 +58,7 @@ class MenuService {
               items: groupItems.map((i) => MenuItem(
                 id: i['id'],
                 name: i['name'],
-                price: (i['price'] as num).toDouble(),
+                price: (i['price'] as num?)?.toDouble() ?? 0.0,
                 description: i['description'],
                 image: i['image_url'],
                 available: i['is_available'] ?? true,
@@ -78,7 +78,7 @@ class MenuService {
             items: topLevelItems.map((i) => MenuItem(
               id: i['id'],
               name: i['name'],
-              price: (i['price'] as num).toDouble(),
+              price: (i['price'] as num?)?.toDouble() ?? 0.0,
               description: i['description'],
               image: i['image_url'],
               available: i['is_available'] ?? true,

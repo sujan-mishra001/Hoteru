@@ -1,6 +1,6 @@
 import socket
 from typing import List, Optional, Dict, Any
-from app.models.printer import Printer, PrinterUsage, PrinterBrand, PrinterConnection
+from app.models.printer import Printer, PrinterBrand, PrinterConnection
 import logging
 
 logger = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ class PrintingService:
         
         data += gen.align('left')
         data += gen.text(f"Ticket: {kot.kot_number}")
-        data += gen.text(f"Table: {kot.order.table.name if (kot.order and kot.order.table) else 'N/A'}")
+        data += gen.text(f"Table: {kot.order.table.table_id if (kot.order and kot.order.table) else 'N/A'}")
         data += gen.text(f"Waiter: {kot.user.full_name if kot.user else 'N/A'}")
         data += gen.text(f"Date: {kot.created_at.strftime('%Y-%m-%d %H:%M')}")
         data += gen.text("-" * (printer.paper_size // 2))
@@ -175,7 +175,7 @@ class PrintingService:
         data += gen.text(f"Bill No: {order.order_number}")
         data += gen.text(f"Date: {order.created_at.strftime('%Y-%m-%d %H:%M')}")
         if order.table:
-            data += gen.text(f"Table: {order.table.name}")
+            data += gen.text(f"Table: {order.table.table_id}")
         if order.customer:
             data += gen.text(f"Customer: {order.customer.name}")
             

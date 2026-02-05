@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from typing import Optional, List
 from datetime import datetime
 
@@ -67,6 +67,19 @@ class MenuItemResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+    # Add computed properties for Dart compatibility
+    @computed_field
+    @property
+    def image_url(self) -> Optional[str]:
+        """Alias for image field to match Dart model"""
+        return self.image
+    
+    @computed_field
+    @property
+    def is_available(self) -> bool:
+        """Alias for is_active field to match Dart model"""
+        return self.is_active
 
 class UnitCreate(BaseModel):
     name: str

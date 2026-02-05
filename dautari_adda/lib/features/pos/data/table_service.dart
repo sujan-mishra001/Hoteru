@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dautari_adda/core/services/sync_service.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
-import 'menu_data.dart';
+import 'package:dautari_adda/features/pos/data/pos_models.dart';
+
+export 'pos_models.dart'; // Export models for convenience of UI consumers
 
 class BillRecord {
   final int? id;
@@ -90,82 +93,6 @@ class CartItem {
       'quantity': quantity,
       'price': menuItem.price,
     };
-  }
-}
-
-class FloorInfo {
-  final int id;
-  final String name;
-  final int displayOrder;
-  final bool isActive; // From backend model
-
-  FloorInfo({
-    required this.id,
-    required this.name,
-    required this.displayOrder,
-    this.isActive = true,
-  });
-
-  factory FloorInfo.fromJson(Map<String, dynamic> json) {
-    return FloorInfo(
-      id: json['id'],
-      name: json['name'],
-      displayOrder: json['display_order'] ?? 0,
-      isActive: json['is_active'] ?? true,
-    );
-  }
-}
-
-class TableInfo {
-  final int id;
-  final String tableId;
-  final String floor;
-  final int floorId;
-  final String status;
-  final int capacity;
-  final int kotCount;
-  final double totalAmount;
-  final String tableType; // From backend model: Regular, VIP, Outdoor
-  final bool isActive; // From backend model
-  final int displayOrder; // From backend model
-  final String isHoldTable; // From backend model: Yes, No
-  final String? holdTableName; // From backend model
-  final int? branchId; // From backend model for branch isolation
-
-  TableInfo({
-    required this.id,
-    required this.tableId,
-    required this.floor,
-    required this.floorId,
-    required this.status,
-    this.capacity = 4,
-    this.kotCount = 0,
-    this.totalAmount = 0,
-    this.tableType = 'Regular',
-    this.isActive = true,
-    this.displayOrder = 0,
-    this.isHoldTable = 'No',
-    this.holdTableName,
-    this.branchId,
-  });
-
-  factory TableInfo.fromJson(Map<String, dynamic> json) {
-    return TableInfo(
-      id: json['id'],
-      tableId: json['table_id'],
-      floor: json['floor'] ?? '',
-      floorId: json['floor_id'] ?? 0,
-      status: json['status'] ?? 'Available',
-      capacity: json['capacity'] ?? 4,
-      kotCount: json['kot_count'] ?? 0,
-      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
-      tableType: json['table_type'] ?? 'Regular',
-      isActive: json['is_active'] ?? true,
-      displayOrder: json['display_order'] ?? 0,
-      isHoldTable: json['is_hold_table'] ?? 'No',
-      holdTableName: json['hold_table_name'],
-      branchId: json['branch_id']?.toInt(),
-    );
   }
 }
 
@@ -269,7 +196,7 @@ class TableService extends ChangeNotifier {
       final response = await _apiService.get(url);
       
       // Also fetch active orders to sync table booking
-      String ordersUrl = '/orders?status=Pending';
+      String ordersUrl = '/orders?status=Pending,Draft,In Progress,BillRequested';
       if (_currentBranchId != null) ordersUrl += '&branch_id=$_currentBranchId';
       final ordersResponse = await _apiService.get(ordersUrl);
       
@@ -344,11 +271,26 @@ class TableService extends ChangeNotifier {
   }
 
   Future<void> _loadState() async {
-    await fetchFloors();
-    if (_floors.isNotEmpty) {
-      await fetchTables(floorId: _floors.first.id);
+    final syncService = SyncService();
+    await syncService.syncPOSData();
+    
+    if (syncService.floors.isNotEmpty) {
+      _floors = syncService.floors;
     } else {
-      await fetchTables();
+      await fetchFloors();
+    }
+    
+    if (syncService.tables.isNotEmpty) {
+      _tables = syncService.tables;
+      for (var table in _tables) {
+        _tableStatus[table.id] = table.status != 'Available';
+      }
+    } else {
+      if (_floors.isNotEmpty) {
+        await fetchTables(floorId: _floors.first.id);
+      } else {
+        await fetchTables();
+      }
     }
     
     try {
@@ -360,7 +302,7 @@ class TableService extends ChangeNotifier {
         final List billsJson = jsonDecode(billsResponse.body);
         _pastBills = billsJson.map((json) => BillRecord(
           tableNumber: json['table_id'] ?? 0,
-          amount: (json['total_amount'] as num).toDouble(),
+          amount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
           paymentMethod: json['payment_type'] ?? 'Cash',
           date: DateTime.parse(json['created_at']),
           items: [], 
@@ -385,21 +327,100 @@ class TableService extends ChangeNotifier {
     }
   }
 
-  Future<bool> confirmOrder(int tableId, List<CartItem> items) async {
+  // Discount Storage per table (percentage)
+  final Map<int, double> _tableDiscounts = {};
+
+  void setDiscount(int tableId, double discountPercent) {
+    if (discountPercent < 0 || discountPercent > 100) return;
+    _tableDiscounts[tableId] = discountPercent;
+    notifyListeners();
+  }
+
+  double getDiscountPercent(int tableId) => _tableDiscounts[tableId] ?? discountRate;
+
+  double getTableTotal(int tableId) {
+    final cart = getCart(tableId);
+    return cart.fold(0, (sum, item) => sum + item.totalPrice);
+  }
+
+  // Pure calculation helpers
+  // Web App Logic:
+  // SC = Round(Subtotal * SC_Rate)
+  // VAT = Round((Subtotal + SC) * Tax_Rate)
+  // Total = Subtotal - Discount + SC + VAT
+  
+  double calculateDiscountAmount(double subtotal, double discountPercent) {
+    return (subtotal * (discountPercent / 100)).roundToDouble();
+  }
+
+  double calculateServiceCharge(double subtotal) {
+    // Web App calculates SC on Gross Subtotal
+    return (subtotal * (serviceChargeRate / 100)).roundToDouble();
+  }
+
+  double calculateTax(double subtotal, double serviceCharge) {
+    // Web App calculates VAT on (Gross Subtotal + SC)
+    return ((subtotal + serviceCharge) * (taxRate / 100)).roundToDouble();
+  }
+
+  // Stateful getters (legacy support, mostly for local cart only)
+  double getDiscountAmount(int tableId) {
+    final subtotal = getTableTotal(tableId);
+    final discountPercent = getDiscountPercent(tableId);
+    return calculateDiscountAmount(subtotal, discountPercent);
+  }
+  
+  double getTaxableAmount(int tableId) {
+    // Note: In Web App logic, 'Taxable Amount' for SC/VAT purpose is actually just Subtotal.
+    // But if we need 'Amount after discount' for display:
+    return getTableTotal(tableId) - getDiscountAmount(tableId);
+  }
+
+  double getServiceCharge(int tableId) {
+    final subtotal = getTableTotal(tableId);  
+    return calculateServiceCharge(subtotal);
+  }
+
+  double getTaxAmount(int tableId) {
+    final subtotal = getTableTotal(tableId);
+    final sc = getServiceCharge(tableId);
+    return calculateTax(subtotal, sc);
+  }
+
+  double getNetTotal(int tableId) {
+    final subtotal = getTableTotal(tableId);
+    final discount = getDiscountAmount(tableId);
+    final sc = getServiceCharge(tableId);
+    final tax = getTaxAmount(tableId);
+    return (subtotal - discount + sc + tax).roundToDouble();
+  }
+
+  Future<bool> confirmOrder(int tableId, List<CartItem> items, {String orderType = 'Table'}) async {
     try {
       final subtotal = items.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
-      final sc = subtotal * (serviceChargeRate / 100);
-      final tax = (subtotal + sc) * (taxRate / 100);
-      final total = subtotal + sc + tax;
+      
+      final discountPercent = getDiscountPercent(tableId);
+      final discountAmount = calculateDiscountAmount(subtotal, discountPercent);
+      final sc = calculateServiceCharge(subtotal);
+      final tax = calculateTax(subtotal, sc);
+      final total = subtotal - discountAmount + sc + tax;
+      
+      // Get branch ID if missing
+      if (_currentBranchId == null) {
+        final prefs = await SharedPreferences.getInstance();
+        _currentBranchId = prefs.getInt('selected_branch_id');
+      }
 
       final requestBody = {
         'table_id': tableId,
-        'order_type': 'Table',
+        'order_type': orderType,
         'status': 'Pending',
         'branch_id': _currentBranchId,
         'gross_amount': subtotal,
         'net_amount': total,
-        'discount': 0.0,
+        'tax': tax,
+        'service_charge': sc,
+        'discount': discountAmount, 
         'items': items.map((i) => {
           'menu_item_id': i.menuItem.id,
           'quantity': i.quantity,
@@ -412,7 +433,7 @@ class TableService extends ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 201) {
         _tableCarts[tableId] = [];
         // Explicitly refresh tables to sync from backend
-        await fetchTables();
+        await _loadState();
         return true;
       }
       return false;
@@ -425,7 +446,7 @@ class TableService extends ChangeNotifier {
   Future<Map<String, dynamic>?> getActiveOrderForTable(int tableId) async {
     try {
       // Fetch all orders and find active one for this table
-      String ordersUrl = '/orders?status=Pending';
+      String ordersUrl = '/orders?status=Pending,Draft,In Progress,BillRequested';
       if (_currentBranchId != null) ordersUrl += '&branch_id=$_currentBranchId';
       final response = await _apiService.get(ordersUrl);
       
@@ -454,6 +475,14 @@ class TableService extends ChangeNotifier {
 
   Future<bool> addBill(int tableId, List<CartItem> items, String paymentMethod) async {
     try {
+      // Re-calculate consistently
+      final subtotal = items.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
+      final discountPercent = getDiscountPercent(tableId);
+      final discountAmount = calculateDiscountAmount(subtotal, discountPercent);
+      final sc = calculateServiceCharge(subtotal);
+      final tax = calculateTax(subtotal, sc);
+      final total = subtotal - discountAmount + sc + tax;
+
       // Find active order for this table if any
       final backendOrder = _activeOrders.firstWhere((o) => o['table_id'] == tableId, orElse: () => null);
       
@@ -463,14 +492,16 @@ class TableService extends ChangeNotifier {
         response = await _apiService.patch('/orders/${backendOrder['id']}', {
           'status': 'Paid',
           'payment_type': paymentMethod,
+          // Update financials just in case they changed
+          'gross_amount': subtotal,
+          'discount': discountAmount,
+          'service_charge': sc,
+          'tax': tax,
+          'net_amount': total,
+          'paid_amount': total,
         });
       } else {
         // Create new Paid order (walk-in or quick pay)
-        final subtotal = items.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
-        final sc = subtotal * (serviceChargeRate / 100);
-        final tax = (subtotal + sc) * (taxRate / 100);
-        final total = subtotal + sc + tax;
-
         response = await _apiService.post('/orders', {
           'table_id': tableId,
           'order_type': 'Table',
@@ -480,7 +511,9 @@ class TableService extends ChangeNotifier {
           'gross_amount': subtotal,
           'net_amount': total,
           'paid_amount': total,
-          'discount': 0.0,
+          'discount': discountAmount,
+          'service_charge': sc,
+          'tax': tax,
           'items': items.map((i) => {
             'menu_item_id': i.menuItem.id,
             'quantity': i.quantity,
@@ -492,6 +525,7 @@ class TableService extends ChangeNotifier {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         _tableCarts[tableId] = [];
+        _tableDiscounts.remove(tableId); // Clear discount
         // Explicitly refresh state to clear bookings
         await _loadState();
         return true;
@@ -525,29 +559,13 @@ class TableService extends ChangeNotifier {
     notifyListeners();
   }
 
-  double getTableTotal(int tableId) {
-    final cart = getCart(tableId);
-    return cart.fold(0, (sum, item) => sum + item.totalPrice);
-  }
 
-  double getServiceCharge(int tableId) {
-    // SC applied after discount (though discount is currently 0 in logic)
-    final discountedSubtotal = getTableTotal(tableId);
-    return (discountedSubtotal * (serviceChargeRate / 100)).roundToDouble();
-  }
-
-  double getTaxAmount(int tableId) {
-    final subtotal = getTableTotal(tableId);
-    final sc = getServiceCharge(tableId);
-    // VAT applied on (Subtotal + SC)
-    return ((subtotal + sc) * (taxRate / 100)).roundToDouble();
-  }
-
-  double getNetTotal(int tableId) {
-    final subtotal = getTableTotal(tableId);
-    final sc = getServiceCharge(tableId);
-    final tax = getTaxAmount(tableId);
-    // Web app uses Math.round(total * (1 + sc/100) * (1 + tax/100))
-    return (subtotal + sc + tax).roundToDouble();
+  Future<bool> printKOT(int kotId) async {
+    try {
+      final response = await _apiService.post('/kots/$kotId/print', {});
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
   }
 }

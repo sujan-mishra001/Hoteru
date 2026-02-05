@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/bill_screen.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
 import 'package:dautari_adda/features/pos/data/floor_table_service.dart';
 
@@ -110,7 +111,15 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
                             else if (status == 'Reserved') statusColor = Colors.orange;
                             
                             return GestureDetector(
-                              onTap: () => _showTableOptions(table),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => BillScreen(tableNumber: table['id']),
+                                  ),
+                                );
+                              },
+                              onLongPress: () => _showTableOptions(table),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: statusColor.withOpacity(0.2),
@@ -119,6 +128,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
                                 ),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Icon(
                                       Icons.table_restaurant,
@@ -129,10 +139,12 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
                                     Text(
                                       table['table_id']?.toString() ?? 'T${table['id']}',
                                       style: const TextStyle(fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.center,
                                     ),
                                     Text(
                                       status,
                                       style: TextStyle(fontSize: 10, color: statusColor),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ],
                                 ),

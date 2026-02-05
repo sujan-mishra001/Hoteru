@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:dautari_adda/core/api/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/login_screen.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
 import 'package:dautari_adda/core/theme/theme_provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 // Management Screens
 // Management Screens
@@ -12,10 +15,10 @@ import 'package:dautari_adda/features/customers/presentation/screens/customers_m
 import 'package:dautari_adda/features/admin/presentation/screens/roles_management_screen.dart';
 import 'package:dautari_adda/features/inventory/presentation/screens/inventory_management_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/kot_management_screen.dart';
-import 'package:dautari_adda/features/pos/presentation/screens/menu_management_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/session_control_screen.dart';
 import 'package:dautari_adda/features/analytics/presentation/screens/reports_screen.dart';
 import 'settings_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/menu_management_screen.dart' as dautari_adda_menu;
 import 'package:dautari_adda/features/inventory/presentation/screens/purchase_management_screen.dart';
 import 'package:dautari_adda/features/inventory/presentation/screens/delivery_partners_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/floors_tables_management_screen.dart';
@@ -23,7 +26,8 @@ import 'package:dautari_adda/features/admin/presentation/screens/qr_management_s
 import 'package:dautari_adda/features/admin/presentation/screens/printer_management_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final List<Map<String, dynamic>>? navigationItems;
+  const ProfileScreen({super.key, this.navigationItems});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -32,6 +36,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _userProfile;
   bool _isLoading = true;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -46,6 +51,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _userProfile = profile;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _uploadProfilePicture() async {
+    final ImagePicker picker = ImagePicker();
+    
+    // Show options: Camera or Gallery
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Choose Image Source'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Color(0xFFFFC107)),
+              title: const Text('Camera'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Color(0xFFFFC107)),
+              title: const Text('Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    try {
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      setState(() => _isUploading = true);
+
+      // Upload to backend
+      final success = await AuthService().uploadProfilePicture(File(image.path));
+
+      if (success) {
+        // Reload profile to get new image URL
+        await _loadUserProfile();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile picture updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to upload profile picture'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 
@@ -168,16 +254,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 Positioned(
                   top: 30,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Theme.of(context).dividerColor.withOpacity(0.1),
-                      child: const Icon(Icons.person, size: 50, color: Color(0xFFFFC107)),
+                  child: GestureDetector(
+                    onTap: _isUploading ? null : _uploadProfilePicture,
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundColor: Theme.of(context).dividerColor.withOpacity(0.1),
+                            backgroundImage: () {
+                              final imageUrl = _userProfile?['profile_image_url'];
+                              if (imageUrl == null || imageUrl == "") return null;
+                              
+                              final fullUrl = imageUrl.toString().startsWith('http') 
+                                  ? imageUrl.toString() 
+                                  : '${ApiService.baseHostUrl}${imageUrl.toString().startsWith('/') ? '' : '/'}$imageUrl';
+                                  
+                              return NetworkImage(fullUrl);
+                            }(),
+                            child: _isUploading
+                                ? const CircularProgressIndicator(color: Color(0xFFFFC107))
+                                : (_userProfile?['profile_image_url'] == null || _userProfile?['profile_image_url'] == "")
+                                    ? const Icon(Icons.person, size: 50, color: Color(0xFFFFC107))
+                                    : null,
+                            onBackgroundImageError: (exception, stackTrace) {
+                              print('Error loading profile picture: $exception');
+                            },
+                          ),
+                        ),
+                        // Camera icon badge
+                        if (!_isUploading)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFC107),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -218,6 +347,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Branches',
                     subtitle: 'Manage your restaurant branches',
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BranchManagementScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.restaurant_menu_rounded,
+                    title: 'Menu Management',
+                    subtitle: 'Manage categories and items',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const dautari_adda_menu.MenuManagementScreen())),
                   ),
                   const SizedBox(height: 12),
                   _buildMenuItem(
@@ -272,13 +408,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Kitchen (KOT)',
                     subtitle: 'Monitor kitchen & bar tickets',
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KotManagementScreen())),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildMenuItem(
-                    icon: Icons.restaurant_menu_rounded,
-                    title: 'Menu Management',
-                    subtitle: 'Manage categories, groups and dishes',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuManagementScreen())),
                   ),
                   const SizedBox(height: 12),
                   _buildMenuItem(

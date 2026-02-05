@@ -17,8 +17,6 @@ class _DayBookScreenState extends State<DayBookScreen> {
   DateTime _selectedDate = DateTime.now();
   
   double _totalIncome = 0.0;
-  double _totalExpense = 0.0;
-  double _netBalance = 0.0;
 
   @override
   void initState() {
@@ -67,8 +65,6 @@ class _DayBookScreenState extends State<DayBookScreen> {
       setState(() {
         _transactions = dayTransactions;
         _totalIncome = income;
-        _totalExpense = expense;
-        _netBalance = income - expense;
         _isLoading = false;
       });
     } catch (e) {
@@ -163,24 +159,6 @@ class _DayBookScreenState extends State<DayBookScreen> {
                     _totalIncome,
                     const Color(0xFF10b981),
                     Icons.trending_up,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Expense',
-                    _totalExpense,
-                    const Color(0xFFef4444),
-                    Icons.trending_down,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Net',
-                    _netBalance,
-                    _netBalance >= 0 ? const Color(0xFF3b82f6) : const Color(0xFFef4444),
-                    Icons.account_balance_wallet,
                   ),
                 ),
               ],

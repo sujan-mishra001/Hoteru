@@ -1,3 +1,79 @@
+class FloorInfo {
+  final int id;
+  final String name;
+  final int displayOrder;
+  final bool isActive;
+
+  FloorInfo({
+    required this.id,
+    required this.name,
+    required this.displayOrder,
+    this.isActive = true,
+  });
+
+  factory FloorInfo.fromJson(Map<String, dynamic> json) {
+    return FloorInfo(
+      id: json['id'],
+      name: json['name'],
+      displayOrder: json['display_order'] ?? 0,
+      isActive: json['is_active'] ?? true,
+    );
+  }
+}
+
+class TableInfo {
+  final int id;
+  final String tableId;
+  final String floor;
+  final int floorId;
+  final String status;
+  final int capacity;
+  final int kotCount;
+  final double totalAmount;
+  final String tableType;
+  final bool isActive;
+  final int displayOrder;
+  final String isHoldTable;
+  final String? holdTableName;
+  final int? branchId;
+
+  TableInfo({
+    required this.id,
+    required this.tableId,
+    required this.floor,
+    required this.floorId,
+    required this.status,
+    this.capacity = 4,
+    this.kotCount = 0,
+    this.totalAmount = 0,
+    this.tableType = 'Regular',
+    this.isActive = true,
+    this.displayOrder = 0,
+    this.isHoldTable = 'No',
+    this.holdTableName,
+    this.branchId,
+  });
+
+  factory TableInfo.fromJson(Map<String, dynamic> json) {
+    return TableInfo(
+      id: json['id'],
+      tableId: json['table_id'],
+      floor: json['floor'] ?? '',
+      floorId: json['floor_id'] ?? 0,
+      status: json['status'] ?? 'Available',
+      capacity: json['capacity'] ?? 4,
+      kotCount: json['kot_count'] ?? 0,
+      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      tableType: json['table_type'] ?? 'Regular',
+      isActive: json['is_active'] ?? true,
+      displayOrder: json['display_order'] ?? 0,
+      isHoldTable: json['is_hold_table'] ?? 'No',
+      holdTableName: json['hold_table_name'],
+      branchId: json['branch_id']?.toInt(),
+    );
+  }
+}
+
 class MenuItem {
   final int? id;
   final String name;
@@ -7,8 +83,8 @@ class MenuItem {
   final bool available;
   final int? categoryId;
   final int? groupId;
-  final String kotBot; // KOT or BOT - from backend model
-  final bool inventoryTracking; // from backend model
+  final String kotBot;
+  final bool inventoryTracking;
 
   const MenuItem({
     this.id,
@@ -57,7 +133,7 @@ class MenuItem {
 class MenuCategory {
   final int? id;
   final String name;
-  final String type; // KOT or BOT - from backend model
+  final String type;
   final List<MenuCategory> subCategories;
   final List<MenuItem> items;
 
@@ -97,9 +173,9 @@ class MenuCategory {
 class MenuGroup {
   final int? id;
   final String name;
-  final int? categoryId; // From backend model - single category_id
+  final int? categoryId;
   final String? description;
-  final bool isActive; // From backend model
+  final bool isActive;
 
   const MenuGroup({
     this.id,
@@ -129,5 +205,3 @@ class MenuGroup {
     );
   }
 }
-
-final List<MenuCategory> menuData = [];

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/bill_screen.dart';
 import 'package:dautari_adda/features/pos/data/order_service.dart';
 import 'package:intl/intl.dart';
 
 class CashierScreen extends StatefulWidget {
-  const CashierScreen({super.key});
+  final List<Map<String, dynamic>>? navigationItems;
+  final Function(int)? onTabChange;
+  const CashierScreen({super.key, this.navigationItems, this.onTabChange});
 
   @override
   State<CashierScreen> createState() => _CashierScreenState();
@@ -33,13 +36,12 @@ class _CashierScreenState extends State<CashierScreen> {
   Future<void> _loadOrders() async {
     setState(() => _isLoading = true);
     try {
-      final orders = await _orderService.getAllOrders();
+      // Fetch orders that need payment
+      final orders = await _orderService.getOrders(
+        status: 'Pending,Draft,InProgress,BillRequested,Completed'
+      );
       
-      // Filter only unsettled orders: Pending, In Progress, or Completed
-      final runningStatuses = ['Pending', 'In Progress', 'Completed'];
-      final cashierOrders = (orders as List).where((order) {
-        return runningStatuses.contains(order['status']);
-      }).toList();
+      final cashierOrders = orders;
       
       setState(() {
         _orders = cashierOrders.cast<Map<String, dynamic>>();
@@ -89,11 +91,19 @@ class _CashierScreenState extends State<CashierScreen> {
     }
   }
 
-  void _showBillDialog(Map<String, dynamic> order) {
-    showDialog(
-      context: context,
-      builder: (context) => BillDialog(order: order, onPaymentComplete: _loadOrders),
+  void _navigateToPayment(Map<String, dynamic> order) async {
+    final result = await Navigator.push(
+      context, 
+      MaterialPageRoute(
+        builder: (context) => BillScreen(
+          tableNumber: order['table_id'] ?? 0,
+          orderId: order['id'],
+          navigationItems: widget.navigationItems,
+        ),
+      ),
     );
+    if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+    _loadOrders();
   }
 
   @override
@@ -183,7 +193,7 @@ class _CashierScreenState extends State<CashierScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () => _showBillDialog(order),
+        onTap: () => _navigateToPayment(order),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -315,9 +325,9 @@ class _CashierScreenState extends State<CashierScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _showBillDialog(order),
-                  icon: const Icon(Icons.receipt, size: 18),
-                  label: const Text('View Bill & Process Payment'),
+                  onPressed: () => _navigateToPayment(order),
+                  icon: const Icon(Icons.payment_rounded, size: 18),
+                  label: const Text('Proceed to Payment'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFFC107),
                     foregroundColor: Colors.black87,
@@ -332,198 +342,6 @@ class _CashierScreenState extends State<CashierScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-// Bill Dialog Widget
-class BillDialog extends StatelessWidget {
-  final Map<String, dynamic> order;
-  final VoidCallback onPaymentComplete;
-
-  const BillDialog({
-    super.key,
-    required this.order,
-    required this.onPaymentComplete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final items = order['items'] as List? ?? [];
-    final subtotal = order['subtotal']?.toDouble() ?? 0.0;
-    final tax = order['tax']?.toDouble() ?? 0.0;
-    final discount = order['discount']?.toDouble() ?? 0.0;
-    final totalAmount = order['total_amount']?.toDouble() ?? 0.0;
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 600),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFC107),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.receipt_long, color: Colors.black87),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Bill - ${order['order_number'] ?? ''}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.black87),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Bill Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Items List
-                    const Text(
-                      'Order Items',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...items.map((item) {
-                      final itemName = item['menu_item']?['name'] ?? item['item_name'] ?? '';
-                      final quantity = item['quantity'] ?? 0;
-                      final price = item['price']?.toDouble() ?? 0.0;
-                      final itemTotal = quantity * price;
-                      
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '$itemName x$quantity',
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                            Text(
-                              'NPR ${NumberFormat('#,##0.00').format(itemTotal)}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    
-                    const Divider(height: 24),
-                    
-                    // Subtotal, Tax, Discount, Total
-                    _buildBillRow('Subtotal', subtotal),
-                    const SizedBox(height: 8),
-                    _buildBillRow('Tax', tax),
-                    const SizedBox(height: 8),
-                    _buildBillRow('Discount', discount, isNegative: true),
-                    const Divider(height: 24),
-                    _buildBillRow('Total', totalAmount, isBold: true),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Action Buttons
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        // TODO: Implement print functionality
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Print functionality coming soon')),
-                        );
-                      },
-                      icon: const Icon(Icons.print),
-                      label: const Text('Print'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: Color(0xFFFFC107)),
-                        foregroundColor: const Color(0xFFFFC107),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        // TODO: Navigate to payment processing screen
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Processing payment...')),
-                        );
-                        onPaymentComplete();
-                      },
-                      icon: const Icon(Icons.payment),
-                      label: const Text('Pay Now'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10b981),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBillRow(String label, double amount, {bool isBold = false, bool isNegative = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isBold ? 16 : 14,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-        Text(
-          '${isNegative ? '-' : ''}NPR ${NumberFormat('#,##0.00').format(amount)}',
-          style: TextStyle(
-            fontSize: isBold ? 18 : 14,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-            color: isNegative ? Colors.red : null,
-          ),
-        ),
-      ],
     );
   }
 }

@@ -71,4 +71,13 @@ class KotService {
       return false;
     }
   }
+
+  Future<bool> printKot(int id) async {
+    try {
+      final response = await _apiService.post('/kots/$id/print', {});
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
 }

@@ -159,17 +159,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       children: [
                         SwitchListTile(
-                          secondary: Icon(Icons.dark_mode, color: _darkMode ? Colors.amber : Colors.blueGrey),
-                          title: const Text('Dark Mode'),
-                          subtitle: const Text('Apply dark theme across the app'),
-                          value: _darkMode,
-                          onChanged: (value) {
-                            setState(() => _darkMode = value);
-                            ThemeProvider().toggleTheme(value);
-                          },
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
                           secondary: const Icon(Icons.notifications, color: Colors.blue),
                           title: const Text('Push Notifications'),
                           value: _notificationsEnabled,

@@ -81,6 +81,8 @@ class Order(Base):
     credit_amount = Column(Float, default=0)
     payment_type = Column(String, nullable=True)  # Cash, Fonepay, Credit Card, etc.
     delivery_charge = Column(Float, default=0)
+    service_charge = Column(Float, default=0)
+    tax = Column(Float, default=0)
     
     # Branch isolation
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)

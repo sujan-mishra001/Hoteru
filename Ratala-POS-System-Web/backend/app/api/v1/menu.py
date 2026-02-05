@@ -29,7 +29,29 @@ async def get_menu_items(
     query = db.query(MenuItem)
     query = apply_branch_filter_menu(query, MenuItem, branch_id)
     items = query.all()
-    return items
+    
+    # Transform response to match Dart model expectations
+    result = []
+    for item in items:
+        item_dict = {
+            "id": item.id,
+            "name": item.name,
+            "category_id": item.category_id,
+            "group_id": item.group_id,
+            "price": item.price,
+            "image": item.image,
+            "image_url": item.image,  # Dart expects image_url
+            "description": item.description,
+            "inventory_tracking": item.inventory_tracking,
+            "kot_bot": item.kot_bot,
+            "is_active": item.is_active,
+            "is_available": item.is_active,  # Dart expects is_available
+            "created_at": item.created_at,
+            "updated_at": item.updated_at,
+        }
+        result.append(item_dict)
+    
+    return result
 
 
 @router.post("/items")
@@ -279,6 +301,49 @@ async def update_group(
     db.commit()
     db.refresh(group)
     return group
+
+
+@router.get("/export")
+async def export_menu_items(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Export all menu items for the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(MenuItem)
+    query = apply_branch_filter_menu(query, MenuItem, branch_id)
+    items = query.all()
+    return items
+
+
+@router.post("/import")
+async def import_menu_items(
+    items_data: list[dict] = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Import menu items in bulk"""
+    branch_id = current_user.current_branch_id
+    imported_count = 0
+    
+    for item in items_data:
+        # Simple import logic - could be expanded to handle categories/groups
+        new_item = MenuItem(
+            name=item['name'],
+            category_id=item.get('category_id'),
+            group_id=item.get('group_id'),
+            price=item['price'],
+            description=item.get('description'),
+            image=item.get('image'),
+            inventory_tracking=item.get('inventory_tracking', False),
+            kot_bot=item.get('kot_bot', 'KOT'),
+            branch_id=branch_id
+        )
+        db.add(new_item)
+        imported_count += 1
+        
+    db.commit()
+    return {"message": f"Successfully imported {imported_count} items"}
 
 
 @router.delete("/groups/{group_id}")

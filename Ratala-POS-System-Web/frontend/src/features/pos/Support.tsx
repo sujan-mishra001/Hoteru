@@ -9,7 +9,7 @@ const Support: React.FC = () => {
             <Container maxWidth="lg">
                 <Box sx={{ mb: 4 }}>
                     <Typography variant="h4" fontWeight={800} sx={{ mb: 1 }}>
-                        HOTERU Support Center
+                        Dautari Adda Support Center
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
                         Need help? We're here to assist you.
@@ -83,7 +83,7 @@ const Support: React.FC = () => {
                             Send us an email and we'll get back to you within 24 hours.
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            support@hoteru.com
+                            support@dautariadda.com
                         </Typography>
                     </Paper>
 

@@ -173,6 +173,43 @@ async def update_kot_status(
     db.refresh(kot)
     return kot
 
+@router.get("/order/{order_id}")
+async def get_kots_by_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get all KOTs/BOTs for a specific order"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(KOT).options(
+        joinedload(KOT.order).joinedload(Order.table),
+        joinedload(KOT.items).joinedload(KOTItem.menu_item),
+        joinedload(KOT.user)
+    ).join(Order).filter(KOT.order_id == order_id)
+    
+    if branch_id:
+        query = query.filter(Order.branch_id == branch_id)
+        
+    kots = query.order_by(KOT.created_at.desc()).all()
+    return kots
+
+
+@router.post("/generate/{order_id}")
+async def generate_kot_for_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Manually trigger KOT generation for any items not yet in a KOT"""
+    from app.services.order_service import OrderService
+    
+    await OrderService.create_kots_for_order(db, order_id, current_user.id)
+    
+    # Return all KOTs for this order
+    return await get_kots_by_order(order_id, db, current_user)
+
+
 @router.post("/{kot_id}/print")
 async def print_kot(
     kot_id: int,

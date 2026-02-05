@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:dautari_adda/features/pos/data/menu_data.dart';
+import 'package:dautari_adda/features/pos/data/pos_models.dart';
 import 'package:dautari_adda/features/pos/data/menu_service.dart';
 
 class MenuManagementScreen extends StatefulWidget {

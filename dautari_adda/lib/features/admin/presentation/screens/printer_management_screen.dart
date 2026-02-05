@@ -51,14 +51,13 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
   }
 
   Future<void> _addPrinter(hardware.Printer hardwarePrinter) async {
-    // Show dialog to name and set usage
+    // Show dialog to name the printer
     final result = await _showPrinterDetailsDialog(hardwarePrinter);
     if (result != null) {
       final success = await _apiService.createPrinter({
         'name': result['name'],
         'ip_address': hardwarePrinter.address,
-        'connection_type': (hardwarePrinter.connectionType?.name ?? 'network').toLowerCase(),
-        'printer_usage': result['usage'],
+        'connection_type': hardwarePrinter.connectionType?.name.toLowerCase() ?? 'network',
         'paper_size': result['paper_size'],
         'is_active': true,
       });
@@ -80,7 +79,6 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
         'ip_address': result['ip_address'],
         'port': result['port'] ?? 9100,
         'connection_type': result['connection_type'],
-        'printer_usage': result['usage'],
         'paper_size': result['paper_size'],
         'is_active': true,
       });
@@ -185,7 +183,7 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
               child: const Icon(Icons.print_rounded, color: Color(0xFFFFC107)),
             ),
             title: Text(p['name'] ?? 'Unnamed Printer', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('${p['printer_usage'].toString().toUpperCase()} • ${p['connection_type']} • ${p['ip_address'] ?? 'USB'}'),
+            subtitle: Text('${p['connection_type']} • ${p['ip_address'] ?? 'USB'} • ${p['paper_size']}mm'),
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: () => _deletePrinter(p['id']),
@@ -252,8 +250,7 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
     String name = hp?.name ?? '';
     String ip = hp?.address ?? '';
     String port = '9100';
-    String usage = 'billing';
-    String connectionType = (hp?.connectionType?.name ?? 'network').toLowerCase();
+    String connectionType = hp?.connectionType?.name.toLowerCase() ?? 'network';
     int paperSize = 80;
 
     return showDialog<Map<String, dynamic>>(
@@ -296,17 +293,6 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
                       ],
                     ],
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: usage,
-                      decoration: const InputDecoration(labelText: 'Printer Usage'),
-                      items: const [
-                        DropdownMenuItem(value: 'billing', child: Text('Billing Receipt')),
-                        DropdownMenuItem(value: 'kitchen', child: Text('Kitchen (KOT)')),
-                        DropdownMenuItem(value: 'bar', child: Text('Bar (BOT)')),
-                      ],
-                      onChanged: (v) => usage = v!,
-                    ),
-                    const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
                       value: paperSize,
                       decoration: const InputDecoration(labelText: 'Paper Size'),
@@ -331,7 +317,6 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
                       'name': name,
                       'ip_address': ip,
                       'port': int.tryParse(port) ?? 9100,
-                      'usage': usage,
                       'connection_type': connectionType,
                       'paper_size': paperSize,
                     });

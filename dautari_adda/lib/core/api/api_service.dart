@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -162,5 +163,18 @@ class ApiService {
       print('API_DEBUG: ERROR BODY: ${response.body}');
     }
     return response;
+  }
+
+  // Helper method for simple file uploads
+  Future<http.Response> uploadFile(
+    String endpoint,
+    dynamic file,
+    {String fieldName = 'file', Map<String, String>? additionalFields}
+  ) async {
+    return postMultipart(
+      endpoint,
+      additionalFields ?? {},
+      {fieldName: file},
+    );
   }
 }

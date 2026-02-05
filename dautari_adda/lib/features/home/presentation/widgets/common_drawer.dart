@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:dautari_adda/core/api/api_service.dart';
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/orders_screen.dart';
-import 'package:dautari_adda/features/analytics/presentation/screens/expenses_screen.dart';
 import 'package:dautari_adda/features/admin/presentation/screens/qr_management_screen.dart';
 import 'package:dautari_adda/features/profile/presentation/screens/profile_screen.dart';
-import 'package:dautari_adda/features/pos/presentation/screens/menu_screen.dart';
 import 'package:dautari_adda/features/analytics/presentation/screens/reports_screen.dart';
 import 'package:dautari_adda/features/admin/presentation/screens/users_management_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/session_control_screen.dart';
@@ -18,6 +17,7 @@ import 'package:dautari_adda/features/pos/presentation/screens/cashier_screen.da
 import 'package:dautari_adda/features/analytics/presentation/screens/day_book_screen.dart';
 import 'package:dautari_adda/features/analytics/presentation/screens/food_cost_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/kot_management_screen.dart';
+
 import '../screens/home_screen.dart';
 import '../screens/communications_screen.dart';
 
@@ -43,10 +43,22 @@ class CommonDrawer extends StatelessWidget {
                 accountEmail: Text(email),
                 currentAccountPicture: CircleAvatar(
                   backgroundColor: Colors.white,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(fontSize: 24, color: Color(0xFFFFC107)),
-                  ),
+                  backgroundImage: () {
+                    final imageUrl = user?['profile_image_url'];
+                    if (imageUrl == null || imageUrl == "") return null;
+                    
+                    final fullUrl = imageUrl.toString().startsWith('http') 
+                        ? imageUrl.toString() 
+                        : '${ApiService.baseHostUrl}${imageUrl.toString().startsWith('/') ? '' : '/'}$imageUrl';
+                        
+                    return NetworkImage(fullUrl);
+                  }(),
+                  child: (user?['profile_image_url'] == null || user?['profile_image_url'] == "")
+                      ? Text(
+                          initial,
+                          style: const TextStyle(fontSize: 24, color: Color(0xFFFFC107)),
+                        )
+                      : null,
                 ),
                 decoration: const BoxDecoration(
                   color: Color(0xFFFFC107),
@@ -98,6 +110,7 @@ class CommonDrawer extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
             },
           ),
+
           ListTile(
             leading: const Icon(Icons.kitchen),
             title: const Text("KOT / BOT"),
@@ -127,22 +140,6 @@ class CommonDrawer extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text('Management', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.menu_book),
-            title: const Text("Menu & Categories"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => MenuScreen(tableNumber: 1, isOrderingMode: false)));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.receipt_long),
-            title: const Text("My Expenses / Bills"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpensesScreen()));
-            },
           ),
           ListTile(
             leading: const Icon(Icons.attach_money),

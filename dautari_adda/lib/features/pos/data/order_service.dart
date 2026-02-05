@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
 
 class OrderService {
@@ -161,7 +162,7 @@ class OrderService {
     return getOrders(status: 'Completed');
   }
 
-  // Get today's orders
+  // Get all today's orders
   Future<List<dynamic>> getTodayOrders() async {
     try {
       final response = await _apiService.get('/orders');
@@ -181,5 +182,23 @@ class OrderService {
     } catch (e) {
       return [];
     }
+  }
+
+  // Fetch all menu items (moved from MenuService)
+  Future<List<dynamic>> getMenuItems() async {
+    try {
+      final response = await _apiService.get('/menu/items');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Alias for getMenuItems()
+  Future<List<dynamic>> getAllMenuItems() async {
+    return getMenuItems();
   }
 }

@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user
 from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession
 from app.schemas import OrderResponse
 from app.services.inventory_service import InventoryService
+from app.services.order_service import OrderService
 
 router = APIRouter()
 
@@ -21,12 +22,13 @@ router = APIRouter()
 async def get_orders(
     order_type: Optional[str] = None,
     status: Optional[str] = None,
+    branch_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get all orders, optionally filtered by order_type and status"""
-    # Get user's current branch for filtering
-    branch_id = current_user.current_branch_id
+    # Use provided branch_id or fallback to user's current branch
+    target_branch_id = branch_id if branch_id is not None else current_user.current_branch_id
     
     query = db.query(Order).options(
         joinedload(Order.table),
@@ -36,13 +38,17 @@ async def get_orders(
     )
     
     # Filter by branch_id for data isolation
-    if branch_id:
-        query = query.filter(Order.branch_id == branch_id)
+    if target_branch_id:
+        query = query.filter(Order.branch_id == target_branch_id)
     
     if order_type:
         query = query.filter(Order.order_type == order_type)
     if status:
-        query = query.filter(Order.status == status)
+        if "," in status:
+            status_list = [s.strip() for s in status.split(",")]
+            query = query.filter(Order.status.in_(status_list))
+        else:
+            query = query.filter(Order.status == status)
     
     orders = query.order_by(Order.created_at.desc()).all()
     return orders
@@ -113,7 +119,11 @@ async def create_order(
     if current_user.current_branch_id:
         order_data['branch_id'] = current_user.current_branch_id
     
-    new_order = Order(**order_data)
+    # Filter fields to only include valid model columns
+    valid_order_keys = {c.key for c in Order.__table__.columns}
+    filtered_order_data = {k: v for k, v in order_data.items() if k in valid_order_keys}
+    
+    new_order = Order(**filtered_order_data)
     db.add(new_order)
     db.flush() # Get ID before adding items
     
@@ -155,6 +165,9 @@ async def create_order(
     db.commit()
     db.refresh(new_order)
     
+    # AUTOMATICALLY CREATE KOT/BOT for the order items
+    await OrderService.create_kots_for_order(db, new_order.id, current_user.id)
+    
     # Reload with relationships
     order = db.query(Order).options(
         joinedload(Order.table),
@@ -184,8 +197,10 @@ async def update_order(
     # Separate items if they exist
     items_data = order_data.pop('items', None)
     
+    # Filter fields to only include valid model columns
+    valid_order_keys = {c.key for c in Order.__table__.columns}
     for key, value in order_data.items():
-        if hasattr(order, key):
+        if key in valid_order_keys:
             setattr(order, key, value)
     
     # Update items if provided
@@ -208,10 +223,12 @@ async def update_order(
     if items_data is not None:
         total = sum(item['price'] * item['quantity'] for item in items_data)
         order.gross_amount = total
-        order.net_amount = total - order.discount
+        # Include current tax/sc in calculation if they exist
+        order.net_amount = total - order.discount + (order.service_charge or 0) + (order.tax or 0)
         order.total_amount = order.net_amount
-    elif 'gross_amount' in order_data or 'discount' in order_data:
-        order.net_amount = order.gross_amount - order.discount
+    elif any(k in order_data for k in ['gross_amount', 'discount', 'service_charge', 'tax']):
+        # If any financial field was updated, update net and total
+        order.net_amount = (order.gross_amount or 0) - (order.discount or 0) + (order.service_charge or 0) + (order.tax or 0)
         order.total_amount = order.net_amount
     
     # Handle KOT status when order status changes
@@ -270,6 +287,10 @@ async def update_order(
     
     db.commit()
     
+    # AUTOMATICALLY CREATE KOT/BOT for the order items if order is being built
+    if items_data is not None and order.status not in ['Paid', 'Completed', 'Cancelled']:
+        await OrderService.create_kots_for_order(db, order.id, current_user.id)
+    
     # Reload with relationships
     updated_order = db.query(Order).options(
         joinedload(Order.table),
@@ -278,6 +299,59 @@ async def update_order(
     ).filter(Order.id == order_id).first()
     
     return updated_order
+
+
+@router.post("/{order_id}/items")
+async def add_items_to_order(
+    order_id: int,
+    items_data: List[dict] = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Add items to an existing order and trigger KOT generation"""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+        
+    for item in items_data:
+        order_item = OrderItem(
+            order_id=order.id,
+            menu_item_id=item['menu_item_id'],
+            quantity=item['quantity'],
+            price=item.get('price', 0),
+            subtotal=item.get('subtotal', item.get('price', 0) * item['quantity']),
+            notes=item.get('notes', '')
+        )
+        db.add(order_item)
+        
+    db.commit()
+    
+    # Automatically generate KOT/BOT for new items
+    await OrderService.create_kots_for_order(db, order.id, current_user.id)
+    
+    return {"message": "Items added and KOTs generated"}
+
+
+@router.delete("/{order_id}/items/{item_id}")
+async def remove_item_from_order(
+    order_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Remove an item from an order"""
+    item = db.query(OrderItem).filter(
+        OrderItem.order_id == order_id,
+        OrderItem.id == item_id
+    ).first()
+    
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    db.delete(item)
+    db.commit()
+    
+    return {"message": "Item removed from order"}
 
 
 @router.delete("/{order_id}")

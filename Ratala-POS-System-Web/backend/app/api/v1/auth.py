@@ -261,6 +261,7 @@ async def update_user_me(
     return current_user
 
 
+@router.post("/users/me/profile-picture")
 @router.post("/users/me/photo")
 async def update_user_photo(
     file: UploadFile = File(...),
@@ -273,7 +274,13 @@ async def update_user_photo(
     os.makedirs(upload_dir, exist_ok=True)
     
     # Validate file type
-    if not file.content_type.startswith("image/"):
+    valid_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    file_extension = os.path.splitext(file.filename)[1].lower()
+    
+    is_image_content = file.content_type and file.content_type.startswith("image/")
+    is_valid_ext = file_extension in valid_extensions
+
+    if not (is_image_content or is_valid_ext):
         raise HTTPException(status_code=400, detail="File must be an image")
     
     # Generate unique filename

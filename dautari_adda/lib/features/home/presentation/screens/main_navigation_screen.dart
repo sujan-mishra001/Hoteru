@@ -3,11 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/features/auth/presentation/screens/branch_selection_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/orders_screen.dart';
-import 'package:dautari_adda/features/analytics/presentation/screens/expenses_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/kot_management_screen.dart';
 import 'package:dautari_adda/features/analytics/presentation/screens/reports_screen.dart';
 import 'package:dautari_adda/features/profile/presentation/screens/profile_screen.dart';
-import 'package:dautari_adda/features/pos/presentation/screens/menu_screen.dart';
+import 'package:dautari_adda/features/pos/presentation/screens/cashier_screen.dart';
 import 'home_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -20,17 +19,27 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
   late List<NavigationItem> _navigationItems;
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
-    // Default navigation items
+    _pageController = PageController(initialPage: 0);
+    // Default navigation items in the requested order
     _navigationItems = [
       _getNavigationItemById('home'),
       _getNavigationItemById('orders'),
-      _getNavigationItemById('profile'),
+      _getNavigationItemById('kot'),
+      _getNavigationItemById('cashier'),
+      _getNavigationItemById('reports'),
     ];
     _loadNavigationPreferences();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadNavigationPreferences() async {
@@ -40,73 +49,100 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (savedItems != null && savedItems.isNotEmpty) {
       _applyNavigationItems(savedItems);
     } else {
-      _applyNavigationItems(['home', 'orders', 'profile', 'kot', 'reports']);
+      // Default order: Home, Orders, KOT/BOT, Cashier, Reports, Profile
+      _applyNavigationItems(['home', 'orders', 'kot', 'cashier', 'reports', 'profile']);
     }
   }
 
   void _applyNavigationItems(List<String> ids) {
-    final navMetadata = ids.map((id) => {
+    // Define the strict order
+    final orderedIds = ['home', 'orders', 'kot', 'cashier', 'reports', 'profile'];
+    
+    // Sort the incoming ids based on their index in orderedIds
+    final sortedIds = ids.where((id) => orderedIds.contains(id)).toList()
+      ..sort((a, b) => orderedIds.indexOf(a).compareTo(orderedIds.indexOf(b)));
+
+    final navMetadata = sortedIds.map((id) => {
       'id': id,
       'label': _getStaticItemLabel(id),
       'icon': _getStaticItemIcon(id),
     }).toList();
 
     setState(() {
-      _navigationItems = ids.map((id) => _getNavigationItemById(id, navMetadata)).toList();
+      _navigationItems = sortedIds.map((id) => _getNavigationItemById(id, navMetadata)).toList();
+      // Update PageController if current index is out of bounds
+      if (_currentIndex >= _navigationItems.length) {
+        _currentIndex = 0;
+        _pageController.jumpToPage(0);
+      }
     });
   }
 
+  void _onPageChanged(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  void _onNavItemTapped(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   NavigationItem _getNavigationItemById(String id, [List<Map<String, dynamic>>? navMetadata]) {
-    final allItems = {
+    final onTabChange = (int index) {
+      _onNavItemTapped(index);
+    };
+
+    final Map<String, NavigationItem> allItems = {
       'home': NavigationItem(
         id: 'home',
         label: 'Home',
         icon: Icons.home_rounded,
         screen: HomeScreen(
           onSettingsTap: _showNavigationSettings,
-          onTabChange: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+          onTabChange: onTabChange,
           navigationItems: navMetadata,
         ),
-      ),
-      'menu': NavigationItem(
-        id: 'menu',
-        label: 'Menu',
-        icon: Icons.restaurant_menu_rounded,
-        screen: MenuScreen(tableNumber: 1, isOrderingMode: false), // Default to table 1 or a global view
       ),
       'orders': NavigationItem(
         id: 'orders',
         label: 'Orders',
         icon: Icons.shopping_bag_rounded,
-        screen: const OrdersScreen(),
-      ),
-      'expenses': NavigationItem(
-        id: 'expenses',
-        label: 'Expenses',
-        icon: Icons.receipt_long_rounded,
-        screen: const ExpensesScreen(),
+        screen: OrdersScreen(
+          navigationItems: navMetadata,
+          onTabChange: onTabChange,
+        ),
       ),
       'kot': NavigationItem(
         id: 'kot',
         label: 'KOT/BOT',
         icon: Icons.kitchen_rounded,
-        screen: const KotManagementScreen(),
+        screen: KotManagementScreen(navigationItems: navMetadata),
       ),
       'reports': NavigationItem(
         id: 'reports',
         label: 'Reports',
         icon: Icons.analytics_rounded,
-        screen: const ReportsScreen(),
+        screen: ReportsScreen(navigationItems: navMetadata),
       ),
       'profile': NavigationItem(
         id: 'profile',
         label: 'Profile',
         icon: Icons.person_rounded,
-        screen: const ProfileScreen(),
+        screen: ProfileScreen(navigationItems: navMetadata),
+      ),
+      'cashier': NavigationItem(
+        id: 'cashier',
+        label: 'Cashier',
+        icon: Icons.payments_rounded,
+        screen: CashierScreen(
+          navigationItems: navMetadata,
+          onTabChange: onTabChange,
+        ),
       ),
     };
     
@@ -116,10 +152,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Future<void> _showNavigationSettings() async {
     final allAvailableItems = [
       'home',
-      'menu',
       'orders',
-      'expenses',
       'kot',
+      'cashier',
       'reports',
       'profile',
     ];
@@ -137,12 +172,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       await prefs.setStringList('navigation_items', selectedItems);
       
       _applyNavigationItems(selectedItems);
-      
-      if (_currentIndex >= _navigationItems.length) {
-        setState(() {
-          _currentIndex = 0;
-        });
-      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -156,6 +185,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -167,8 +197,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         return false; // Prevent default back behavior
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: _currentIndex,
+        body: PageView(
+          controller: _pageController,
+          onPageChanged: _onPageChanged,
           children: _navigationItems.map((item) => item.screen).toList(),
         ),
         bottomNavigationBar: Container(
@@ -183,17 +214,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
+            onTap: _onNavItemTapped,
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.white,
             selectedItemColor: const Color(0xFFFFC107),
             unselectedItemColor: Colors.grey[400],
-            selectedFontSize: 12,
-            unselectedFontSize: 12,
+            selectedFontSize: 11,
+            unselectedFontSize: 11,
             elevation: 0,
             items: _navigationItems.map((item) {
               return BottomNavigationBarItem(
@@ -245,6 +272,7 @@ class _NavigationSettingsDialog extends StatefulWidget {
 
 class _NavigationSettingsDialogState extends State<_NavigationSettingsDialog> {
   late List<String> selectedItems;
+  final List<String> _orderedAvailableItems = const ['home', 'orders', 'kot', 'cashier', 'reports', 'profile'];
 
   @override
   void initState() {
@@ -263,49 +291,66 @@ class _NavigationSettingsDialogState extends State<_NavigationSettingsDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Select 3-5 items for bottom navigation:',
+              'Select 3-6 items for bottom navigation:',
               style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Swipe left/right to navigate between selected items',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+            ),
             const SizedBox(height: 16),
-            ...widget.availableItems.map((id) {
+            ..._orderedAvailableItems.map((id) {
               final isSelected = selectedItems.contains(id);
-              return CheckboxListTile(
-                value: isSelected,
-                onChanged: (value) {
-                  setState(() {
-                    if (value == true) {
-                      if (selectedItems.length < 5) {
-                        selectedItems.add(id);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Maximum 5 items allowed'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      }
-                    } else {
-                      if (selectedItems.length > 3) {
-                        selectedItems.remove(id);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Minimum 3 items required'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      }
-                    }
-                  });
-                },
-                title: Row(
-                  children: [
-                    Icon(_getStaticItemIcon(id), size: 20),
-                    const SizedBox(width: 12),
-                    Text(_getStaticItemLabel(id)),
-                  ],
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFFFFC107) : Colors.grey[300]!,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  color: isSelected ? const Color(0xFFFFC107).withOpacity(0.1) : null,
                 ),
-                activeColor: const Color(0xFFFFC107),
+                child: CheckboxListTile(
+                  value: isSelected,
+                  onChanged: (value) {
+                    setState(() {
+                      if (value == true) {
+                        if (selectedItems.length < 6) {
+                          selectedItems.add(id);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Maximum 6 items allowed'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      } else {
+                        if (selectedItems.length > 3) {
+                          selectedItems.remove(id);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Minimum 3 items required'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      }
+                    });
+                  },
+                  title: Row(
+                    children: [
+                      Icon(_getStaticItemIcon(id), size: 20),
+                      const SizedBox(width: 12),
+                      Text(_getStaticItemLabel(id)),
+                    ],
+                  ),
+                  activeColor: const Color(0xFFFFC107),
+                ),
               );
             }),
           ],
@@ -334,12 +379,11 @@ class _NavigationSettingsDialogState extends State<_NavigationSettingsDialog> {
 String _getStaticItemLabel(String id) {
   final labels = {
     'home': 'Home',
-    'menu': 'Menu',
     'orders': 'Orders',
-    'expenses': 'Expenses',
     'kot': 'KOT/BOT',
     'reports': 'Reports',
     'profile': 'Profile',
+    'cashier': 'Cashier',
   };
   return labels[id] ?? id;
 }
@@ -347,12 +391,11 @@ String _getStaticItemLabel(String id) {
 IconData _getStaticItemIcon(String id) {
   final icons = {
     'home': Icons.home_rounded,
-    'menu': Icons.restaurant_menu_rounded,
     'orders': Icons.shopping_bag_rounded,
-    'expenses': Icons.receipt_long_rounded,
     'kot': Icons.kitchen_rounded,
     'reports': Icons.analytics_rounded,
     'profile': Icons.person_rounded,
+    'cashier': Icons.payments_rounded,
   };
   return icons[id] ?? Icons.help_outline_rounded;
 }

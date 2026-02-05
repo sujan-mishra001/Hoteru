@@ -8,7 +8,8 @@ import 'package:dautari_adda/core/utils/toast_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key});
+  final List<Map<String, dynamic>>? navigationItems;
+  const ReportsScreen({super.key, this.navigationItems});
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -115,8 +116,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports & Analytics'),
+        title: const Text(
+          'Reports & Analytics',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFFFFC107),
+        elevation: 1,
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -132,13 +138,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeaderSection(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   _buildSummaryCards(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   _buildSalesBreakdown(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   _buildExportSection(),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 48),
                 ],
               ),
             ),
@@ -146,90 +152,62 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Intelligence Center",
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    "Business analytics & reports",
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-              InkWell(
-                onTap: _selectDate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFC107).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFFC107).withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFFFFC107)),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('MMM dd, yyyy').format(_selectedDate),
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Data Intelligence",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      "Business performance overview",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.calendar_today, size: 14, color: Colors.black87),
+                  label: Text(DateFormat('MMM dd, yyyy').format(_selectedDate)),
+                  onPressed: _selectDate,
+                  backgroundColor: const Color(0xFFFFC107).withOpacity(0.1),
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 45,
+              child: ElevatedButton.icon(
+                onPressed: _handleExportAll,
+                icon: const Icon(Icons.download),
+                label: const Text("Export All Data (Excel)"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
                 ),
               ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1),
-          ),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: _handleExportAll,
-              icon: const Icon(Icons.table_chart_rounded),
-              label: Text("Export Master Excel", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -240,22 +218,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return Column(
       children: [
-        Row(
-          children: [
-            _buildSummaryCard(
-              'Total Sales',
-              'Rs. ${(data['sales_24h'] ?? 0).toStringAsFixed(2)}',
-              Icons.attach_money,
-              Colors.green,
-            ),
-            const SizedBox(width: 12),
-            _buildSummaryCard(
-              'Paid Sales',
-              'Rs. ${(data['paid_sales'] ?? 0).toStringAsFixed(2)}',
-              Icons.check_circle,
-              Colors.blue,
-            ),
-          ],
+        _buildSummaryCard(
+          'Total Revenue',
+          'Rs. ${(data['sales_24h'] ?? 0).toStringAsFixed(2)}',
+          Icons.payments,
+          Colors.green,
+          isFullWidth: true,
         ),
         const SizedBox(height: 12),
         Row(
@@ -270,7 +238,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             _buildSummaryCard(
               'Discounts',
               'Rs. ${(data['discount'] ?? 0).toStringAsFixed(2)}',
-              Icons.local_offer,
+              Icons.discount,
               Colors.red,
             ),
           ],
@@ -279,96 +247,74 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color, {bool isFullWidth = false}) {
+    final content = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[700],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[600],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    if (isFullWidth) return content;
+    return Expanded(child: content);
   }
 
   Widget _buildSalesBreakdown() {
     final data = _dashboardData;
     if (data == null) return const SizedBox();
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Order Breakdown',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Order Distribution',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          _buildProgressRow('Dine-In', data['dine_in_count'] ?? 0, Colors.blue),
-          _buildProgressRow('Takeaway', data['takeaway_count'] ?? 0, Colors.orange),
-          _buildProgressRow('Delivery', data['delivery_count'] ?? 0, Colors.purple),
-        ],
+            const SizedBox(height: 20),
+            _buildProgressRow('Dine-In', data['dine_in_count'] ?? 0, Colors.blue),
+            _buildProgressRow('Takeaway', data['takeaway_count'] ?? 0, Colors.orange),
+            _buildProgressRow('Delivery', data['delivery_count'] ?? 0, Colors.purple),
+          ],
+        ),
       ),
     );
   }
@@ -384,10 +330,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             Text(
               '$count orders (${percentage.toStringAsFixed(1)}%)',
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -398,7 +344,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             value: percentage / 100,
             backgroundColor: Colors.grey[100],
             valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 6,
+            minHeight: 8,
           ),
         ),
         const SizedBox(height: 16),
@@ -409,152 +355,75 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildExportSection() {
     final reports = [
       {
-        'name': 'Daily Sales Report',
+        'name': 'Sales Report',
         'type': 'sales',
-        'icon': Icons.attach_money_rounded,
+        'icon': Icons.description,
         'color': Colors.blue,
-        'desc': 'Sales, tax, and discount summary'
       },
       {
-        'name': 'Inventory Consumption',
+        'name': 'Inventory Report',
         'type': 'inventory',
-        'icon': Icons.inventory_2_rounded,
+        'icon': Icons.inventory,
         'color': Colors.orange,
-        'desc': 'Track stock and material usage'
       },
       {
-        'name': 'Customer Analytics',
+        'name': 'Customer Data',
         'type': 'customers',
-        'icon': Icons.people_alt_rounded,
+        'icon': Icons.people,
         'color': Colors.teal,
-        'desc': 'Customer spending and visits'
       },
       {
         'name': 'Staff Performance',
         'type': 'staff',
-        'icon': Icons.emoji_events_rounded,
+        'icon': Icons.group,
         'color': Colors.purple,
-        'desc': 'Duty and order performance'
-      },
-      {
-        'name': 'Session Report',
-        'type': 'sessions',
-        'icon': Icons.history_rounded,
-        'color': Colors.blueGrey,
-        'desc': 'All POS sessions and staff activity'
       },
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Available Data Exports',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
+        const Text(
+          'Available Reports',
+          style: TextStyle(
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 16),
-        GridView.builder(
+        const SizedBox(height: 12),
+        ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 1,
-            mainAxisExtent: 140,
-            mainAxisSpacing: 16,
-          ),
           itemCount: reports.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             final report = reports[index];
-            return _buildReportCard(report);
+            return ListTile(
+              tileColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              leading: Icon(report['icon'] as IconData, color: report['color'] as Color),
+              title: Text(report['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf, color: Colors.red, size: 20),
+                    onPressed: () => _handleExport(report['type'] as String, 'pdf'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.table_chart, color: Colors.green, size: 20),
+                    onPressed: () => _handleExport(report['type'] as String, 'excel'),
+                  ),
+                ],
+              ),
+            );
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildReportCard(Map<String, dynamic> report) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (report['color'] as Color).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(report['icon'], color: report['color'], size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      report['name'],
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                    Text(
-                      report['desc'],
-                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          const Divider(height: 1),
-          const Spacer(),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _handleExport(report['type'], 'pdf'),
-                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
-                  label: Text("PDF", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red[700],
-                    side: BorderSide(color: Colors.red.shade100),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (report['type'] != 'sessions')
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _handleExport(report['type'], 'excel'),
-                    icon: const Icon(Icons.table_chart_rounded, size: 16),
-                    label: Text("Excel", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.green[700],
-                      side: BorderSide(color: Colors.green.shade100),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

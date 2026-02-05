@@ -48,17 +48,28 @@ const AuthLayout: React.FC = () => {
             >
                 <Box sx={{ width: '100%', maxWidth: 400 }}>
                     <Box sx={{ mb: 4, textAlign: 'left' }}>
-                        <Typography
-                            variant="h3"
-                            sx={{
-                                fontWeight: 900,
-                                color: '#FFC107',
-                                mb: 0.5,
-                                letterSpacing: '-0.5px'
-                            }}
-                        >
-                            HOTERU
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                            <Box
+                                component="img"
+                                src="/dautari-logo.png"
+                                alt="Dautari Adda Logo"
+                                sx={{
+                                    height: 60,
+                                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'
+                                }}
+                            />
+                            <Typography
+                                variant="h4"
+                                sx={{
+                                    fontWeight: 900,
+                                    color: '#1e293b',
+                                    letterSpacing: '-1px',
+                                    textTransform: 'uppercase'
+                                }}
+                            >
+                                Dautari Adda
+                            </Typography>
+                        </Box>
                         <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500 }}>
                             Digital Business Management Platform
                         </Typography>

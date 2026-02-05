@@ -23,6 +23,21 @@ class AuthService {
     }
   }
 
+  // Upload profile picture
+  Future<bool> uploadProfilePicture(dynamic file) async {
+    try {
+      final response = await _apiService.uploadFile(
+        '/auth/users/me/profile-picture',
+        file,
+        fieldName: 'file',
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('Error uploading profile picture: $e');
+      return false;
+    }
+  }
+
   // Sign Up (Ratala signup creates organization)
   Future<Map<String, dynamic>> signUp({
     required String email,

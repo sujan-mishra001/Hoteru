@@ -199,7 +199,7 @@ const AdminLayout: React.FC = () => {
                         Welcome to
                     </Typography>
                     <Typography variant="h6" fontWeight={800} color="#FFC107" sx={{ lineHeight: 1.2, wordBreak: 'break-word' }}>
-                        {currentBranch?.name || 'HOTERU'}
+                        {currentBranch?.name || 'Dautari Adda'}
                     </Typography>
                 </Box>
             </Box>

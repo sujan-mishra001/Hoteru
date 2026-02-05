@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:dautari_adda/features/pos/presentation/widgets/horizontal_swipe_hit_test_filter.dart';
 import 'package:dautari_adda/features/pos/data/kot_service.dart';
 import 'package:intl/intl.dart';
 
 class KotManagementScreen extends StatefulWidget {
-  const KotManagementScreen({super.key});
+  final List<Map<String, dynamic>>? navigationItems;
+  const KotManagementScreen({super.key, this.navigationItems});
 
   @override
   State<KotManagementScreen> createState() => _KotManagementScreenState();
@@ -25,10 +28,15 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
   }
 
   Future<void> _loadKots() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     // Fetch all KOTs for the branch and we'll filter locally for a smoother UI experience
-    _kots = await _kotService.getKots();
-    setState(() => _isLoading = false);
+    final kots = await _kotService.getKots();
+    if (!mounted) return;
+    setState(() {
+      _kots = kots;
+      _isLoading = false;
+    });
   }
 
   List<dynamic> _getFilteredKots(String status) {
@@ -101,16 +109,22 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildKotList('Pending'),
-                _buildKotList('Completed'),
-                _buildKotList('All'),
-              ],
+          : HorizontalSwipeHitTestFilter(
+              startPercentage: 0.15,
+              endPercentage: 0.85,
+              child: TabBarView(
+                controller: _tabController,
+                physics: const ClampingScrollPhysics(),
+                children: [
+                  _buildKotList('Pending'),
+                  _buildKotList('Completed'),
+                  _buildKotList('All'),
+                ],
+              ),
             ),
     );
   }
+
 
   Widget _buildTypeButton(String type, IconData icon) {
     final isSelected = _selectedType == type;
@@ -155,7 +169,7 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
     );
   }
 
-  Widget _buildKotList(String status) {
+  Widget _buildKotList(String status, {double internalPadding = 16.0}) {
     final filtered = _getFilteredKots(status);
     
     if (filtered.isEmpty) {
@@ -172,7 +186,7 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(vertical: 16, horizontal: internalPadding),
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final kot = filtered[index];
@@ -221,20 +235,29 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: (isPending ? Colors.orange : Colors.green).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    kot['status']?.toUpperCase() ?? 'N/A',
-                    style: TextStyle(
-                      color: isPending ? Colors.orange : Colors.green,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.print_rounded, color: Colors.blue, size: 20),
+                      onPressed: () => _printKot(kot['id']),
+                      tooltip: "Print Ticket",
                     ),
-                  ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (isPending ? Colors.orange : Colors.green).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        kot['status']?.toUpperCase() ?? 'N/A',
+                        style: TextStyle(
+                          color: isPending ? Colors.orange : Colors.green,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -298,6 +321,18 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
           const SnackBar(content: Text("Order marked as completed"), backgroundColor: Colors.green),
         );
       }
+    }
+  }
+
+  void _printKot(int id) async {
+    final success = await _kotService.printKot(id);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? "Print job sent to kitchen" : "Failed to send print job"),
+          backgroundColor: success ? Colors.blue : Colors.red,
+        ),
+      );
     }
   }
 }
