@@ -1,11 +1,12 @@
 """
 Order management routes
 """
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Depends, Body, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 import random
 from datetime import datetime
+from app.services.printing_service import PrintingService
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
@@ -299,3 +300,30 @@ async def delete_order(
     db.delete(order)
     db.commit()
     return {"message": "Order deleted successfully"}
+
+@router.post("/{order_id}/print")
+async def print_bill(
+    order_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Trigger bill printing for an order"""
+    branch_id = current_user.current_branch_id
+    
+    order = db.query(Order).options(
+        joinedload(Order.table),
+        joinedload(Order.customer),
+        joinedload(Order.items).joinedload(OrderItem.menu_item)
+    ).filter(Order.id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if branch_id and order.branch_id != branch_id:
+         raise HTTPException(status_code=403, detail="Not authorized to print this order")
+
+    printing_service = PrintingService(db)
+    background_tasks.add_task(printing_service.print_bill, order)
+    
+    return {"message": "Bill print job queued"}

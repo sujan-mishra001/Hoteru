@@ -9,6 +9,13 @@ class PrinterType(str, enum.Enum):
     USB = "usb"
     BLUETOOTH = "bluetooth"
 
+class PrinterBrand(str, enum.Enum):
+    EPSON = "epson"
+    XPRINTER = "xprinter"
+    RONGTA = "rongta"
+    TVS = "tvs"
+    GENERIC = "generic"
+
 class PrinterConnection(str, enum.Enum):
     NETWORK = "network"
     USB = "usb"
@@ -31,6 +38,7 @@ class Printer(Base):
     printer_usage = Column(Enum(PrinterUsage), default=PrinterUsage.BILLING)
     is_active = Column(Boolean, default=True)
     paper_size = Column(Integer, default=80) # 80mm or 58mm
+    brand = Column(Enum(PrinterBrand), default=PrinterBrand.GENERIC)
     
     branch_id = Column(Integer, ForeignKey("branches.id"))
     branch = relationship("Branch", back_populates="printers")

@@ -11,6 +11,8 @@ from app.db.database import get_db
 from app.core.dependencies import get_current_user
 from app.models import KOT, Order, KOTItem
 from sqlalchemy.orm import joinedload
+from fastapi import BackgroundTasks
+from app.services.printing_service import PrintingService
 
 router = APIRouter()
 
@@ -72,6 +74,7 @@ async def get_kot(
 
 @router.post("")
 async def create_kot(
+    background_tasks: BackgroundTasks,
     kot_data: dict = Body(...),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -103,7 +106,22 @@ async def create_kot(
         
     db.commit()
     db.refresh(new_kot)
-    return new_kot
+    
+    # Reload with relationships for printing
+    kot = db.query(KOT).options(
+        joinedload(KOT.order).joinedload(Order.table),
+        joinedload(KOT.items).joinedload(KOTItem.menu_item),
+        joinedload(KOT.user)
+    ).filter(KOT.id == new_kot.id).first()
+
+    # Background printing
+    printing_service = PrintingService(db)
+    if kot.kot_type == 'KOT':
+        background_tasks.add_task(printing_service.print_kot, kot)
+    else:
+        background_tasks.add_task(printing_service.print_bot, kot)
+
+    return kot
 
 
 @router.put("/{kot_id}")
@@ -154,3 +172,34 @@ async def update_kot_status(
     db.commit()
     db.refresh(kot)
     return kot
+
+@router.post("/{kot_id}/print")
+async def print_kot(
+    kot_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Manually trigger KOT/BOT printing"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(KOT).options(
+        joinedload(KOT.order).joinedload(Order.table),
+        joinedload(KOT.items).joinedload(KOTItem.menu_item),
+        joinedload(KOT.user)
+    ).filter(KOT.id == kot_id)
+    
+    if branch_id:
+        query = query.join(Order).filter(Order.branch_id == branch_id)
+    
+    kot = query.first()
+    if not kot:
+        raise HTTPException(status_code=404, detail="KOT not found")
+    
+    printing_service = PrintingService(db)
+    if kot.kot_type == 'KOT':
+        background_tasks.add_task(printing_service.print_kot, kot)
+    else:
+        background_tasks.add_task(printing_service.print_bot, kot)
+        
+    return {"message": "Print job queued"}

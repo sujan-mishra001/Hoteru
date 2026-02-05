@@ -20,6 +20,7 @@ import 'package:dautari_adda/features/inventory/presentation/screens/purchase_ma
 import 'package:dautari_adda/features/inventory/presentation/screens/delivery_partners_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/floors_tables_management_screen.dart';
 import 'package:dautari_adda/features/admin/presentation/screens/qr_management_screen.dart';
+import 'package:dautari_adda/features/admin/presentation/screens/printer_management_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -318,6 +319,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Settings',
                     subtitle: 'General application preferences',
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.print_rounded,
+                    title: 'Printer Management',
+                    subtitle: 'Configure POS printers and devices',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrinterManagementScreen())),
                   ),
                   const SizedBox(height: 12),
                   _buildMenuItem(
