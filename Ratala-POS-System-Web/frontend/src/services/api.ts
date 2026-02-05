@@ -57,6 +57,10 @@ export const authAPI = {
       }
     });
   },
+  updateMe: (data: any) => api.put('/auth/users/me', data),
+  updatePhoto: (formData: FormData) => api.post('/auth/users/me/photo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
 };
 
 // Customers API
@@ -179,7 +183,7 @@ export const sessionsAPI = {
 export const reportsAPI = {
   getDashboardSummary: (params?: any) => api.get('/reports/dashboard-summary', { params }),
   getOrdersChartData: (params: { period: 'hourly' | 'daily' | 'weekly' }) => api.get('/reports/orders-chart', { params }),
-  getSalesSummary: (params?: any) => api.get('/reports/sales', { params }),
+  getSalesSummary: (params?: any) => api.get('/reports/sales-summary', { params }),
   getInventoryReport: () => api.get('/reports/inventory'),
   getDayBook: (params: any) => api.get('/reports/day-book', { params }),
   getSessions: () => api.get('/reports/sessions'),
@@ -187,6 +191,7 @@ export const reportsAPI = {
   exportPDF: (type: string, params: any) => api.get(`/reports/export/pdf/${type}`, { params, responseType: 'blob' }),
   exportExcel: (type: string, params: any) => api.get(`/reports/export/excel/${type}`, { params, responseType: 'blob' }),
   exportAllExcel: () => api.get('/reports/export/all/excel', { responseType: 'blob' }),
+  exportShiftReport: (sessionId: number) => api.get(`/reports/export/shift/${sessionId}`, { responseType: 'blob' }),
 };
 
 // Users API
@@ -254,6 +259,28 @@ export const otpAPI = {
   verifyOTP: (email: string, code: string, consume: boolean = true) => api.post('/otp/verify-otp', { email, code, consume }),
   completePasswordReset: (data: any) => api.post('/otp/complete-password-reset', data),
   health: () => api.get('/otp/health'),
+};
+
+// Delivery Partners API
+export const deliveryAPI = {
+  getAll: () => api.get('/delivery'),
+  create: (data: any) => api.post('/delivery', data),
+  update: (id: number, data: any) => api.put(`/delivery/${id}`, data),
+  delete: (id: number) => api.delete(`/delivery/${id}`),
+};
+
+// QR Management API
+export const qrAPI = {
+  getAll: (params?: any) => api.get('/qr-codes', { params }),
+  create: (formData: FormData) => api.post('/qr-codes', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  update: (id: number, formData: FormData) => api.put(`/qr-codes/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  delete: (id: number) => api.delete(`/qr-codes/${id}`),
+  generateMenuQR: () => `${API_BASE_URL}${API_PREFIX}/qr-codes/generate-menu-qr`,
+  getMenuQR: () => api.get('/qr-codes/generate-menu-qr', { responseType: 'blob' }),
 };
 
 // ... keep existing ones and add to export if needed

@@ -25,6 +25,10 @@ import {
     Avatar,
     CircularProgress,
     IconButton,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
 } from '@mui/material';
 import {
     Settings as SettingsIcon,
@@ -37,7 +41,6 @@ import {
     Package,
     Square,
     Truck,
-    Warehouse,
     QrCode,
     GitMerge,
     Monitor,
@@ -47,10 +50,15 @@ import {
     Plus,
     MoreVertical,
     MapPin,
-    Printer
+    Printer,
+    FileText,
+    Download,
+    Check
 } from 'lucide-react';
 import QRManagement from './QRManagement';
-import { menuAPI, settingsAPI, branchAPI } from '../../services/api';
+import FloorTableSettings from './FloorTableSettings';
+import { menuAPI, settingsAPI, branchAPI, authAPI, deliveryAPI, reportsAPI, qrAPI } from '../../services/api';
+import { useAuth } from '../../app/providers/AuthProvider';
 
 const Settings: React.FC = () => {
     const navigate = useNavigate();
@@ -80,15 +88,108 @@ const Settings: React.FC = () => {
     // States for Branch Management
     const [branches, setBranches] = useState<any[]>([]);
 
+    // States for Delivery Partners
+    const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
+    const [openDeliveryDialog, setOpenDeliveryDialog] = useState(false);
+    const [editingPartner, setEditingPartner] = useState<any>(null);
+    const [partnerForm, setPartnerForm] = useState({ name: '', phone: '', vehicle_number: '', status: 'Active' });
+
+    // States for User Profile
+    const { user, updateUser } = useAuth();
+    const [profileForm, setProfileForm] = useState({ full_name: '', email: '', username: '', password: '' });
+    const [qrSrc, setQrSrc] = useState<string>('');
+    const [uploading, setUploading] = useState(false);
+
     useEffect(() => {
         if (mainTab === 0 && subTab === 'company-profile') {
             loadCompanySettings();
+        } else if (mainTab === 0 && subTab === 'profile') {
+            if (user) setProfileForm({ full_name: user.full_name || '', email: user.email || '', username: user.username || '', password: '' });
         } else if (mainTab === 1 && subTab === 'update-menu-rate') {
             loadMenuItems();
         } else if (mainTab === 1 && subTab === 'add-branches') {
             loadBranches();
+        } else if (mainTab === 1 && subTab === 'manage-delivery') {
+            loadDeliveryPartners();
         }
-    }, [mainTab, subTab]);
+    }, [mainTab, subTab, user]);
+
+    const loadDeliveryPartners = async () => {
+        try {
+            setLoading(true);
+            const res = await deliveryAPI.getAll();
+            setDeliveryPartners(res.data || []);
+        } catch (error) {
+            console.error('Error loading delivery partners:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleReportExport = async (type: string, format: 'pdf' | 'excel' = 'pdf') => {
+        try {
+            setLoading(true);
+            const res = format === 'pdf'
+                ? await reportsAPI.exportPDF(type, {})
+                : await reportsAPI.exportExcel(type, {});
+
+            const blob = new Blob([res.data], {
+                type: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${type}_report_${new Date().toISOString().split('T')[0]}.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Failed to export report');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExportAll = async () => {
+        try {
+            setLoading(true);
+            const res = await reportsAPI.exportAllExcel();
+            const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const prefix = user?.organization_id || 'Business';
+            link.setAttribute('download', `${prefix}_Master_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Master export failed:', error);
+            alert('Failed to export master report');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (subTab === 'digital-menu') {
+            let objectUrl = '';
+            qrAPI.getMenuQR().then(res => {
+                const blob = new Blob([res.data], { type: 'image/png' });
+                objectUrl = URL.createObjectURL(blob);
+                setQrSrc(objectUrl);
+            }).catch(err => {
+                console.error('Error fetching QR:', err);
+            });
+            return () => {
+                if (objectUrl) URL.revokeObjectURL(objectUrl);
+                setQrSrc('');
+            };
+        }
+    }, [subTab]);
 
     const loadCompanySettings = async () => {
         try {
@@ -162,8 +263,6 @@ const Settings: React.FC = () => {
             {[
                 { id: 'company-profile', text: 'Company Profile', icon: <Building2 size={20} /> },
                 { id: 'profile', text: 'Profile', icon: <User size={20} /> },
-                { id: 'opening-balance', text: 'Opening Balance', icon: <Wallet size={20} /> },
-                { id: 'payment-modes', text: 'Payment Modes', icon: <CreditCard size={20} /> },
                 { id: 'import-export', text: 'Import/Export', icon: <ArrowLeftRight size={20} /> },
                 { id: 'plans-subscription', text: 'Plans & Subscription', icon: <Package size={20} /> },
             ].map((item) => (
@@ -196,7 +295,6 @@ const Settings: React.FC = () => {
                 { id: 'update-menu-rate', text: 'Update Menu Rate', icon: <Utensils size={20} /> },
                 { id: 'manage-tables', text: 'Manage Tables', icon: <Square size={20} /> },
                 { id: 'manage-delivery', text: 'Manage Delivery Partner', icon: <Truck size={20} /> },
-                { id: 'storage-area', text: 'Storage Area', icon: <Warehouse size={20} /> },
                 { id: 'add-qr-payment', text: 'Add QR Payment', icon: <QrCode size={20} /> },
                 { id: 'printer-setup', text: 'Printer Setup', icon: <Printer size={20} /> },
                 { id: 'add-branches', text: 'Add Branches', icon: <GitMerge size={20} /> },
@@ -502,6 +600,290 @@ const Settings: React.FC = () => {
         </Box>
     );
 
+    const renderUserProfile = () => (
+        <Box>
+            <Typography variant="h6" fontWeight={800} sx={{ mb: 3 }}>My Profile</Typography>
+            <Paper sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 4 }}>
+                    <Box sx={{ position: 'relative' }}>
+                        <Avatar
+                            src={user?.profile_image_url ? `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${user.profile_image_url}` : undefined}
+                            sx={{ width: 120, height: 120, mb: 2, border: '4px solid #f8fafc', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        >
+                            {user?.full_name?.charAt(0) || 'U'}
+                        </Avatar>
+                        <IconButton
+                            component="label"
+                            sx={{
+                                position: 'absolute', bottom: 15, right: 0, bgcolor: '#FFC107',
+                                '&:hover': { bgcolor: '#FF7700' }, color: 'white', border: '2px solid white'
+                            }}
+                        >
+                            <input
+                                type="file" hidden accept="image/*"
+                                onChange={async (e) => {
+                                    if (e.target.files?.[0]) {
+                                        const formData = new FormData();
+                                        formData.append('file', e.target.files[0]);
+                                        try {
+                                            setUploading(true);
+                                            await authAPI.updatePhoto(formData);
+                                            // Refresh user context
+                                            const updatedUser = await authAPI.getCurrentUser();
+                                            updateUser(updatedUser.data);
+                                            alert('Profile picture updated!');
+                                        } catch (err) {
+                                            alert('Failed to upload photo');
+                                        } finally {
+                                            setUploading(false);
+                                        }
+                                    }
+                                }}
+                            />
+                            <Plus size={16} />
+                        </IconButton>
+                    </Box>
+                    <Typography variant="h6" fontWeight={700}>{user?.full_name}</Typography>
+                    <Typography variant="body2" color="text.secondary">{user?.role?.toUpperCase()}</Typography>
+                </Box>
+
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                            fullWidth label="Full Name" value={profileForm.full_name}
+                            onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                            fullWidth label="Email" value={profileForm.email}
+                            onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                            fullWidth label="Username" value={profileForm.username}
+                            onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                            fullWidth label="New Password (Optional)" type="password" value={profileForm.password}
+                            onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                        />
+                    </Grid>
+                </Grid>
+                <Button
+                    variant="contained" sx={{ mt: 4, bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, fontWeight: 700 }}
+                    onClick={async () => {
+                        try {
+                            setLoading(true);
+                            await authAPI.updateMe(profileForm);
+                            const updatedUser = await authAPI.getCurrentUser();
+                            updateUser(updatedUser.data);
+                            alert('Profile updated successfully!');
+                        } catch (err) {
+                            alert('Failed to update profile');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                >
+                    Save Changes
+                </Button>
+            </Paper>
+        </Box>
+    );
+
+    const renderImportExport = () => (
+        <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" fontWeight={800}>Import & Export Data</Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<FileText size={18} />}
+                    onClick={handleExportAll}
+                    disabled={loading}
+                    sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, fontWeight: 700 }}
+                >
+                    {loading ? <CircularProgress size={20} color="inherit" /> : 'Export Master Report (Excel)'}
+                </Button>
+            </Box>
+            <Grid container spacing={3}>
+                {[
+                    { title: 'Sales Reports', desc: 'Download all sales data and summaries', type: 'sales' },
+                    { title: 'Inventory Data', desc: 'Current stock levels and consumption', type: 'inventory' },
+                    { title: 'Customer Analytics', desc: 'Visit frequency and total spending', type: 'customers' },
+                    { title: 'Staff Performance', desc: 'Shift logs and order statistics', type: 'staff' },
+                    { title: 'Session Reports', desc: 'Detailed session and shift data', type: 'session' },
+                    { title: 'Day Book', desc: 'Full transaction ledger for today', type: 'day-book' }
+                ].map((item, idx) => (
+                    <Grid size={{ xs: 12, md: 4 }} key={idx}>
+                        <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                            <FileText size={40} color="#FFC107" style={{ marginBottom: 16 }} />
+                            <Typography variant="subtitle1" fontWeight={700}>{item.title}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>{item.desc}</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                <Button
+                                    variant="outlined" startIcon={<Download size={16} />} size="small"
+                                    onClick={() => handleReportExport(item.type, 'pdf')}
+                                    disabled={loading}
+                                >
+                                    PDF
+                                </Button>
+                                <Button
+                                    variant="outlined" startIcon={<Download size={16} />} size="small"
+                                    onClick={() => handleReportExport(item.type, 'excel')}
+                                    disabled={loading}
+                                    sx={{ color: '#10b981', borderColor: '#10b981', '&:hover': { borderColor: '#059669', bgcolor: '#f0fdf4' } }}
+                                >
+                                    Excel
+                                </Button>
+                            </Box>
+                        </Paper>
+                    </Grid>
+                ))}
+            </Grid>
+        </Box>
+    );
+
+    const renderPlansSubscription = () => (
+        <Box>
+            <Typography variant="h6" fontWeight={800} sx={{ mb: 3 }}>Plans & Subscription</Typography>
+            <Grid container spacing={3}>
+                {[
+                    { name: 'Free', price: 'Rs. 0', features: ['1 Branch', '5 Users', 'Basic POS', 'Email Support'], current: true },
+                    { name: 'Standard', price: 'Rs. 5,000/mo', features: ['3 Branches', '15 Users', 'Advanced Inventory', 'Priority Support'] },
+                    { name: 'Premium', price: 'Rs. 12,000/mo', features: ['Unlimited Branches', 'Unlimited Users', 'Multi-tenant Support', '24/7 Support'] }
+                ].map((plan, idx) => (
+                    <Grid size={{ xs: 12, md: 4 }} key={idx}>
+                        <Paper sx={{ p: 4, borderRadius: '20px', border: '1px solid', borderColor: plan.current ? '#FFC107' : '#e2e8f0', position: 'relative', overflow: 'hidden' }}>
+                            {plan.current && <Box sx={{ position: 'absolute', top: 12, right: 12, bgcolor: '#FFC107', color: 'white', px: 1, py: 0.5, borderRadius: '4px', fontSize: '10px', fontWeight: 800 }}>CURRENT PLAN</Box>}
+                            <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>{plan.name}</Typography>
+                            <Typography variant="h4" fontWeight={900} color="#FFC107" sx={{ mb: 3 }}>{plan.price}</Typography>
+                            <List>
+                                {plan.features.map((f, i) => (
+                                    <ListItem key={i} disablePadding sx={{ mb: 1 }}>
+                                        <ListItemIcon sx={{ minWidth: 30, color: '#10b981' }}><Check size={16} /></ListItemIcon>
+                                        <ListItemText primary={f} primaryTypographyProps={{ fontSize: '13px', fontWeight: 600 }} />
+                                    </ListItem>
+                                ))}
+                            </List>
+                            <Button fullWidth variant={plan.current ? 'contained' : 'outlined'} sx={{ mt: 3, borderRadius: '10px', fontWeight: 800, bgcolor: plan.current ? '#FFC107' : 'transparent', '&:hover': { bgcolor: plan.current ? '#FF7700' : 'rgba(255, 140, 0, 0.05)' } }}>
+                                {plan.current ? 'Already Gained' : 'Upgrade Now'}
+                            </Button>
+                        </Paper>
+                    </Grid>
+                ))}
+            </Grid>
+        </Box>
+    );
+
+    const renderDeliveryPartners = () => (
+        <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" fontWeight={800}>Manage Delivery Partners</Typography>
+                <Button
+                    variant="contained" startIcon={<Plus size={18} />}
+                    onClick={() => { setEditingPartner(null); setPartnerForm({ name: '', phone: '', vehicle_number: '', status: 'Active' }); setOpenDeliveryDialog(true); }}
+                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, fontWeight: 700 }}
+                >
+                    Add Partner
+                </Button>
+            </Box>
+
+            <Grid container spacing={2}>
+                {deliveryPartners.map((p) => (
+                    <Grid size={{ xs: 12, md: 4 }} key={p.id}>
+                        <Paper sx={{ p: 2, borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography fontWeight={700}>{p.name}</Typography>
+                                <Chip label={p.status} size="small" color={p.status === 'Active' ? 'success' : 'default'} sx={{ height: 20, fontSize: '10px' }} />
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Phone: {p.phone || '-'}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Vehicle: {p.vehicle_number || '-'}</Typography>
+                            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                                <Button size="small" onClick={() => { setEditingPartner(p); setPartnerForm({ name: p.name, phone: p.phone, vehicle_number: p.vehicle_number, status: p.status }); setOpenDeliveryDialog(true); }}>Edit</Button>
+                                <Button size="small" color="error" onClick={async () => { if (confirm('Remove partner?')) { await deliveryAPI.delete(p.id); loadDeliveryPartners(); } }}>Delete</Button>
+                            </Box>
+                        </Paper>
+                    </Grid>
+                ))}
+            </Grid>
+
+            <Dialog open={openDeliveryDialog} onClose={() => setOpenDeliveryDialog(false)}>
+                <Box sx={{ p: 4, width: 400 }}>
+                    <Typography variant="h6" fontWeight={800} mb={3}>{editingPartner ? 'Edit Partner' : 'Add Partner'}</Typography>
+                    <TextField fullWidth label="Partner Name" sx={{ mb: 2 }} value={partnerForm.name} onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })} />
+                    <TextField fullWidth label="Phone" sx={{ mb: 2 }} value={partnerForm.phone} onChange={(e) => setPartnerForm({ ...partnerForm, phone: e.target.value })} />
+                    <TextField fullWidth label="Vehicle Number" sx={{ mb: 2 }} value={partnerForm.vehicle_number} onChange={(e) => setPartnerForm({ ...partnerForm, vehicle_number: e.target.value })} />
+                    <Button
+                        fullWidth variant="contained" sx={{ mt: 2, bgcolor: '#FFC107' }}
+                        onClick={async () => {
+                            if (editingPartner) await deliveryAPI.update(editingPartner.id, partnerForm);
+                            else await deliveryAPI.create(partnerForm);
+                            setOpenDeliveryDialog(false);
+                            loadDeliveryPartners();
+                        }}
+                    >
+                        Save Partner
+                    </Button>
+                </Box>
+            </Dialog>
+        </Box>
+    );
+
+    const renderDigitalMenu = () => (
+        <Box>
+            <Typography variant="h6" fontWeight={800} sx={{ mb: 3 }}>Digital Menu QR</Typography>
+            <Paper sx={{ p: 4, borderRadius: '20px', border: '1px solid #e2e8f0', textAlign: 'center', maxWidth: 400, mx: 'auto' }}>
+                <Box
+                    sx={{
+                        width: '100%', height: 300, bgcolor: '#f1f5f9', mb: 3, borderRadius: '12px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                >
+                    {qrSrc ? (
+                        <img
+                            src={qrSrc}
+                            alt="Digital Menu QR"
+                            style={{ width: 250, height: 250 }}
+                        />
+                    ) : (
+                        <Box sx={{ width: 250, height: 250, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CircularProgress />
+                        </Box>
+                    )}
+                    {!qrSrc && <QrCode size={100} color="#cbd5e1" id="placeholder-qr" style={{ position: 'absolute' }} />}
+                </Box>
+                <Typography variant="subtitle1" fontWeight={700}>Professional Digital Menu</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3 }}>
+                    This QR links directly to your real-time menu. Customers can scan it to browse items, categories, and prices.
+                </Typography>
+                <Button
+                    fullWidth variant="contained" startIcon={<Download size={18} />} sx={{ bgcolor: '#2C1810', '&:hover': { bgcolor: '#000' } }}
+                    onClick={async () => {
+                        try {
+                            const res = await qrAPI.getMenuQR();
+                            const blob = new Blob([res.data], { type: 'image/png' });
+                            const url = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.setAttribute('download', 'digital-menu-qr.png');
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                        } catch (err) {
+                            console.error('Download error:', err);
+                        }
+                    }}
+                >
+                    Download QR Code
+                </Button>
+            </Paper>
+        </Box>
+    );
+
     const renderPrinterSetup = () => (
         <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -565,20 +947,26 @@ const Settings: React.FC = () => {
                 <Grid size={{ xs: 12, md: 9 }} sx={{ height: '100%', overflowY: 'auto' }}>
                     <Box sx={{ pb: 4 }}>
                         {mainTab === 0 ? (
-                            subTab === 'company-profile' ? renderCompanyProfile() : (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
-                                    <Typography color="text.secondary">Configuration for <strong>{subTab}</strong> coming soon.</Typography>
-                                </Box>
-                            )
-                        ) : (
-                            subTab === 'update-menu-rate' ? renderUpdateMenuRate() :
-                                subTab === 'add-qr-payment' ? <QRManagement /> :
-                                    subTab === 'printer-setup' ? renderPrinterSetup() :
-                                        subTab === 'add-branches' ? renderBranchManagement() : (
+                            subTab === 'company-profile' ? renderCompanyProfile() :
+                                subTab === 'profile' ? renderUserProfile() :
+                                    subTab === 'import-export' ? renderImportExport() :
+                                        subTab === 'plans-subscription' ? renderPlansSubscription() : (
                                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
                                                 <Typography color="text.secondary">Configuration for <strong>{subTab}</strong> coming soon.</Typography>
                                             </Box>
                                         )
+                        ) : (
+                            subTab === 'update-menu-rate' ? renderUpdateMenuRate() :
+                                subTab === 'manage-tables' ? <FloorTableSettings /> :
+                                    subTab === 'manage-delivery' ? renderDeliveryPartners() :
+                                        subTab === 'add-qr-payment' ? <QRManagement /> :
+                                            subTab === 'printer-setup' ? renderPrinterSetup() :
+                                                subTab === 'add-branches' ? renderBranchManagement() :
+                                                    subTab === 'digital-menu' ? renderDigitalMenu() : (
+                                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
+                                                            <Typography color="text.secondary">Configuration for <strong>{subTab}</strong> coming soon.</Typography>
+                                                        </Box>
+                                                    )
                         )}
                     </Box>
                 </Grid>

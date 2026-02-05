@@ -33,7 +33,7 @@ import BillView from '../pos/billing/BillView';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-const TABS = ['Table', 'Self Delivery', 'Delivery Partner', 'Takeaway', 'Pay First', 'Draft'];
+const TABS = ['Table', 'Delivery', 'Takeaway', 'Pay First', 'Draft'];
 
 interface Order {
     id: number;
@@ -42,6 +42,7 @@ interface Order {
     order_type: string;
     status: string;
     customer?: { name: string; phone?: string };
+    delivery_partner?: { name: string };
     table_id?: number;
     table?: { id: number; table_id: string };
     payment_type?: string;
@@ -108,6 +109,11 @@ const Orders: React.FC = () => {
             // Filter by active tab
             if (activeTab === 'Draft') {
                 allOrders = allOrders.filter((order: Order) => order.status === 'Draft');
+            } else if (activeTab === 'Delivery') {
+                allOrders = allOrders.filter((order: Order) =>
+                    (order.order_type === 'Delivery' || order.order_type === 'Self Delivery' || order.order_type === 'Delivery Partner') &&
+                    order.status !== 'Draft'
+                );
             } else {
                 allOrders = allOrders.filter((order: Order) => order.order_type === activeTab && order.status !== 'Draft');
             }
@@ -271,8 +277,9 @@ const Orders: React.FC = () => {
                         <TableRow>
                             <TableCell sx={{ fontWeight: 800, py: 2 }}>ORDER NO.</TableCell>
                             <TableCell sx={{ fontWeight: 800 }}>DATE</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }}>TYPE</TableCell>
                             <TableCell sx={{ fontWeight: 800 }}>STATUS</TableCell>
-                            <TableCell sx={{ fontWeight: 800 }}>CUSTOMER</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }}>CUSTOMER / PARTNER</TableCell>
                             <TableCell sx={{ fontWeight: 800 }} align="right">NET AMOUNT</TableCell>
                             <TableCell sx={{ fontWeight: 800 }} align="center">ACTION</TableCell>
                         </TableRow>
@@ -299,6 +306,11 @@ const Orders: React.FC = () => {
                                     <TableCell sx={{ fontWeight: 700 }}>{order.order_number}</TableCell>
                                     <TableCell sx={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(order.created_at)}</TableCell>
                                     <TableCell>
+                                        <Typography variant="body2" fontWeight={600} sx={{ textTransform: 'capitalize', color: '#6366f1' }}>
+                                            {order.order_type === 'Table' ? `Table ${order.table?.table_id || ''}` : order.order_type}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
                                         <Chip
                                             label={order.status}
                                             size="small"
@@ -311,7 +323,16 @@ const Orders: React.FC = () => {
                                             }}
                                         />
                                     </TableCell>
-                                    <TableCell sx={{ fontWeight: 500 }}>{order.customer?.name || '-'}</TableCell>
+                                    <TableCell>
+                                        <Box>
+                                            <Typography variant="body2" fontWeight={600}>{order.customer?.name || '-'}</Typography>
+                                            {order.delivery_partner && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 700 }}>
+                                                    Partner: {order.delivery_partner.name}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 800, color: '#1e293b' }}>NPRs. {order.net_amount?.toLocaleString()}</TableCell>
                                     <TableCell align="center">
                                         <Stack direction="row" spacing={0.5} justifyContent="center">

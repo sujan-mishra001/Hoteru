@@ -8,7 +8,14 @@ import {
     Button,
     Tabs,
     Tab,
-    Divider
+    Divider,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from '@mui/material';
 import {
     RefreshCw,
@@ -16,12 +23,13 @@ import {
     Bike,
     ShoppingBag,
     Play,
-    Square
+    Square,
+    QrCode
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { usePermission } from '../../app/providers/PermissionProvider';
-import { floorsAPI, tablesAPI, sessionsAPI, authAPI } from '../../services/api';
+import { floorsAPI, tablesAPI, sessionsAPI, authAPI, deliveryAPI, qrAPI, reportsAPI } from '../../services/api';
 import { useNotification } from '../../app/providers/NotificationProvider';
 
 // Types
@@ -170,6 +178,10 @@ const POSDashboard: React.FC = () => {
     const [tables, setTables] = useState<TableData[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
     const [globalActiveSession, setGlobalActiveSession] = useState<any>(null); // For Admin to see other's session
+    const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
+    const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+    const [openDigitalMenu, setOpenDigitalMenu] = useState(false);
+    const [qrSrc, setQrSrc] = useState<string>('');
 
     // Right Panel Tabs
     const [rightPanelTab, setRightPanelTab] = useState(0); // 0: Takeaway, 1: Delivery
@@ -177,15 +189,17 @@ const POSDashboard: React.FC = () => {
     // Loader
     const loadData = useCallback(async () => {
         try {
-            const [floorsRes, tablesRes, userRes, sessionsRes] = await Promise.all([
+            const [floorsRes, tablesRes, userRes, sessionsRes, deliveryRes] = await Promise.all([
                 floorsAPI.getAll(),
                 tablesAPI.getAll(),
                 authAPI.getCurrentUser(),
-                sessionsAPI.getAll()
+                sessionsAPI.getAll(),
+                deliveryAPI.getAll()
             ]);
 
             setFloors(floorsRes.data || []);
             setTables(tablesRes.data || []);
+            setDeliveryPartners(deliveryRes.data || []);
 
             const sessionData = sessionsRes.data || [];
 
@@ -219,6 +233,25 @@ const POSDashboard: React.FC = () => {
         }
     }, [selectedFloorId]);
 
+    // Fetch QR when dialog opens
+    useEffect(() => {
+        let objectUrl = '';
+        if (openDigitalMenu) {
+            qrAPI.getMenuQR().then(res => {
+                const blob = new Blob([res.data], { type: 'image/png' });
+                objectUrl = URL.createObjectURL(blob);
+                setQrSrc(objectUrl);
+            }).catch(err => {
+                console.error('Error fetching QR:', err);
+                showAlert('Failed to generate QR Code', 'error');
+            });
+        }
+        return () => {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            setQrSrc('');
+        };
+    }, [openDigitalMenu, showAlert]);
+
     const handleStartSession = async () => {
         try {
             const payload = {
@@ -248,8 +281,22 @@ const POSDashboard: React.FC = () => {
                     const response = await sessionsAPI.update(activeSessionId, payload);
                     setActiveSessionId(null);
 
-                    // Trigger PDF Export immediately
-                    window.open(`${import.meta.env.VITE_API_BASE_URL}/v1/reports/export/shift/${activeSessionId}`, '_blank');
+                    // Trigger PDF Export immediately with authentication
+                    try {
+                        const shiftDetailRes = await reportsAPI.exportShiftReport(activeSessionId);
+                        const blob = new Blob([shiftDetailRes.data], { type: 'application/pdf' });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.setAttribute('download', `session_report_${activeSessionId}.pdf`);
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        window.URL.revokeObjectURL(url);
+                    } catch (exportErr) {
+                        console.error('Failed to auto-export session report:', exportErr);
+                        showAlert('Session closed, but failed to download report automatically.', 'warning');
+                    }
 
                     showAlert(`Session closed successfully. Total Sales: Rs. ${response.data.total_sales.toLocaleString()}`, 'success');
 
@@ -269,11 +316,11 @@ const POSDashboard: React.FC = () => {
     }, [loadData]);
 
 
-    const handleTableClick = (table: TableData) => {
+    const handleTableClick = (table: TableData, customOrderType?: string, deliveryPartnerId?: string) => {
         if (table.active_order_id) {
-            navigate(`/pos/order/${table.id}`, { state: { table, orderId: table.active_order_id } });
+            navigate(`/pos/order/${table.id}`, { state: { table, orderId: table.active_order_id, customOrderType, deliveryPartnerId } });
         } else {
-            navigate(`/pos/order/${table.id}`, { state: { table } });
+            navigate(`/pos/order/${table.id}`, { state: { table, customOrderType, deliveryPartnerId } });
         }
     };
 
@@ -281,6 +328,7 @@ const POSDashboard: React.FC = () => {
     const filteredTables = selectedFloorId === -1
         ? tables.filter(t => t.is_hold_table === 'Yes')
         : tables.filter(t => t.floor_id === selectedFloorId);
+
     return (
         <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#f8fafc', overflow: 'hidden' }}>
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -381,6 +429,14 @@ const POSDashboard: React.FC = () => {
                                     )}
                                 </>
                             )}
+                            <Button
+                                variant="outlined"
+                                startIcon={<QrCode size={16} />}
+                                onClick={() => setOpenDigitalMenu(true)}
+                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, borderColor: '#FFC107', color: '#2C1810' }}
+                            >
+                                Digital Menu
+                            </Button>
                             <IconButton onClick={() => loadData()}>
                                 <RefreshCw size={18} color="#94a3b8" />
                             </IconButton>
@@ -455,29 +511,39 @@ const POSDashboard: React.FC = () => {
 
                 {/* Content */}
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-                    <Box
-                        sx={{
-                            width: 80,
-                            height: 80,
-                            bgcolor: '#f1f5f9',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            mb: 2
-                        }}
-                    >
-                        <Box
-                            sx={{ border: '2px solid #cbd5e1', borderRadius: '8px', p: 1 }}
-                        >
-                            <Box sx={{ width: 24, height: 2, bgcolor: '#cbd5e1', mb: 0.5 }} />
-                            <Box sx={{ width: 24, height: 2, bgcolor: '#cbd5e1', mb: 0.5 }} />
-                            <Box sx={{ width: 16, height: 2, bgcolor: '#cbd5e1' }} />
+                    {rightPanelTab === 0 ? (
+                        <>
+                            <Box
+                                sx={{
+                                    width: 80, height: 80, bgcolor: '#f1f5f9', borderRadius: '50%',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2
+                                }}
+                            >
+                                <ShoppingBag size={40} color="#cbd5e1" />
+                            </Box>
+                            <Typography variant="h6" color="text.secondary" fontWeight={600}>No Takeaway Orders!</Typography>
+                        </>
+                    ) : (
+                        <Box sx={{ width: '100%' }}>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>Select Delivery Partner</Typography>
+                            <FormControl fullWidth size="small" sx={{ mb: 3 }}>
+                                <InputLabel>Partner</InputLabel>
+                                <Select
+                                    value={selectedPartnerId}
+                                    onChange={(e) => setSelectedPartnerId(e.target.value as string)}
+                                    label="Partner"
+                                >
+                                    {deliveryPartners.map(p => (
+                                        <MenuItem key={p.id} value={p.id.toString()}>{p.name}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <Box sx={{ textAlign: 'center' }}>
+                                <Bike size={40} color="#cbd5e1" />
+                                <Typography variant="h6" color="text.secondary" fontWeight={600} sx={{ mt: 2 }}>No Delivery Orders!</Typography>
+                            </Box>
                         </Box>
-                    </Box>
-                    <Typography variant="h6" color="text.secondary" fontWeight={600}>
-                        No Orders Yet!
-                    </Typography>
+                    )}
                 </Box>
 
                 {/* Footer Action */}
@@ -488,7 +554,11 @@ const POSDashboard: React.FC = () => {
                         onClick={() => {
                             const availableHoldTable = tables.find(t => t.is_hold_table === 'Yes' && t.active_order_id === null);
                             if (availableHoldTable) {
-                                handleTableClick(availableHoldTable);
+                                handleTableClick(
+                                    availableHoldTable,
+                                    rightPanelTab === 0 ? 'Takeaway' : 'Delivery',
+                                    rightPanelTab === 1 ? selectedPartnerId : undefined
+                                );
                             } else {
                                 showAlert("No available hold tables. Please clear some first.", "warning");
                             }
@@ -511,9 +581,34 @@ const POSDashboard: React.FC = () => {
                     </Button>
                 </Box>
             </Box>
+
+            {/* Digital Menu QR Dialog */}
+            <Dialog open={openDigitalMenu} onClose={() => setOpenDigitalMenu(false)}>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6" fontWeight={800}>Digital Menu QR</Typography>
+                    <IconButton onClick={() => setOpenDigitalMenu(false)} size="small">×</IconButton>
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                        {qrSrc ? (
+                            <img
+                                src={qrSrc}
+                                alt="Digital Menu QR"
+                                style={{ width: 300, height: 300, borderRadius: '12px' }}
+                            />
+                        ) : (
+                            <Box sx={{ width: 300, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto' }}>
+                                <CircularProgress />
+                            </Box>
+                        )}
+                        <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary' }}>
+                            Scan this QR code to view the live digital menu on any device.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+            </Dialog>
         </Box >
     );
 };
 
 export default POSDashboard;
-

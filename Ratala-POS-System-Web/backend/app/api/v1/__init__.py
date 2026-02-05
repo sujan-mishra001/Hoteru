@@ -38,7 +38,7 @@ try:
     
     # Other routes
     api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
-    api_router.include_router(delivery.router, prefix="/delivery-partners", tags=["Delivery Partners"])
+    api_router.include_router(delivery.router, prefix="/delivery", tags=["Delivery Partners"])
     api_router.include_router(settings.router, tags=["Settings"])
     api_router.include_router(qr_codes.router)  # prefix already set in router
     api_router.include_router(printers.router, prefix="/printers", tags=["Printers"])

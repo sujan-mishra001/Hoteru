@@ -1,12 +1,11 @@
-"""
-QR Code Management API Endpoints
-"""
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
 import uuid
 from datetime import datetime
+import qrcode
+from io import BytesIO
 
 from app.db.database import get_db
 from app.models.qr_code import QRCode
@@ -39,6 +38,40 @@ def get_qr_codes(
     
     qr_codes = query.order_by(QRCode.display_order, QRCode.created_at.desc()).all()
     return qr_codes
+
+
+@router.get("/generate-menu-qr")
+async def generate_menu_qr(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate dynamic QR for the digital menu"""
+    # Assuming frontend URL is needed. In local dev it could be localhost:3000
+    # Ideally this would be in settings
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    branch_id = current_user.current_branch_id or 1 # Fallback to 1
+    
+    # URL that the customer scans
+    menu_url = f"{frontend_url}/digital-menu/{branch_id}"
+    
+    # Generate QR Code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(menu_url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Save to buffer
+    buf = BytesIO()
+    img.save(buf)
+    buf.seek(0)
+    
+    return Response(content=buf.getvalue(), media_type="image/png")
 
 
 @router.get("/{qr_id}", response_model=QRCodeResponse)
@@ -185,3 +218,4 @@ def delete_qr_code(
     db.commit()
     
     return {"message": "QR code deleted successfully"}
+

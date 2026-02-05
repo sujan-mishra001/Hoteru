@@ -29,7 +29,7 @@ async def get_orders(
     
     query = db.query(Order).options(
         joinedload(Order.table),
-        joinedload(Order.customer),
+        joinedload(Order.customer), joinedload(Order.delivery_partner),
         joinedload(Order.items).joinedload(OrderItem.menu_item),
         joinedload(Order.kots).joinedload(KOT.items).joinedload(KOTItem.menu_item)
     )
@@ -59,7 +59,7 @@ async def get_order(
     
     query = db.query(Order).options(
         joinedload(Order.table),
-        joinedload(Order.customer),
+        joinedload(Order.customer), joinedload(Order.delivery_partner),
         joinedload(Order.items).joinedload(OrderItem.menu_item),
         joinedload(Order.kots).joinedload(KOT.items).joinedload(KOTItem.menu_item)
     ).filter(Order.id == order_id)

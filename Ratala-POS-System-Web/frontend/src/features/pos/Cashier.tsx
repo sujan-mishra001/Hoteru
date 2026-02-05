@@ -164,7 +164,14 @@ const Cashier: React.FC = () => {
                                             )}
                                         </Box>
                                     </TableCell>
-                                    <TableCell>{order.order_type || 'N/A'}</TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">{order.order_type || 'N/A'}</Typography>
+                                        {order.delivery_partner && (
+                                            <Typography variant="caption" color="primary" fontWeight={700}>
+                                                via {order.delivery_partner.name}
+                                            </Typography>
+                                        )}
+                                    </TableCell>
                                     <TableCell>
                                         {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </TableCell>

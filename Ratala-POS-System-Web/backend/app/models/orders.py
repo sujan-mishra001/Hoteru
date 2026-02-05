@@ -80,6 +80,7 @@ class Order(Base):
     paid_amount = Column(Float, default=0)
     credit_amount = Column(Float, default=0)
     payment_type = Column(String, nullable=True)  # Cash, Fonepay, Credit Card, etc.
+    delivery_charge = Column(Float, default=0)
     
     # Branch isolation
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
@@ -90,12 +91,16 @@ class Order(Base):
     # Operational Shift Session
     pos_session_id = Column(Integer, ForeignKey("pos_sessions.id"), nullable=True)
     
+    # Delivery Partner
+    delivery_partner_id = Column(Integer, ForeignKey("delivery_partners.id"), nullable=True)
+    
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     table = relationship("Table")
     customer = relationship("Customer")
+    delivery_partner = relationship("DeliveryPartner")
     session = relationship("Session")
     pos_session = relationship("POSSession")
     user = relationship("User")

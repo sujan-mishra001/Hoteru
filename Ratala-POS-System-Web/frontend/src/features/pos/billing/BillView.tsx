@@ -110,6 +110,12 @@ const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch, set
                         <Typography sx={{ fontSize: '11px' }}>{vat}</Typography>
                     </Box>
                 )}
+                {order.delivery_charge > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography sx={{ fontSize: '11px' }}>Delivery Charge:</Typography>
+                        <Typography sx={{ fontSize: '11px' }}>{order.delivery_charge}</Typography>
+                    </Box>
+                )}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
                     <Typography sx={{ fontSize: '14px', fontWeight: 900 }}>TOTAL:</Typography>
                     <Typography sx={{ fontSize: '14px', fontWeight: 900 }}>NPRs. {total}</Typography>

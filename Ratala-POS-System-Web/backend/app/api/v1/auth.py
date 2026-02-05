@@ -11,8 +11,12 @@ from app.core.dependencies import (
     verify_password, get_password_hash, create_access_token, get_current_user
 )
 from app.models import User as DBUser
-from app.schemas import Token, UserCreate, UserResponse, BranchSelectionRequest
+from app.schemas import Token, UserCreate, UserResponse, BranchSelectionRequest, UserProfileUpdate
 from app.core.config import settings
+import os
+import uuid
+from typing import Optional
+from fastapi import File, UploadFile
 
 router = APIRouter()
 
@@ -223,6 +227,82 @@ async def read_users_me(
 
     current_user.permissions = permissions
     return current_user
+
+
+@router.put("/users/me", response_model=UserResponse)
+async def update_user_me(
+    user_data: UserProfileUpdate,
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user's profile info"""
+    if user_data.email:
+        # Check if email is available
+        existing = db.query(DBUser).filter(DBUser.email == user_data.email).first()
+        if existing and existing.id != current_user.id:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        current_user.email = user_data.email
+        
+    if user_data.username:
+        # Check if username is available
+        existing = db.query(DBUser).filter(DBUser.username == user_data.username).first()
+        if existing and existing.id != current_user.id:
+            raise HTTPException(status_code=400, detail="Username already in use")
+        current_user.username = user_data.username
+
+    if user_data.full_name:
+        current_user.full_name = user_data.full_name
+        
+    if user_data.password:
+        current_user.hashed_password = get_password_hash(user_data.password)
+        
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/users/me/photo")
+async def update_user_photo(
+    file: UploadFile = File(...),
+    current_user: DBUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload and update user profile photo"""
+    # Create directory if it doesn't exist
+    upload_dir = "uploads/profiles"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Generate unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    filename = f"profile_{current_user.id}_{uuid.uuid4().hex}{file_extension}"
+    file_path = os.path.join(upload_dir, filename)
+    
+    # Save file
+    try:
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+        
+    # Update user model
+    # Delete old photo if exists
+    if current_user.profile_image_url:
+        old_path = current_user.profile_image_url.lstrip("/")
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except:
+                pass
+                
+    current_user.profile_image_url = f"/{upload_dir}/{filename}"
+    db.commit()
+    
+    return {"profile_image_url": current_user.profile_image_url}
 
 
 @router.post("/select-branch", response_model=Token)

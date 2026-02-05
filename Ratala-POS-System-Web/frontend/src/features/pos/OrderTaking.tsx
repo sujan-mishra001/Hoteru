@@ -82,6 +82,7 @@ const OrderTaking: React.FC = () => {
     const { currentBranch } = useBranch();
     const { showAlert } = useNotification();
     const { logActivity } = useActivity();
+    const { customOrderType, deliveryPartnerId } = location.state || {};
 
     const [loading, setLoading] = useState(true);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -99,6 +100,8 @@ const OrderTaking: React.FC = () => {
     const [customers, setCustomers] = useState<any[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
     const [customerSearch, setCustomerSearch] = useState('');
+    const [orderType, setOrderType] = useState<string>(customOrderType || (tableInfo?.is_hold_table === 'Yes' ? 'Takeaway' : 'Table'));
+    const [deliveryCharge, setDeliveryCharge] = useState<number>(0);
 
     const [billDialogOpen, setBillDialogOpen] = useState(false);
     const [companySettings, setCompanySettings] = useState<any>(null);
@@ -156,10 +159,8 @@ const OrderTaking: React.FC = () => {
 
             if (activeCategories.length > 0) {
                 setSelectedCategoryId(activeCategories[0].id);
-                const firstGroup = groupsRes.data.find((g: MenuGroup) => g.category_id === activeCategories[0].id);
-                if (firstGroup) {
-                    setSelectedGroupId(firstGroup.id);
-                }
+                // Default to "All Items" (null) instead of auto-selecting the first group
+                setSelectedGroupId(null);
             }
 
             let currentTable = table;
@@ -201,8 +202,8 @@ const OrderTaking: React.FC = () => {
 
     const handleCategoryChange = (categoryId: number) => {
         setSelectedCategoryId(categoryId);
-        const firstGroup = groups.find(g => g.category_id === categoryId);
-        setSelectedGroupId(firstGroup ? firstGroup.id : null);
+        // Default to "All Items" (null) when changing category
+        setSelectedGroupId(null);
     };
 
     const filteredGroups = groups.filter(g => g.category_id === selectedCategoryId && (g as any).is_active !== false);
@@ -249,11 +250,12 @@ const OrderTaking: React.FC = () => {
             const orderPayload = {
                 table_id: table?.id,
                 customer_id: selectedCustomer?.id,
-                order_type: table?.is_hold_table === 'Yes' ? 'Takeaway' : 'Table',
+                order_type: orderType,
                 status: 'Draft',
                 gross_amount: total,
-                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)),
+                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)) + deliveryCharge,
                 discount: 0,
+                delivery_charge: deliveryCharge,
                 items: orderItems.map(item => ({
                     menu_item_id: item.item_id,
                     quantity: item.quantity,
@@ -294,11 +296,13 @@ const OrderTaking: React.FC = () => {
             const orderPayload = {
                 table_id: table?.id,
                 customer_id: selectedCustomer?.id,
-                order_type: table?.is_hold_table === 'Yes' ? 'Takeaway' : 'Table',
+                delivery_partner_id: deliveryPartnerId ? parseInt(deliveryPartnerId) : null,
+                order_type: orderType,
                 status: 'Pending',
                 gross_amount: total,
-                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)),
+                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)) + deliveryCharge,
                 discount: 0,
+                delivery_charge: deliveryCharge,
                 items: orderItems.map(item => ({
                     menu_item_id: item.item_id,
                     quantity: item.quantity,
@@ -714,34 +718,75 @@ const OrderTaking: React.FC = () => {
                         )}
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                            variant="contained"
-                            size="small"
-                            sx={{
-                                bgcolor: '#FFC107',
-                                boxShadow: 'none',
-                                borderRadius: '20px',
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                '&:hover': { bgcolor: '#e67e00', boxShadow: 'none' }
-                            }}
-                        >
-                            Dine In
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            sx={{
-                                borderRadius: '20px',
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                color: '#64748b',
-                                borderColor: '#e2e8f0'
-                            }}
-                        >
-                            Takeaway
-                        </Button>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                                variant={orderType === 'Table' ? "contained" : "outlined"}
+                                size="small"
+                                onClick={() => setOrderType('Table')}
+                                sx={{
+                                    bgcolor: orderType === 'Table' ? '#FFC107' : 'transparent',
+                                    color: orderType === 'Table' ? 'white' : '#64748b',
+                                    borderColor: orderType === 'Table' ? '#FFC107' : '#e2e8f0',
+                                    boxShadow: 'none',
+                                    borderRadius: '20px',
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    '&:hover': { bgcolor: orderType === 'Table' ? '#e67e00' : '#f8fafc', borderColor: '#FFC107', boxShadow: 'none' }
+                                }}
+                            >
+                                Dine In
+                            </Button>
+                            <Button
+                                variant={orderType === 'Takeaway' ? "contained" : "outlined"}
+                                size="small"
+                                onClick={() => setOrderType('Takeaway')}
+                                sx={{
+                                    bgcolor: orderType === 'Takeaway' ? '#FFC107' : 'transparent',
+                                    color: orderType === 'Takeaway' ? 'white' : '#64748b',
+                                    borderColor: orderType === 'Takeaway' ? '#FFC107' : '#e2e8f0',
+                                    boxShadow: 'none',
+                                    borderRadius: '20px',
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    '&:hover': { bgcolor: orderType === 'Takeaway' ? '#e67e00' : '#f8fafc', borderColor: '#FFC107', boxShadow: 'none' }
+                                }}
+                            >
+                                Takeaway
+                            </Button>
+                            <Button
+                                variant={orderType === 'Delivery' ? "contained" : "outlined"}
+                                size="small"
+                                onClick={() => setOrderType('Delivery')}
+                                sx={{
+                                    bgcolor: orderType === 'Delivery' ? '#FFC107' : 'transparent',
+                                    color: orderType === 'Delivery' ? 'white' : '#64748b',
+                                    borderColor: orderType === 'Delivery' ? '#FFC107' : '#e2e8f0',
+                                    boxShadow: 'none',
+                                    borderRadius: '20px',
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    '&:hover': { bgcolor: orderType === 'Delivery' ? '#e67e00' : '#f8fafc', borderColor: '#FFC107', boxShadow: 'none' }
+                                }}
+                            >
+                                Delivery
+                            </Button>
+                        </Box>
+
+                        {orderType === 'Delivery' && (
+                            <TextField
+                                label="Delivery Charge"
+                                size="small"
+                                type="number"
+                                value={deliveryCharge}
+                                onChange={(e) => setDeliveryCharge(parseFloat(e.target.value) || 0)}
+                                fullWidth
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start">NPRs.</InputAdornment>,
+                                    sx: { borderRadius: '12px' }
+                                }}
+                            />
+                        )}
                     </Box>
                 </Box>
 
@@ -821,10 +866,16 @@ const OrderTaking: React.FC = () => {
                             <Typography fontWeight={700}>NPRs. {Math.round((total + (total * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100)}</Typography>
                         </Box>
                     )}
+                    {orderType === 'Delivery' && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography color="text.secondary" fontWeight={500}>Delivery Charge</Typography>
+                            <Typography fontWeight={700}>NPRs. {deliveryCharge}</Typography>
+                        </Box>
+                    )}
                     <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                         <Typography variant="h6" fontWeight={800}>Total Payable</Typography>
-                        <Typography variant="h6" fontWeight={800} color="#FFC107">NPRs. {Math.round(total * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100))}</Typography>
+                        <Typography variant="h6" fontWeight={800} color="#FFC107">NPRs. {Math.round(total * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)) + deliveryCharge}</Typography>
                     </Box>
 
                     <Button
@@ -908,8 +959,8 @@ const OrderTaking: React.FC = () => {
                                 order={{
                                     order_number: 'DRAFT',
                                     created_at: new Date().toISOString(),
-                                    table: { table_id: tableId || 'N/A' },
-                                    order_type: tableId ? 'Dine-in' : 'Takeaway',
+                                    table: table || { table_id: tableId || 'N/A' },
+                                    order_type: orderType,
                                     customer: selectedCustomer,
                                     items: orderItems.map(item => ({
                                         id: item.id || Date.now(),
@@ -919,7 +970,8 @@ const OrderTaking: React.FC = () => {
                                         subtotal: item.quantity * item.price
                                     })),
                                     gross_amount: total,
-                                    net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)),
+                                    delivery_charge: deliveryCharge,
+                                    net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)) + deliveryCharge,
                                     discount: 0
                                 }}
                             />

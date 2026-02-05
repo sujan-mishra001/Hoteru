@@ -11,6 +11,7 @@ export interface User {
     organization_id?: number;
     current_branch_id?: number;
     is_organization_owner?: boolean;
+    profile_image_url?: string;
     permissions?: string[];
 }
 
@@ -21,6 +22,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     login: (token: string, expiresInMinutes?: number) => Promise<void>;
     logout: () => void;
+    updateUser: (userData: User) => void;
     loading: boolean;
     isSessionValid: () => boolean;
 }
@@ -63,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         organization_id: response.data.organization_id,
                         current_branch_id: response.data.current_branch_id,
                         is_organization_owner: response.data.is_organization_owner,
+                        profile_image_url: response.data.profile_image_url,
                         permissions: response.data.permissions
                     });
                 } catch (error) {
@@ -96,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 organization_id: response.data.organization_id,
                 current_branch_id: response.data.current_branch_id,
                 is_organization_owner: response.data.is_organization_owner,
+                profile_image_url: response.data.profile_image_url,
                 permissions: response.data.permissions
             };
 
@@ -115,6 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const updateUser = (userData: User) => {
+        setUser(userData);
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -123,6 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isAuthenticated: !!user && isSessionValid(),
                 login,
                 logout,
+                updateUser,
                 loading,
                 isSessionValid
             }}

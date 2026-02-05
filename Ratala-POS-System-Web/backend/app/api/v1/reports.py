@@ -285,6 +285,11 @@ async def export_pdf(
     elif start_date and end_date:
         query_start = datetime.combine(datetime.strptime(start_date, '%Y-%m-%d').date(), dtime.min)
         query_end = datetime.combine(datetime.strptime(end_date, '%Y-%m-%d').date(), dtime.max)
+    if report_type == "session":
+        return await export_sessions_pdf(db, current_user)
+    elif report_type == "user":
+        report_type = "staff"
+
     if report_type == "sales-summary":
         result = await get_sales_summary(db, current_user)
         data = [{"Metric": k, "Value": v} for k, v in result.items()]
@@ -470,6 +475,22 @@ async def export_excel(
             "Status": "Active" if not u.disabled else "Disabled"
         } for u in users]
         excel_buffer = generate_excel_report(data, "Staff", metadata=metadata)
+    elif report_type == "session":
+        from app.models.pos_session import POSSession
+        sessions = db.query(POSSession).all()
+        data = []
+        for s in sessions:
+            data.append({
+                "Session ID": s.id,
+                "Staff": s.user.full_name if s.user else "System",
+                "Start Time": s.start_time.strftime('%Y-%m-%d %H:%M') if s.start_time else "-",
+                "End Time": s.end_time.strftime('%Y-%m-%d %H:%M') if s.end_time else "-",
+                "Status": s.status,
+                "Gross Sales": s.total_sales or 0,
+                "Orders": s.total_orders or 0,
+                "Opening Cash": s.opening_cash or 0
+            })
+        excel_buffer = generate_excel_report(data, "Session Report", metadata=metadata)
     else:
         raise HTTPException(status_code=404, detail="Report type not found")
     

@@ -47,6 +47,12 @@ class CustomerBasicResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class DeliveryPartnerBasicResponse(BaseModel):
+    id: int
+    name: str
+    class Config:
+        from_attributes = True
+
 class MenuItemBasicResponse(BaseModel):
     id: int
     name: str
@@ -98,10 +104,12 @@ class OrderResponse(BaseModel):
     paid_amount: float
     credit_amount: float
     payment_type: Optional[str] = None
+    delivery_charge: float = 0
     created_at: datetime
     updated_at: datetime
     table: Optional[TableResponse] = None
     customer: Optional[CustomerBasicResponse] = None
+    delivery_partner: Optional[DeliveryPartnerBasicResponse] = None
     items: List[OrderItemResponse] = []
     kots: List[KOTResponse] = []
     class Config:
@@ -119,6 +127,8 @@ class OrderCreate(BaseModel):
     paid_amount: Optional[float] = 0
     credit_amount: Optional[float] = 0
     payment_type: Optional[str] = None
+    delivery_partner_id: Optional[int] = None
+    delivery_charge: Optional[float] = 0
 
 class RoleBase(BaseModel):
     name: str

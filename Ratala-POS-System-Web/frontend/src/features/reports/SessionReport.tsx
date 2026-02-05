@@ -66,9 +66,27 @@ const SessionReport: React.FC = () => {
             document.body.appendChild(link);
             link.click();
             link.remove();
+            window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Failed to export PDF:', error);
             alert('Failed to export session report');
+        }
+    };
+
+    const handleExportShift = async (sessionId: number) => {
+        try {
+            const response = await reportsAPI.exportShiftReport(sessionId);
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `shift_report_${sessionId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to export shift report:', error);
+            alert('Failed to export shift report');
         }
     };
 
@@ -255,7 +273,7 @@ const SessionReport: React.FC = () => {
                                         <IconButton
                                             size="small"
                                             sx={{ color: '#64748b' }}
-                                            onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL}/v1/reports/export/shift/${session.id}`, '_blank')}
+                                            onClick={() => handleExportShift(session.id)}
                                         >
                                             <FileText size={16} />
                                         </IconButton>

@@ -209,7 +209,7 @@ const QRManagement: React.FC = () => {
             ) : (
                 <Grid container spacing={3}>
                     {qrCodes.map((qr) => (
-                        <Grid item xs={12} sm={6} md={4} lg={3} key={qr.id}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={qr.id}>
                             <Card>
                                 <CardMedia
                                     component="img"

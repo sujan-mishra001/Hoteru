@@ -34,6 +34,7 @@ class UserResponse(BaseModel):
     organization_id: Optional[int] = None
     current_branch_id: Optional[int] = None
     is_organization_owner: bool = False
+    profile_image_url: Optional[str] = None
     permissions: List[str] = []
 
     class Config:
@@ -54,3 +55,8 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     role: Optional[str] = None
     disabled: Optional[bool] = None
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None
+    password: Optional[str] = None

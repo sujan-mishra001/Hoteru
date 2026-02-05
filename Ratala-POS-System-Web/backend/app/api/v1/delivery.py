@@ -49,3 +49,48 @@ async def create_delivery_partner(
     db.commit()
     db.refresh(new_partner)
     return new_partner
+
+
+@router.put("/{partner_id}")
+async def update_delivery_partner(
+    partner_id: int,
+    partner_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update a delivery partner in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(DeliveryPartner).filter(DeliveryPartner.id == partner_id)
+    query = apply_branch_filter_delivery(query, branch_id)
+    partner = query.first()
+    
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found or access denied")
+    
+    for key, value in partner_data.items():
+        if hasattr(partner, key) and key != 'id' and key != 'branch_id':
+             setattr(partner, key, value)
+             
+    db.commit()
+    db.refresh(partner)
+    return partner
+
+
+@router.delete("/{partner_id}")
+async def delete_delivery_partner(
+    partner_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Delete a delivery partner in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    query = db.query(DeliveryPartner).filter(DeliveryPartner.id == partner_id)
+    query = apply_branch_filter_delivery(query, branch_id)
+    partner = query.first()
+    
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found or access denied")
+    
+    db.delete(partner)
+    db.commit()
+    return {"message": "Delivery partner deleted successfully"}

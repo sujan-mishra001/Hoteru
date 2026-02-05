@@ -52,7 +52,6 @@ class _BillScreenState extends State<BillScreen> {
                   id: item['menu_item_id'],
                   name: item['menu_item']?['name'] ?? 'Unknown Item',
                   price: (item['price'] as num).toDouble(),
-                  category: '',
                   image: '',
                 ),
                 quantity: item['quantity'],

@@ -359,10 +359,6 @@ const AdminLayout: React.FC = () => {
                                 <Typography variant="caption" color="text.secondary">{user?.role}</Typography>
                             </Box>
                             <Divider />
-                            <MenuItem onClick={() => { navigate('/settings'); handleClose(); }}>
-                                <ListItemIcon><UserCircle size={18} /></ListItemIcon>
-                                My Profile
-                            </MenuItem>
                             <MenuItem onClick={handleLogout} sx={{ color: '#ef4444' }}>
                                 <ListItemIcon><LogOut size={18} color="#ef4444" /></ListItemIcon>
                                 Logout
