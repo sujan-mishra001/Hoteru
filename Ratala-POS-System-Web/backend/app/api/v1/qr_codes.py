@@ -46,9 +46,10 @@ async def generate_menu_qr(
     db: Session = Depends(get_db)
 ):
     """Generate dynamic QR for the digital menu"""
-    # Assuming frontend URL is needed. In local dev it could be localhost:3000
-    # Ideally this would be in settings
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    # Use configured frontend URL
+    from app.core.config import settings
+    frontend_url = settings.FRONTEND_URL
+    
     branch_id = current_user.current_branch_id or 1 # Fallback to 1
     
     # URL that the customer scans
