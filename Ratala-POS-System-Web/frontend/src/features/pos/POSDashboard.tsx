@@ -902,14 +902,14 @@ const POSDashboard: React.FC = () => {
             <Dialog
                 open={openNewOrderDialog}
                 onClose={() => setOpenNewOrderDialog(false)}
-                maxWidth="sm"
+                maxWidth="md"
                 fullWidth
                 PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
             >
                 <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
                     New {newOrderType} Order
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent sx={{ minHeight: 300 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
                         {/* Delivery Partner Selection (for Delivery only) */}
                         {newOrderType === 'Delivery' && (
@@ -965,7 +965,7 @@ const POSDashboard: React.FC = () => {
                                     {dialogCustomerSearch && (
                                         <Paper sx={{
                                             position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, mt: 1,
-                                            maxHeight: 200, overflow: 'auto', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                                            maxHeight: 300, overflow: 'auto', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
                                         }}>
                                             <List>
                                                 {customers
