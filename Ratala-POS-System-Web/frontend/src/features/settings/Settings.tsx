@@ -798,6 +798,7 @@ const Settings: React.FC = () => {
                         </Avatar>
                         <IconButton
                             component="label"
+                            disabled={profileUploading}
                             sx={{
                                 position: 'absolute', bottom: 15, right: 0, bgcolor: '#FFC107',
                                 '&:hover': { bgcolor: '#FF7700' }, color: 'white', border: '2px solid white'
@@ -812,7 +813,6 @@ const Settings: React.FC = () => {
                                         try {
                                             setProfileUploading(true);
                                             await authAPI.updatePhoto(formData);
-                                            // Refresh user context
                                             const updatedUser = await authAPI.getCurrentUser();
                                             updateUser(updatedUser.data);
                                             showAlert('Your profile picture has been updated!', 'success');
@@ -824,7 +824,7 @@ const Settings: React.FC = () => {
                                     }
                                 }}
                             />
-                            <Plus size={16} />
+                            {profileUploading ? <CircularProgress size={16} color="inherit" /> : <Plus size={16} />}
                         </IconButton>
                     </Box>
                     <Typography variant="h6" fontWeight={700}>{user?.full_name}</Typography>
