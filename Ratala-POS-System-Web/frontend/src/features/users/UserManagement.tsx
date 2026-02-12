@@ -20,9 +20,10 @@ import {
     MenuItem,
     Alert,
     CircularProgress,
-    Snackbar
+    Snackbar,
+    InputAdornment
 } from '@mui/material';
-import { UserPlus, Trash2, Edit, RefreshCw } from 'lucide-react';
+import { UserPlus, Trash2, Edit, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { usersAPI, rolesAPI, branchAPI } from '../../services/api';
 
 const UserManagement: React.FC = () => {
@@ -35,6 +36,7 @@ const UserManagement: React.FC = () => {
     const [branches, setBranches] = useState<any[]>([]);
     const [processing, setProcessing] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+    const [showPassword, setShowPassword] = useState(false);
 
     const fetchUsers = async () => {
         try {
@@ -103,6 +105,7 @@ const UserManagement: React.FC = () => {
                 branch_id: branches.length > 0 ? branches[0].id : ''
             });
         }
+        setShowPassword(false);
         setOpen(true);
     };
 
@@ -261,11 +264,26 @@ const UserManagement: React.FC = () => {
                         {!editingUser && (
                             <TextField
                                 label="Password"
-                                type="password"
+                                type={showPassword ? 'text' : 'password'}
                                 fullWidth
                                 value={newUser.password}
                                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                                 disabled={processing}
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                aria-label="toggle password visibility"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                edge="end"
+                                                size="small"
+                                            >
+                                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                }}
                             />
                         )}
                         <TextField
@@ -319,6 +337,7 @@ const UserManagement: React.FC = () => {
                 open={snackbar.open}
                 autoHideDuration={4000}
                 onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             >
                 <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
                     {snackbar.message}

@@ -17,6 +17,8 @@ import {
     FormControlLabel,
     CircularProgress,
     Chip,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -25,7 +27,7 @@ import {
     QrCode2 as QrCodeIcon,
     CloudUpload as UploadIcon,
 } from '@mui/icons-material';
-import { settingsAPI } from '../../services/api';
+import { settingsAPI, API_BASE_URL } from '../../services/api';
 
 interface QRCode {
     id: number;
@@ -52,6 +54,11 @@ const QRManagement: React.FC = () => {
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string>('');
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadQRCodes();
@@ -78,7 +85,7 @@ const QRManagement: React.FC = () => {
                 is_active: qr.is_active,
                 display_order: qr.display_order,
             });
-            setPreviewUrl(`${import.meta.env.VITE_API_URL}${qr.image_url}`);
+            setPreviewUrl(`${API_BASE_URL}${qr.image_url}`);
         } else {
             setEditMode(false);
             setSelectedQR(null);
@@ -128,7 +135,7 @@ const QRManagement: React.FC = () => {
                 });
             } else {
                 if (!selectedFile) {
-                    alert('Please select an image');
+                    showSnackbar('Please select an image', 'error');
                     return;
                 }
                 await settingsAPI.post('/qr-codes/', formDataToSend, {
@@ -138,9 +145,10 @@ const QRManagement: React.FC = () => {
 
             handleCloseDialog();
             loadQRCodes();
+            showSnackbar(`QR code ${editMode ? 'updated' : 'created'} successfully`);
         } catch (error) {
             console.error('Failed to save QR code:', error);
-            alert('Failed to save QR code');
+            showSnackbar('Failed to save QR code', 'error');
         }
     };
 
@@ -149,9 +157,10 @@ const QRManagement: React.FC = () => {
             try {
                 await settingsAPI.delete(`/qr-codes/${id}`);
                 loadQRCodes();
+                showSnackbar('QR code deleted successfully');
             } catch (error) {
                 console.error('Failed to delete QR code:', error);
-                alert('Failed to delete QR code');
+                showSnackbar('Failed to delete QR code', 'error');
             }
         }
     };
@@ -214,7 +223,7 @@ const QRManagement: React.FC = () => {
                                 <CardMedia
                                     component="img"
                                     height="200"
-                                    image={`${import.meta.env.VITE_API_URL}${qr.image_url}`}
+                                    image={`${API_BASE_URL}${qr.image_url}`}
                                     alt={qr.name}
                                     sx={{ objectFit: 'contain', bgcolor: 'grey.100', p: 2 }}
                                 />
@@ -333,6 +342,16 @@ const QRManagement: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

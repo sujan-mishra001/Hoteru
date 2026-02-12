@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { Eye, Printer, X, Trash2, RotateCcw, Download, Search, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ordersAPI } from '../../services/api';
+import { ordersAPI, settingsAPI } from '../../services/api';
 import { useReactToPrint } from 'react-to-print';
 import { useBranch } from '../../app/providers/BranchProvider';
 import { useNotification } from '../../app/providers/NotificationProvider';
@@ -48,8 +48,11 @@ interface Order {
     payment_type?: string;
     gross_amount: number;
     discount: number;
+    service_charge_amount: number;
+    tax_amount: number;
     net_amount: number;
     paid_amount: number;
+    delivery_charge: number;
     credit_amount: number;
     items?: any[];
 }
@@ -62,6 +65,7 @@ const Orders: React.FC = () => {
     const { currentBranch } = useBranch();
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
+    const [companySettings, setCompanySettings] = useState<any>(null);
     const [processing, setProcessing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const { showAlert, showConfirm } = useNotification();
@@ -140,7 +144,16 @@ const Orders: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchOrders();
+        const loadInitialData = async () => {
+            try {
+                const settingsRes = await settingsAPI.getCompanySettings();
+                setCompanySettings(settingsRes.data);
+            } catch (err) {
+                console.error("Error loading settings:", err);
+            }
+            fetchOrders();
+        };
+        loadInitialData();
     }, [activeTab, searchTerm]);
 
     const handleView = async (order: Order) => {
@@ -333,7 +346,7 @@ const Orders: React.FC = () => {
                                             )}
                                         </Box>
                                     </TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 800, color: '#1e293b' }}>NPRs. {order.net_amount?.toLocaleString()}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 800, color: '#1e293b' }}>NPRs. {Number(order.net_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell align="center">
                                         <Stack direction="row" spacing={0.5} justifyContent="center">
                                             <Tooltip title="View Details">
@@ -425,7 +438,7 @@ const Orders: React.FC = () => {
                                         <TableRow key={item.id}>
                                             <TableCell sx={{ fontSize: '0.8rem' }}>{item.menu_item?.name}</TableCell>
                                             <TableCell sx={{ fontSize: '0.8rem' }} align="center">{item.quantity}</TableCell>
-                                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }} align="right">NPRs. {item.subtotal?.toLocaleString()}</TableCell>
+                                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }} align="right">NPRs. {Number(item.subtotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -434,16 +447,32 @@ const Orders: React.FC = () => {
                             <Box sx={{ mt: 1, bgcolor: '#f8fafc', p: 2, borderRadius: '12px' }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                                     <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-                                    <Typography variant="body2" fontWeight={600}>NPRs. {selectedOrder.gross_amount?.toLocaleString()}</Typography>
+                                    <Typography variant="body2" fontWeight={600}>NPRs. {Number(selectedOrder.gross_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                                     <Typography variant="body2" color="text.secondary">Discount</Typography>
-                                    <Typography variant="body2" color="error.main" fontWeight={600}>- NPRs. {selectedOrder.discount?.toLocaleString()}</Typography>
+                                    <Typography variant="body2" color="error.main" fontWeight={600}>- NPRs. {Number(selectedOrder.discount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                 </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                    <Typography variant="body2" color="text.secondary">Service Charge</Typography>
+                                    <Typography variant="body2" fontWeight={600}>NPRs. {Number(selectedOrder.service_charge_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        VAT ({selectedOrder.tax_amount > 0 ? (companySettings?.tax_rate || Math.round((selectedOrder.tax_amount * 100) / ((selectedOrder.gross_amount - selectedOrder.discount) + selectedOrder.service_charge_amount))) : 0}%)
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight={600}>NPRs. {Number(selectedOrder.tax_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                                </Box>
+                                {selectedOrder.delivery_charge > 0 && (
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                        <Typography variant="body2" color="text.secondary">Delivery Charge</Typography>
+                                        <Typography variant="body2" fontWeight={600}>NPRs. {Number(selectedOrder.delivery_charge).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                                    </Box>
+                                )}
                                 <Divider sx={{ my: 1 }} />
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography variant="subtitle1" fontWeight={800}>Total Payable</Typography>
-                                    <Typography variant="subtitle1" fontWeight={900} color="#FFC107">NPRs. {selectedOrder.net_amount?.toLocaleString()}</Typography>
+                                    <Typography variant="subtitle1" fontWeight={900} color="#FFC107">NPRs. {Number(selectedOrder.net_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                 </Box>
                             </Box>
                         </Box>
@@ -484,6 +513,7 @@ const Orders: React.FC = () => {
                                 ref={billRef}
                                 order={selectedOrder}
                                 branch={currentBranch}
+                                settings={companySettings}
                             />
                         </Paper>
                     </Box>

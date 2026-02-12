@@ -1,4 +1,5 @@
-import React from 'react';
+import React from 'react'; // Main App Routes
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layouts
@@ -39,6 +40,7 @@ import BOM from '../../features/inventory/inventory/BOM';
 import Adjustment from '../../features/inventory/inventory/Adjustment';
 import InventoryCount from '../../features/inventory/inventory/InventoryCount';
 import Production from '../../features/inventory/inventory/Production';
+import ProductionCount from '../../features/inventory/inventory/ProductionCount';
 import AddInventory from '../../features/inventory/inventory/AddInventory';
 
 import Purchase from '../../features/inventory/Purchase';
@@ -51,6 +53,7 @@ import Roles from '../../features/roles/Roles';
 import Reports from '../../features/reports/Reports';
 import SessionReport from '../../features/reports/SessionReport';
 import Settings from '../../features/settings/Settings';
+import DigitalMenu from '../../features/pos/DigitalMenu';
 
 const AppRoutes: React.FC = () => {
     return (
@@ -64,6 +67,9 @@ const AppRoutes: React.FC = () => {
                 <Route path="/reset-password" element={<ResetPassword />} />
             </Route>
 
+            {/* View-Only Routes (Outside Layouts) */}
+            <Route path="/digital-menu/:branchId" element={<DigitalMenu />} />
+
             {/* Private Routes */}
             <Route element={<AuthGuard />}>
                 {/* Branch Selection/Setup */}
@@ -75,56 +81,62 @@ const AppRoutes: React.FC = () => {
                 {/* Branch-Specific Routes */}
                 <Route element={<BranchGuard />}>
                     {/* Admin/Manager Panel */}
-                    <Route element={<AdminLayout />}>
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        <Route element={<PermissionGuard allowedRoles={['admin']} />}>
-                            <Route path="/users" element={<UserManagement />} />
-                            <Route path="/roles" element={<Roles />} />
-                        </Route>
-                        <Route path="/customers" element={<Customers />} />
-                        <Route path="/orders" element={<Orders />} />
-                        <Route path="/inventory" element={<Inventory />}>
-                            <Route index element={<ProductList />} />
-                            <Route path="products" element={<ProductList />} />
-                            <Route path="units" element={<Units />} />
-                            <Route path="bom" element={<BOM />} />
-                            <Route path="adjustment" element={<Adjustment />} />
-                            <Route path="count" element={<InventoryCount />} />
-                            <Route path="production" element={<Production />} />
-                            <Route path="add" element={<AddInventory />} />
-                        </Route>
+                    <Route element={<PermissionGuard requiredPermissions={['dashboard.view']} />}>
+                        <Route element={<AdminLayout />}>
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route element={<PermissionGuard allowedRoles={['admin']} />}>
+                                <Route path="/users" element={<UserManagement />} />
+                                <Route path="/roles" element={<Roles />} />
+                            </Route>
+                            <Route path="/customers" element={<Customers />} />
+                            <Route path="/orders" element={<Orders />} />
+                            <Route path="/inventory" element={<Inventory />}>
+                                <Route index element={<ProductList />} />
+                                <Route path="products" element={<ProductList />} />
+                                <Route path="units" element={<Units />} />
+                                <Route path="bom" element={<BOM />} />
+                                <Route path="adjustment" element={<Adjustment />} />
+                                <Route path="count" element={<InventoryCount />} />
+                                <Route path="production" element={<Production />} />
+                                <Route path="production-count" element={<ProductionCount />} />
+                                <Route path="add" element={<AddInventory />} />
+                            </Route>
 
-                        <Route path="/purchase" element={<Purchase />}>
-                            <Route index element={<PurchaseBill />} />
-                            <Route path="supplier" element={<Supplier />} />
-                            <Route path="bill" element={<PurchaseBill />} />
-                            <Route path="return" element={<PurchaseReturn />} />
-                        </Route>
-                        <Route path="/reports" element={<Reports />} />
-                        <Route path="/reports/sessions" element={<SessionReport />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/menu" element={<MenuManagement />} />
-                        <Route element={<PermissionGuard allowedRoles={['admin']} />}>
-                            <Route path="/floor-tables" element={<FloorTableSettings />} />
-                        </Route>
+                            <Route path="/purchase" element={<Purchase />}>
+                                <Route index element={<PurchaseBill />} />
+                                <Route path="supplier" element={<Supplier />} />
+                                <Route path="bill" element={<PurchaseBill />} />
+                                <Route path="return" element={<PurchaseReturn />} />
+                            </Route>
+                            <Route path="/reports" element={<Reports />} />
+                            <Route path="/reports/sessions" element={<SessionReport />} />
+                            <Route path="/settings" element={<Settings />} />
+                            <Route path="/menu" element={<MenuManagement />} />
+                            <Route element={<PermissionGuard allowedRoles={['admin']} />}>
+                                <Route path="/floor-tables" element={<FloorTableSettings />} />
+                            </Route>
 
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        </Route>
                     </Route>
 
                     {/* POS Interface */}
-                    <Route path="/pos" element={<POSLayout />}>
-                        <Route index element={<Navigate to="/pos/tables" replace />} />
-                        <Route path="tables" element={<POSDashboard />} />
-                        <Route path="customers" element={<Customers />} />
-                        <Route path="orders" element={<Orders />} />
-                        <Route path="kot" element={<KOT />} />
-                        <Route path="cashier" element={<Cashier />} />
-                        <Route path="billing/:tableId" element={<Billing />} />
-                        <Route path="order/:tableId" element={<OrderTaking />} />
-                        <Route path="order-taking/:tableId" element={<OrderTaking />} />
-                        <Route path="settings" element={<POSSettings />} />
-                        <Route path="menu" element={<MenuManagement />} />
-                        <Route path="support" element={<Support />} />
+                    <Route element={<PermissionGuard requiredPermissions={['pos.access']} />}>
+                        <Route path="/pos" element={<POSLayout />}>
+                            <Route index element={<Navigate to="/pos/tables" replace />} />
+                            <Route path="tables" element={<POSDashboard />} />
+                            <Route path="customers" element={<Customers />} />
+                            <Route path="orders" element={<Orders />} />
+                            <Route path="kot" element={<KOT />} />
+                            <Route path="cashier" element={<Cashier />} />
+                            <Route path="billing/:tableId" element={<Billing />} />
+                            <Route path="order/:tableId" element={<OrderTaking />} />
+                            <Route path="order" element={<OrderTaking />} />
+                            <Route path="order-taking/:tableId" element={<OrderTaking />} />
+                            <Route path="settings" element={<POSSettings />} />
+                            <Route path="menu" element={<MenuManagement />} />
+                            <Route path="support" element={<Support />} />
+                        </Route>
                     </Route>
                 </Route>
             </Route>

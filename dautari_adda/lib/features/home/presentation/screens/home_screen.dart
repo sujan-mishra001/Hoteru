@@ -234,6 +234,116 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showEditTableDialog(PosTable table) {
+    final idController = TextEditingController(text: table.tableId);
+    final capacityController = TextEditingController(text: table.capacity.toString());
+    String selectedType = table.tableType;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text("Edit Table ${table.tableId}", style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Table ID / Name", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: idController,
+                  decoration: InputDecoration(
+                    hintText: "e.g. T1, VIP-2",
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                const Text("Capacity", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: capacityController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: "Number of seats",
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text("Table Type", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: selectedType,
+                      items: ["Regular", "VIP", "Outdoor", "Private"]
+                          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedType = val);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final success = await _tableService.deleteTable(table.id);
+                if (success && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Table deleted successfully"), backgroundColor: Colors.red),
+                  );
+                }
+                Navigator.pop(context);
+              },
+              child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                if (idController.text.isNotEmpty) {
+                  final cap = int.tryParse(capacityController.text) ?? 4;
+                  final success = await _tableService.updateTable(
+                    table.id,
+                    {
+                      'table_id': idController.text.trim(),
+                      'capacity': cap,
+                      'table_type': selectedType,
+                      'floor_id': table.floorId,
+                    },
+                  );
+                  if (success && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Table updated successfully"), backgroundColor: Colors.green),
+                    );
+                  }
+                }
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107)),
+              child: const Text("Update Table"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showNotifications(BuildContext context, TableService tableService, List<int> activeIds) {
     showModalBottomSheet(
       context: context,
@@ -388,6 +498,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
+        toolbarHeight: 75,
         title: Text(
           "Table Service",
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
@@ -411,69 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 8),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
-          child: ListenableBuilder(
-            listenable: _tableService,
-            builder: (context, _) {
-              final activeCount = _tableService.activeTableIds.length;
-              return Container(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "RESTAURANT STATUS",
-                          style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        Text(
-                          activeCount == 0 ? "All Tables Available" : "$activeCount Tables Active",
-                          style: GoogleFonts.poppins(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        if (widget.onTabChange != null && widget.navigationItems != null) {
-                          // Find index of reports in navigation items
-                          final index = widget.navigationItems!.indexWhere((item) => item['id'] == 'reports');
-                          if (index != -1) {
-                            widget.onTabChange!(index);
-                          } else {
-                            // If reports not in navigation, maybe navigate directly or show msg
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Reports tab is not active. Enable it in settings.")),
-                            );
-                          }
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.analytics_outlined, size: 16, color: Colors.black87),
-                            const SizedBox(width: 6),
-                            Text(
-                              "Analytics",
-                              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
+
       ),
       body: ListenableBuilder(
         listenable: _syncService,
@@ -488,8 +537,8 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Session Status Card
-              _buildSessionCard(activeSession),
+              // Session Status Card removed as per request
+
 
 
               // Floor Selection
@@ -559,23 +608,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: _tableService.isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-                    : tables.isEmpty
-                      ? _buildEmptyTablesState()
-                      : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.85,
-                          ),
-                          itemCount: tables.length,
-                          itemBuilder: (context, index) {
-                            final table = tables[index];
-                            return _buildSaaSTableCard(table);
-                          },
-                        ),
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
+                      : tables.isEmpty
+                          ? _buildEmptyTablesState()
+                          : RefreshIndicator(
+                              onRefresh: () async {
+                                await _loadFloors();
+                                await _loadMenu();
+                              },
+                              child: GridView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.85,
+                                ),
+                                itemCount: tables.length,
+                                itemBuilder: (context, index) {
+                                  final table = tables[index];
+                                  return GestureDetector(
+                                    onLongPress: () => _showEditTableDialog(table),
+                                    child: _buildSaaSTableCard(table),
+                                  );
+                                },
+                              ),
+                            ),
                 ),
               ),
             ],
@@ -666,7 +724,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSaaSTableCard(TableInfo table) {
+  Widget _buildSaaSTableCard(PosTable table) {
     final isBooked = _tableService.isTableBooked(table.id);
     final hasItems = _tableService.getCart(table.id).isNotEmpty;
     final hasKOT = table.kotCount > 0;
@@ -677,9 +735,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isBooked) {
       statusColor = const Color(0xFFEF4444); // Red
       statusText = "BOOKED";
-    } else if (hasItems) {
-      statusColor = const Color(0xFFF59E0B); // Orange
-      statusText = "DRAFT";
     }
 
     return InkWell(
@@ -687,10 +742,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final hasActiveOrder = _tableService.isTableBooked(table.id);
         
         if (!hasActiveOrder) {
-          // 1. Table status changes Vacant -> Occupied/Booked
-          await _tableService.updateTableStatus(table.id, 'Occupied');
-          
-          // 2. Create new order -> Proceed to Place Order Page
+          // 1. Table is Available -> Proceed to Place Order Page (Do NOT change status yet)
           if (mounted) {
             Navigator.push(
               context,

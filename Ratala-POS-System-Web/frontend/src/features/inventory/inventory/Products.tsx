@@ -17,16 +17,20 @@ import {
     IconButton,
     InputAdornment,
     Chip,
-    MenuItem
+    MenuItem,
+    Snackbar,
+    Alert
 } from '@mui/material';
-import { Plus, Search, X, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 
 import { inventoryAPI } from '../../../services/api';
+import { useInventory } from '../../../app/providers/InventoryProvider';
 
 const Products: React.FC = () => {
     const [products, setProducts] = useState<any[]>([]);
     const [units, setUnits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { checkLowStock } = useInventory();
     const [openDialog, setOpenDialog] = useState(false);
     const [editingProduct, setEditingProduct] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -37,6 +41,11 @@ const Products: React.FC = () => {
         min_stock: 0
     });
     const [searchTerm, setSearchTerm] = useState('');
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadData();
@@ -99,11 +108,14 @@ const Products: React.FC = () => {
             } else {
                 await inventoryAPI.createProduct(formData);
             }
+            // Trigger global stock check
+            checkLowStock();
             handleCloseDialog();
             loadData();
-        } catch (error) {
+            showSnackbar(`Product ${editingProduct ? 'updated' : 'created'} successfully`);
+        } catch (error: any) {
             console.error('Error saving product:', error);
-            alert('Error saving product. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error saving product', 'error');
         }
     };
 
@@ -111,10 +123,12 @@ const Products: React.FC = () => {
         if (!confirm('Are you sure you want to delete this product?')) return;
         try {
             await inventoryAPI.deleteProduct(id);
+            checkLowStock();
             loadData();
-        } catch (error) {
+            showSnackbar('Product deleted successfully');
+        } catch (error: any) {
             console.error('Error deleting product:', error);
-            alert('Error deleting product. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error deleting product', 'error');
         }
     };
 
@@ -128,13 +142,6 @@ const Products: React.FC = () => {
             <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>Products</Typography>
                 <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<AlertTriangle size={18} />}
-                        sx={{ color: '#ef4444', borderColor: '#ef4444', textTransform: 'none', borderRadius: '10px' }}
-                    >
-                        Low Stock Alerts
-                    </Button>
                     <Button
                         variant="contained"
                         startIcon={<Plus size={18} />}
@@ -189,7 +196,7 @@ const Products: React.FC = () => {
                                     <TableCell sx={{ fontWeight: 600 }}>{product.name || 'N/A'}</TableCell>
                                     <TableCell>{product.category || '-'}</TableCell>
                                     <TableCell>
-                                        {product.current_stock || 0} {product.unit?.abbreviation || ''}
+                                        {Number(product.current_stock || 0).toFixed(2)} {product.unit?.abbreviation || ''}
                                     </TableCell>
                                     <TableCell>
                                         <Chip
@@ -278,6 +285,16 @@ const Products: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

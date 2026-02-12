@@ -9,7 +9,7 @@ api_router = APIRouter()
 try:
     from . import (
         auth, users, customers, menu, inventory, purchase, orders, reports, 
-        delivery, tables, kots, settings, organizations, branches, roles, floors, sessions, otp, qr_codes, printers, pos
+        delivery, tables, kots, settings, organizations, branches, roles, floors, sessions, otp, qr_codes, printers
     )
     
     # Include all route modules
@@ -42,6 +42,5 @@ try:
     api_router.include_router(settings.router, tags=["Settings"])
     api_router.include_router(qr_codes.router)  # prefix already set in router
     api_router.include_router(printers.router, prefix="/printers", tags=["Printers"])
-    api_router.include_router(pos.router, prefix="/pos", tags=["POS Sync"])
 except ImportError as e:
     print(f"Warning: Could not import some routes: {e}")

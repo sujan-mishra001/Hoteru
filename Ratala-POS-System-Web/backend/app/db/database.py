@@ -54,19 +54,19 @@ def create_database_if_not_exists():
             if not exists:
                 # Create database
                 cursor.execute(f'CREATE DATABASE "{db_name}"')
-                print(f"✅ Database '{db_name}' created successfully")
+                print(f"Database '{db_name}' created successfully")
             else:
-                print(f"✅ Database '{db_name}' already exists")
+                print(f"Database '{db_name}' already exists")
             
             cursor.close()
             conn.close()
             return True
         except psycopg2.OperationalError as e:
-            print(f"⚠️  Could not connect to PostgreSQL: {e}")
+            print(f"Could not connect to PostgreSQL: {e}")
             print(f"   Please ensure PostgreSQL is running and credentials are correct")
             return False
         except Exception as e:
-            print(f"⚠️  Could not create database automatically: {e}")
+            print(f"Could not create database automatically: {e}")
             print(f"   Please create the database manually:")
             print(f"   psql -U {user}")
             print(f"   CREATE DATABASE {db_name};")
@@ -82,30 +82,21 @@ def init_db():
     from app.models import (
         User, Customer, Category, MenuGroup, MenuItem,
         UnitOfMeasurement, Product, InventoryTransaction,
-        Supplier, PurchaseBill, PurchaseReturn,
+        Supplier, PurchaseBill, PurchaseReturn, PurchaseBillItem,
         Table, Session, Order, OrderItem, KOT,
         DeliveryPartner, BillOfMaterials, BOMItem, BatchProduction,
         POSSession, Printer, QRCode, Organization, Branch, Floor, StorageArea, DiscountRule, PaymentMode
     )
     
-    # Create database if it doesn't exist (PostgreSQL only)
-    if 'postgresql' in settings.DATABASE_URL or 'postgres' in settings.DATABASE_URL:
-        if not create_database_if_not_exists():
-            raise Exception("Database creation failed. Please create it manually.")
+    # Skip automatic DB creation in production (Neon/Render environment)
+    is_prod = settings.ENVIRONMENT == "production"
     
-    # Create database engine with optimized settings
-    engine = create_engine(
-        settings.DATABASE_URL,
-        pool_pre_ping=True,  # Verify connections before using
-        pool_size=5,  # Reduced pool size for better performance
-        max_overflow=10,  # Reduced overflow
-        pool_recycle=3600,  # Recycle connections after 1 hour
-        pool_timeout=30,  # Timeout for getting connection from pool
-        connect_args={
-            "connect_timeout": 10,  # Connection timeout in seconds
-            "options": "-c statement_timeout=30000"  # Query timeout 30 seconds
-        }
-    )
+    # Create database if it doesn't exist (PostgreSQL only) - skip in production
+    if not is_prod and ('postgresql' in settings.DATABASE_URL or 'postgres' in settings.DATABASE_URL):
+        if not create_database_if_not_exists():
+            print("Warning: Database creation failed or skipped.")
+    
+    engine = get_engine()
     
     # Create session factory
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -113,9 +104,9 @@ def init_db():
     # Create all tables
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ Database tables initialized")
+        print("Database tables initialized")
     except OperationalError as e:
-        print(f"❌ Error creating tables: {e}")
+        print(f"Error creating tables: {e}")
         raise
 
 
@@ -123,6 +114,16 @@ def get_engine():
     """Get the database engine"""
     global engine
     if engine is None:
+        # Check if we need SSL (usually for Neon/Render in production)
+        connect_args = {
+            "connect_timeout": 10,
+            "options": "-c statement_timeout=30000"
+        }
+        
+        # Add SSL if not localhost
+        if "localhost" not in settings.DATABASE_URL and "127.0.0.1" not in settings.DATABASE_URL:
+            connect_args["sslmode"] = "require"
+
         engine = create_engine(
             settings.DATABASE_URL,
             pool_pre_ping=True,
@@ -130,10 +131,7 @@ def get_engine():
             max_overflow=10,
             pool_recycle=3600,
             pool_timeout=30,
-            connect_args={
-                "connect_timeout": 10,
-                "options": "-c statement_timeout=30000"
-            }
+            connect_args=connect_args
         )
     return engine
 

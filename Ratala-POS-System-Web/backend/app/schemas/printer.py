@@ -4,18 +4,16 @@ from enum import Enum
 import enum
 
 class PrinterConnection(str, enum.Enum):
-    NETWORK = "network"
-    USB = "usb"
-    BLUETOOTH = "bluetooth"
+    NETWORK = "NETWORK"
+    USB = "USB"
+    BLUETOOTH = "BLUETOOTH"
 
 class PrinterBrand(str, enum.Enum):
-    EPSON = "epson"
-    XPRINTER = "xprinter"
-    RONGTA = "rongta"
-    TVS = "tvs"
-    GENERIC = "generic"
-
-
+    EPSON = "EPSON"
+    XPRINTER = "XPRINTER"
+    RONGTA = "RONGTA"
+    TVS = "TVS"
+    GENERIC = "GENERIC"
 
 class PrinterBase(BaseModel):
     name: str
@@ -25,7 +23,7 @@ class PrinterBase(BaseModel):
     is_active: Optional[bool] = True
     paper_size: Optional[int] = 80
     brand: PrinterBrand = PrinterBrand.GENERIC
-    branch_id: int
+    usb_path: Optional[str] = None
 
 class PrinterCreate(PrinterBase):
     pass
@@ -38,9 +36,11 @@ class PrinterUpdate(BaseModel):
     is_active: Optional[bool] = None
     paper_size: Optional[int] = None
     brand: Optional[PrinterBrand] = None
+    usb_path: Optional[str] = None
 
 class Printer(PrinterBase):
     id: int
+    branch_id: int
 
     class Config:
         from_attributes = True

@@ -13,7 +13,7 @@ from app.models.inventory import (
     BillOfMaterials, BOMItem, BatchProduction
 )
 from app.models.orders import Floor, Table, Session, Order, OrderItem, KOT, KOTItem
-from app.models.purchase import Supplier, PurchaseBill, PurchaseReturn
+from app.models.purchase import Supplier, PurchaseBill, PurchaseReturn, PurchaseBillItem
 from app.models.delivery import DeliveryPartner
 from app.models.settings import CompanySettings, PaymentMode, StorageArea, DiscountRule
 from app.models.pos_session import POSSession
@@ -54,6 +54,7 @@ __all__ = [
     "Supplier",
     "PurchaseBill",
     "PurchaseReturn",
+    "PurchaseBillItem",
     # Delivery
     "DeliveryPartner",
     # Settings

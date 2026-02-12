@@ -2,7 +2,7 @@
 Inventory-related models (Products, Units, Transactions, BOM, Production)
 Transaction-based inventory system - stock is ALWAYS derived
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, select, func
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, select, func
 from sqlalchemy.orm import relationship, column_property
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime
@@ -107,15 +107,15 @@ class BillOfMaterials(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    finished_product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     output_quantity = Column(Float, default=1.0)
-    menu_item_id = Column(Integer, ForeignKey("menu_items.id"), nullable=True)
-    is_active = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
+    finished_product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     
-    finished_product = relationship("Product", foreign_keys=[finished_product_id])
-    menu_item = relationship("MenuItem")
     components = relationship("BOMItem", back_populates="bom", cascade="all, delete-orphan")
+    menu_items = relationship("MenuItem", back_populates="bom")
+    finished_product = relationship("Product", foreign_keys=[finished_product_id])
 
 
 class BOMItem(Base):
@@ -125,10 +125,12 @@ class BOMItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     bom_id = Column(Integer, ForeignKey("bills_of_materials.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    unit_id = Column(Integer, ForeignKey("units_of_measurement.id"), nullable=True)
     quantity = Column(Float, nullable=False)
     
     bom = relationship("BillOfMaterials", back_populates="components")
     product = relationship("Product")
+    unit = relationship("UnitOfMeasurement")
 
 
 class BatchProduction(Base):
@@ -150,3 +152,5 @@ class BatchProduction(Base):
     bom = relationship("BillOfMaterials")
     user = relationship("User")
     pos_session = relationship("POSSession")
+    finished_product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    finished_product = relationship("Product", foreign_keys=[finished_product_id])

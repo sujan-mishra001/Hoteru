@@ -21,10 +21,12 @@ import {
     CardContent,
     LinearProgress,
     Alert,
-    AlertTitle
+    AlertTitle,
+    Snackbar
 } from '@mui/material';
 import { Plus, X, Play, Info, CheckCircle2, AlertTriangle, History, ArrowRight, Package } from 'lucide-react';
 import { inventoryAPI } from '../../../services/api';
+import { useInventory } from '../../../app/providers/InventoryProvider';
 
 const Production: React.FC = () => {
     const [productions, setProductions] = useState<any[]>([]);
@@ -39,6 +41,12 @@ const Production: React.FC = () => {
     const [selectedBOM, setSelectedBOM] = useState<any>(null);
     const [availability, setAvailability] = useState<any[]>([]);
     const [canProduce, setCanProduce] = useState(true);
+    const { checkLowStock } = useInventory();
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadData();
@@ -76,15 +84,25 @@ const Production: React.FC = () => {
     const checkAvailability = (bom: any, qty: number) => {
         let possible = true;
         const checks = bom.components.map((comp: any) => {
-            const required = comp.quantity * qty;
+            // Conversion logic: (qty * from_factor) / to_factor
+            // comp.unit is the unit used in BOM, comp.product.unit is the product's base unit
+            const fromFactor = comp.unit?.conversion_factor || 1.0;
+            const toFactor = comp.product?.unit?.conversion_factor || 1.0;
+
+            const unitQuantity = comp.quantity * qty;
+            const requiredInBaseUnit = (unitQuantity * fromFactor) / toFactor;
+
             const current = comp.product?.current_stock || 0;
-            if (current < required) possible = false;
+            if (current < requiredInBaseUnit) possible = false;
+
             return {
                 name: comp.product?.name,
-                required,
+                required: unitQuantity,
+                requiredInBase: requiredInBaseUnit,
                 available: current,
-                unit: comp.product?.unit?.abbreviation,
-                shortage: Math.max(0, required - current)
+                unit: comp.unit?.abbreviation || comp.product?.unit?.abbreviation,
+                baseUnit: comp.product?.unit?.abbreviation,
+                shortage: Math.max(0, requiredInBaseUnit - current)
             };
         });
         setAvailability(checks);
@@ -106,15 +124,17 @@ const Production: React.FC = () => {
     const handleSubmit = async () => {
         try {
             if (!canProduce) {
-                alert('Cannot produce: Insufficient raw materials.');
+                showSnackbar('Cannot produce: Insufficient raw materials', 'error');
                 return;
             }
             await inventoryAPI.createProduction(formData);
+            checkLowStock();
             handleCloseDialog();
             loadData();
-        } catch (error) {
+            showSnackbar('Production recorded successfully');
+        } catch (error: any) {
             console.error('Error creating production:', error);
-            alert('Error creating production. Please check stock levels.');
+            showSnackbar(error.response?.data?.detail || 'Error creating production. Please check stock levels.', 'error');
         }
     };
 
@@ -157,7 +177,7 @@ const Production: React.FC = () => {
                         <TableRow>
                             <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>PRODUCTION #</TableCell>
                             <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>RECIPE / BOM</TableCell>
-                            <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>QUANTITY</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>PRODUCED</TableCell>
                             <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>STATUS</TableCell>
                             <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>DATE</TableCell>
                         </TableRow>
@@ -165,14 +185,14 @@ const Production: React.FC = () => {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={5} align="center" sx={{ py: 8 }}>
+                                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                                     <LinearProgress sx={{ width: '200px', mx: 'auto', borderRadius: '5px' }} />
                                     <Typography sx={{ mt: 2 }} color="text.secondary">Loading history...</Typography>
                                 </TableCell>
                             </TableRow>
                         ) : productions.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} align="center" sx={{ py: 10 }}>
+                                <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
                                     <History size={48} color="#94a3b8" style={{ marginBottom: '16px' }} />
                                     <Typography variant="h6" color="text.secondary">No production cycles found.</Typography>
                                     <Typography variant="body2" color="text.secondary">Start your first production batch to see it here.</Typography>
@@ -187,11 +207,20 @@ const Production: React.FC = () => {
                                             <Box sx={{ p: 1, bgcolor: '#f1f5f9', borderRadius: '8px' }}>
                                                 <ArrowRight size={14} color="#64748b" />
                                             </Box>
-                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>{prod.bom?.name}</Typography>
+                                            <Box>
+                                                <Typography variant="body2" sx={{ fontWeight: 700 }}>{prod.bom?.name}</Typography>
+                                            </Box>
                                         </Box>
                                     </TableCell>
                                     <TableCell>
-                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{prod.quantity}</Typography>
+                                        <Box>
+                                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                                                {Number(prod.total_produced).toFixed(2)} units
+                                            </Typography>
+                                            <Typography variant="caption" color="#64748b" sx={{ display: 'block' }}>
+                                                from {Number(prod.quantity).toFixed(2)} {prod.quantity === 1 ? 'batch' : 'batches'}
+                                            </Typography>
+                                        </Box>
                                     </TableCell>
                                     <TableCell>
                                         <Chip
@@ -242,13 +271,13 @@ const Production: React.FC = () => {
                             >
                                 {boms.map((bom) => (
                                     <MenuItem key={bom.id} value={bom.id}>
-                                        {bom.name} {bom.finished_product ? `(Yields ${bom.finished_product.name})` : ''}
+                                        {bom.name} (Yield: {Number(bom.output_quantity).toFixed(2)} units/batch)
                                     </MenuItem>
                                 ))}
                             </TextField>
 
                             <TextField
-                                label="Production Multiplier (Batches)"
+                                label="Number of Batches to Produce"
                                 type="number"
                                 fullWidth
                                 value={formData.quantity}
@@ -270,15 +299,19 @@ const Production: React.FC = () => {
 
                             {selectedBOM && (
                                 <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Target Output</Typography>
+                                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                                        {selectedBOM.finished_product_id ? 'Target Output (Stock)' : 'Usage Only (JIT)'}
+                                    </Typography>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-                                        <Package size={24} color="#FFC107" />
+                                        <Package size={24} color={selectedBOM.finished_product_id ? "#FFC107" : "#64748b"} />
                                         <Box>
                                             <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                                                {selectedBOM.finished_product?.name || 'Multiple Items'}
+                                                {selectedBOM.finished_product?.name || 'No Finished Stock'}
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
-                                                Will produce {selectedBOM.output_quantity * formData.quantity} {selectedBOM.finished_product?.unit?.abbreviation || 'units'}
+                                                {selectedBOM.finished_product_id
+                                                    ? `Will produce ${Number(selectedBOM.output_quantity * (formData.quantity || 0)).toFixed(2)} ${selectedBOM.finished_product?.unit?.abbreviation || 'units'}`
+                                                    : 'Ingredients will be consumed without creating new stock.'}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -302,11 +335,11 @@ const Production: React.FC = () => {
                                                 <Box sx={{ flex: 1 }}>
                                                     <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.name}</Typography>
                                                     <Typography variant="caption" color="text.secondary">
-                                                        Required: {item.required} {item.unit} | Stock: {item.available} {item.unit}
+                                                        Required: {Number(item.required).toFixed(2)} {item.unit} | Available: {Number(item.available).toFixed(2)} {item.baseUnit}
                                                     </Typography>
                                                 </Box>
                                                 {item.shortage > 0 ? (
-                                                    <Chip label={`Short: ${item.shortage}`} size="small" sx={{ bgcolor: '#fee2e2', color: '#ef4444', fontWeight: 700 }} />
+                                                    <Chip label={`Short: ${Number(item.shortage).toFixed(2)}`} size="small" sx={{ bgcolor: '#fee2e2', color: '#ef4444', fontWeight: 700 }} />
                                                 ) : (
                                                     <CheckCircle2 size={20} color="#22c55e" />
                                                 )}
@@ -354,6 +387,16 @@ const Production: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

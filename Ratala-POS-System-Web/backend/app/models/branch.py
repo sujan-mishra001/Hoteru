@@ -22,6 +22,11 @@ class Branch(Base):
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
     
+    # Social Media
+    facebook_url = Column(String, nullable=True)
+    instagram_url = Column(String, nullable=True)
+    slogan = Column(String, nullable=True)
+    
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
     

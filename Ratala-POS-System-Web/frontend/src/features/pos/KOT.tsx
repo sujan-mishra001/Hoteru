@@ -184,7 +184,9 @@ const KOT: React.FC = () => {
                                 elevation={selectedKot?.id === kot.id ? 2 : 0}
                             >
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                                    <Typography variant="h6" fontWeight={800}>{kot.order?.table?.table_id || 'Walk-in'}</Typography>
+                                    <Typography variant="h6" fontWeight={800}>
+                                        {kot.order?.table?.table_id ? `Table ${kot.order.table.table_id}` : (kot.order?.order_type || 'Takeaway')}
+                                    </Typography>
                                     <Chip
                                         label={kot.status}
                                         size="small"
@@ -215,7 +217,9 @@ const KOT: React.FC = () => {
                     <Paper sx={{ height: '100%', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
                         <Box sx={{ p: 3, borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box>
-                                <Typography variant="h5" fontWeight={900}>Table {selectedKot.order?.table?.table_id || 'N/A'}</Typography>
+                                <Typography variant="h5" fontWeight={900}>
+                                    {selectedKot.order?.table?.table_id ? `Table ${selectedKot.order.table.table_id}` : (selectedKot.order?.order_type || 'Takeaway')}
+                                </Typography>
                                 <Typography variant="body2" color="text.secondary">Order #{selectedKot.kot_number} • {formatTime(selectedKot.created_at)}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -268,7 +272,7 @@ const KOT: React.FC = () => {
                                     >
                                         <Box>
                                             <Typography variant="subtitle1" fontWeight={700}>
-                                                <span style={{ color: '#FFC107', marginRight: '12px' }}>{item.quantity}x</span>
+                                                <span style={{ color: '#FFC107', marginRight: '12px' }}>{Number(item.quantity).toFixed(2)}x</span>
                                                 {item.menu_item?.name}
                                             </Typography>
                                             {item.notes && (

@@ -125,10 +125,42 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
                     _buildBottomActions(hasDraft, isOccupied),
                   ],
                 ),
-        );
-      },
-    );
-  }
+
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: BottomNavigationBar(
+            currentIndex: 0, 
+            onTap: (index) {
+               Navigator.pop(context, index);
+            },
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: Colors.grey[400],
+            unselectedItemColor: Colors.grey[400],
+            selectedFontSize: 11,
+            unselectedFontSize: 11,
+            elevation: 0,
+            items: const [
+               BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+               BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
+               BottomNavigationBarItem(icon: Icon(Icons.kitchen_rounded), label: 'KOT/BOT'),
+               BottomNavigationBarItem(icon: Icon(Icons.payments_rounded), label: 'Cashier'),
+               BottomNavigationBarItem(icon: Icon(Icons.analytics_rounded), label: 'Reports'),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildHeader(bool isOccupied) {
     return Container(

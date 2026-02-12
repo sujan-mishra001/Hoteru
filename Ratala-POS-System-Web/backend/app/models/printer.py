@@ -4,24 +4,22 @@ from app.db.database import Base
 import enum
 
 class PrinterType(str, enum.Enum):
-    THERMAL = "thermal"
-    NETWORK = "network"
-    USB = "usb"
-    BLUETOOTH = "bluetooth"
+    THERMAL = "THERMAL"
+    NETWORK = "NETWORK"
+    USB = "USB"
+    BLUETOOTH = "BLUETOOTH"
 
 class PrinterBrand(str, enum.Enum):
-    EPSON = "epson"
-    XPRINTER = "xprinter"
-    RONGTA = "rongta"
-    TVS = "tvs"
-    GENERIC = "generic"
+    EPSON = "EPSON"
+    XPRINTER = "XPRINTER"
+    RONGTA = "RONGTA"
+    TVS = "TVS"
+    GENERIC = "GENERIC"
 
 class PrinterConnection(str, enum.Enum):
-    NETWORK = "network"
-    USB = "usb"
-    BLUETOOTH = "bluetooth"
-
-
+    NETWORK = "NETWORK"
+    USB = "USB"
+    BLUETOOTH = "BLUETOOTH"
 
 class Printer(Base):
     __tablename__ = "printers"
@@ -34,6 +32,7 @@ class Printer(Base):
     is_active = Column(Boolean, default=True)
     paper_size = Column(Integer, default=80) # 80mm or 58mm
     brand = Column(Enum(PrinterBrand), default=PrinterBrand.GENERIC)
+    usb_path = Column(String, nullable=True) # For USB printers
     
     branch_id = Column(Integer, ForeignKey("branches.id"))
     branch = relationship("Branch", back_populates="printers")

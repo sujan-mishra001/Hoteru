@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useLocation, Outlet } from 'react-router-dom';
 import { inventoryAPI } from '../../services/api';
+import { useInventory } from '../../app/providers/InventoryProvider';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -59,6 +60,7 @@ const Inventory: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+    const { checkLowStock } = useInventory();
 
     // Forms State
     const [addForm, setAddForm] = useState({ product_id: '', quantity: 0, notes: '' });
@@ -93,6 +95,7 @@ const Inventory: React.FC = () => {
             setSubmitting(true);
             await inventoryAPI.createTransaction({ ...addForm, transaction_type: 'IN' });
             setSnackbar({ open: true, message: 'Stock added successfully', severity: 'success' });
+            checkLowStock();
             setAddForm({ product_id: '', quantity: 0, notes: '' });
             loadData();
         } catch (error) {
@@ -112,6 +115,7 @@ const Inventory: React.FC = () => {
             setSubmitting(true);
             await inventoryAPI.createAdjustment(adjustForm);
             setSnackbar({ open: true, message: 'Adjustment recorded successfully', severity: 'success' });
+            checkLowStock();
             setAdjustForm({ product_id: '', quantity: 0, notes: '' });
             loadData();
         } catch (error) {
@@ -174,7 +178,7 @@ const Inventory: React.FC = () => {
                                         required
                                     >
                                         {products.map((p) => (
-                                            <MenuItem key={p.id} value={p.id}>{p.name} ({p.current_stock} {p.unit?.abbreviation} available)</MenuItem>
+                                            <MenuItem key={p.id} value={p.id}>{p.name} ({Number(p.current_stock).toFixed(2)} {p.unit?.abbreviation} available)</MenuItem>
                                         ))}
                                     </TextField>
                                     <TextField
@@ -226,7 +230,7 @@ const Inventory: React.FC = () => {
                                         required
                                     >
                                         {products.map((p) => (
-                                            <MenuItem key={p.id} value={p.id}>{p.name} ({p.current_stock} {p.unit?.abbreviation} current)</MenuItem>
+                                            <MenuItem key={p.id} value={p.id}>{p.name} ({Number(p.current_stock).toFixed(2)} {p.unit?.abbreviation} current)</MenuItem>
                                         ))}
                                     </TextField>
                                     <TextField
@@ -304,7 +308,7 @@ const Inventory: React.FC = () => {
                                                 <TableCell sx={{ fontWeight: 600 }}>{p.name}</TableCell>
                                                 <TableCell><Chip label={p.category || 'General'} size="small" sx={{ fontSize: '0.75rem', bgcolor: '#f1f5f9' }} /></TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 800, color: p.current_stock <= (p.min_stock || 0) ? '#ef4444' : '#1e293b' }}>
-                                                    {p.current_stock} {p.unit?.abbreviation}
+                                                    {Number(p.current_stock).toFixed(2)} {p.unit?.abbreviation}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Chip
@@ -364,7 +368,7 @@ const Inventory: React.FC = () => {
                                                     </Box>
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 800, color: ['IN', 'Add', 'Production_IN'].includes(txn.transaction_type) ? '#16a34a' : '#ef4444' }}>
-                                                    {['IN', 'Add', 'Production_IN'].includes(txn.transaction_type) ? '+' : ''}{txn.quantity}
+                                                    {['IN', 'Add', 'Production_IN'].includes(txn.transaction_type) ? '+' : ''}{Number(txn.quantity).toFixed(2)}
                                                 </TableCell>
                                                 <TableCell sx={{ color: '#64748b', fontSize: '0.85rem' }}>{txn.notes || '-'}</TableCell>
                                             </TableRow>

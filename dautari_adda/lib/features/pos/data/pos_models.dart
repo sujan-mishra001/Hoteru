@@ -21,7 +21,38 @@ class FloorInfo {
   }
 }
 
-class TableInfo {
+
+enum OrderStatus {
+  draft,
+  placed,
+  completed,
+  cancelled,
+}
+
+enum OrderType {
+  dineIn,
+  takeaway,
+  delivery,
+}
+
+class Order {
+  final String id;
+  final int tableId;
+  final List<MenuItem> items;
+  OrderStatus status;
+  OrderType orderType;
+
+  Order({
+    required this.id,
+    required this.tableId,
+    this.items = const [],
+    this.status = OrderStatus.draft,
+    this.orderType = OrderType.dineIn,
+  });
+}
+
+@deprecated
+class PosTableInfo {
   final int id;
   final String tableId;
   final String floor;
@@ -37,7 +68,7 @@ class TableInfo {
   final String? holdTableName;
   final int? branchId;
 
-  TableInfo({
+  PosTableInfo({
     required this.id,
     required this.tableId,
     required this.floor,
@@ -54,8 +85,8 @@ class TableInfo {
     this.branchId,
   });
 
-  factory TableInfo.fromJson(Map<String, dynamic> json) {
-    return TableInfo(
+  factory PosTableInfo.fromJson(Map<String, dynamic> json) {
+    return PosTableInfo(
       id: json['id'],
       tableId: json['table_id'],
       floor: json['floor'] ?? '',
@@ -74,6 +105,58 @@ class TableInfo {
   }
 }
 
+class PosTable {
+  final int id;
+  final String tableId;
+  final String floor;
+  final int floorId;
+  final String status;
+  final int capacity;
+  final int kotCount;
+  final double totalAmount;
+  final String tableType;
+  final bool isActive;
+  final int displayOrder;
+  final String isHoldTable;
+  final String? holdTableName;
+  final int? branchId;
+
+  PosTable({
+    required this.id,
+    required this.tableId,
+    required this.floor,
+    required this.floorId,
+    required this.status,
+    this.capacity = 4,
+    this.kotCount = 0,
+    this.totalAmount = 0,
+    this.tableType = 'Regular',
+    this.isActive = true,
+    this.displayOrder = 0,
+    this.isHoldTable = 'No',
+    this.holdTableName,
+    this.branchId,
+  });
+
+  factory PosTable.fromJson(Map<String, dynamic> json) {
+    return PosTable(
+      id: json['id'],
+      tableId: json['table_id'],
+      floor: json['floor'] ?? '',
+      floorId: json['floor_id'] ?? 0,
+      status: json['status'] ?? 'Available',
+      capacity: json['capacity'] ?? 4,
+      kotCount: json['kot_count'] ?? 0,
+      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      tableType: json['table_type'] ?? 'Regular',
+      isActive: json['is_active'] ?? true,
+      displayOrder: json['display_order'] ?? 0,
+      isHoldTable: json['is_hold_table'] ?? 'No',
+      holdTableName: json['hold_table_name'],
+      branchId: json['branch_id']?.toInt(),
+    );
+  }
+}
 class MenuItem {
   final int? id;
   final String name;
@@ -129,6 +212,7 @@ class MenuItem {
     );
   }
 }
+
 
 class MenuCategory {
   final int? id;

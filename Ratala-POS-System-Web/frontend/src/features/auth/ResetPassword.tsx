@@ -91,6 +91,15 @@ const ResetPassword: React.FC = () => {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 variant="outlined"
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </IconButton>
+                        </InputAdornment>
+                    ),
+                }}
             />
 
             <Button

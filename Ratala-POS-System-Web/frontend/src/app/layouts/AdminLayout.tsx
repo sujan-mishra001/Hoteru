@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, AppBar, Toolbar, Typography, IconButton, Avatar, Menu, MenuItem, Divider, Button, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
 import {
     LayoutDashboard,
@@ -14,20 +14,27 @@ import {
     Utensils,
     MonitorDot,
     ChevronDown,
-    Building2
+    Building2,
+    AlertTriangle
 } from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { useBranch } from '../providers/BranchProvider';
 import BottomNav from '../../components/layout/BottomNav';
+import { useInventory } from '../providers/InventoryProvider';
+import { usePermission } from '../providers/PermissionProvider';
+import { settingsAPI, API_BASE_URL } from '../../services/api';
 
 const drawerWidth = 260;
 
 const AdminLayout: React.FC = () => {
+    // ... hooks ...
     const navigate = useNavigate();
     const location = useLocation();
     const { logout, user } = useAuth();
     const { currentBranch, selectBranch, accessibleBranches } = useBranch();
+    const { hasLowStock } = useInventory();
+    const { hasPermission } = usePermission();
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [branchAnchorEl, setBranchAnchorEl] = useState<null | HTMLElement>(null);
@@ -36,6 +43,24 @@ const AdminLayout: React.FC = () => {
     const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({});
     const [mobileOpen, setMobileOpen] = useState(false);
     const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+    const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchLogo = async () => {
+            try {
+                const res = await settingsAPI.getPublicCompanySettings(currentBranch?.id);
+                if (res.data.logo_url) {
+                    setCompanyLogo(`${API_BASE_URL}${res.data.logo_url}`);
+                } else {
+                    setCompanyLogo(null);
+                }
+            } catch (err) {
+                console.error('Error fetching company logo:', err);
+                setCompanyLogo(null);
+            }
+        };
+        fetchLogo();
+    }, [currentBranch]);
 
     const handleDrawerToggle = () => {
         setMobileOpen(!mobileOpen);
@@ -114,7 +139,8 @@ const AdminLayout: React.FC = () => {
                 { text: 'Stock Management', path: '/inventory/add' },
                 { text: 'Counts', path: '/inventory/count' },
                 { text: 'BOM', path: '/inventory/bom' },
-                { text: 'Production', path: '/inventory/production' }
+                { text: 'Production', path: '/inventory/production' },
+                { text: 'Production Count', path: '/inventory/production-count' }
             ]
         },
         {
@@ -133,7 +159,14 @@ const AdminLayout: React.FC = () => {
     ];
 
     const renderMenuItems = (items: any[]) => {
-        return items.filter(item => !item.adminOnly || user?.role === 'admin' || user?.role === 'Admin').map((item) => {
+        return items.filter(item => {
+            if (item.adminOnly && user?.role.toLowerCase() !== 'admin') return false;
+            // POS users without dashboard access shouldn't see these items
+            if ((item.text === 'Dashboard' || setupItems.includes(item) || restaurantItems.includes(item) || sidebarItems.includes(item)) && !hasPermission('dashboard.view')) {
+                return false;
+            }
+            return true;
+        }).map((item) => {
             // Check if any subitem is active to auto-expand or highlight parent
             const isSubActive = item.subItems?.some((sub: any) => location.pathname === sub.path);
             const isActive = location.pathname === item.path;
@@ -192,14 +225,24 @@ const AdminLayout: React.FC = () => {
 
     const drawerContent = (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
-            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {/* Welcome Message Instead of Logo */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', px: 1 }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5 }}>
+            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box
+                    component="img"
+                    src={companyLogo || "/Ratala Hospitality Logo.jpg"}
+                    alt="Logo"
+                    sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: '8px',
+                        objectFit: 'cover'
+                    }}
+                />
+                <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
                         Welcome to
                     </Typography>
-                    <Typography variant="h6" fontWeight={800} color="#FFC107" sx={{ lineHeight: 1.2, wordBreak: 'break-word' }}>
-                        {currentBranch?.name || 'Dautari Adda'}
+                    <Typography variant="subtitle1" fontWeight={800} color="#FFC107" sx={{ lineHeight: 1.2, wordBreak: 'break-word' }}>
+                        {currentBranch?.name || 'Ratala Hospitality'}
                     </Typography>
                 </Box>
             </Box>
@@ -269,6 +312,34 @@ const AdminLayout: React.FC = () => {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1, md: 2 } }}>
+                        {/* Low Stock Alert */}
+                        {hasLowStock && (
+                            <Box
+                                onClick={() => navigate('/inventory/add')}
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                    cursor: 'pointer',
+                                    px: 2,
+                                    py: 0.8,
+                                    borderRadius: '8px',
+                                    bgcolor: '#fee2e2',
+                                    border: '1px solid #fecaca',
+                                    color: '#ef4444',
+                                    animation: 'glow 1.5s infinite alternate',
+                                    '@keyframes glow': {
+                                        'from': { boxShadow: '0 0 5px #fca5a5' },
+                                        'to': { boxShadow: '0 0 15px #ef4444' }
+                                    },
+                                    '&:hover': { bgcolor: '#fecaca' }
+                                }}
+                            >
+                                <AlertTriangle size={16} />
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '0.75rem', letterSpacing: 0.5 }}>LOW STOCK</Typography>
+                            </Box>
+                        )}
+
                         {/* Branch Selector */}
                         <Box
                             onClick={handleBranchMenuOpen}

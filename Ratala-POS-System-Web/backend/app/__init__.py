@@ -1,1 +1,1 @@
-# HOTERU Backend Application
+# Ratala Hospitality Backend Application

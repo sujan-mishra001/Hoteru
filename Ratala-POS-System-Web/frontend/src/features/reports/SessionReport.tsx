@@ -13,7 +13,9 @@ import {
     CircularProgress,
     IconButton,
     Tooltip,
-    Button
+    Button,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { Calendar, User, Clock, DollarSign, FileText } from 'lucide-react';
 import { reportsAPI } from '../../services/api';
@@ -39,6 +41,11 @@ interface Session {
 const SessionReport: React.FC = () => {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadSessions();
@@ -67,9 +74,10 @@ const SessionReport: React.FC = () => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
+            showSnackbar('Session report exported successfully');
         } catch (error) {
             console.error('Failed to export PDF:', error);
-            alert('Failed to export session report');
+            showSnackbar('Failed to export session report', 'error');
         }
     };
 
@@ -84,9 +92,10 @@ const SessionReport: React.FC = () => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
+            showSnackbar('Shift report exported successfully');
         } catch (error) {
             console.error('Failed to export shift report:', error);
-            alert('Failed to export shift report');
+            showSnackbar('Failed to export shift report', 'error');
         }
     };
 
@@ -168,7 +177,7 @@ const SessionReport: React.FC = () => {
                 <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '12px', border: '1px solid #f1f5f9' }} elevation={0}>
                     <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>TOTAL SALES</Typography>
                     <Typography variant="h4" fontWeight={800} sx={{ fontSize: { xs: '1.25rem', sm: '1.75rem', md: '2.125rem' } }}>
-                        NPRs. {sessions.reduce((sum, s) => sum + (s.total_sales || 0), 0).toLocaleString()}
+                        NPRs. {sessions.reduce((sum, s) => sum + (s.total_sales || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Typography>
                 </Paper>
                 <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: '12px', border: '1px solid #f1f5f9' }} elevation={0}>
@@ -247,19 +256,19 @@ const SessionReport: React.FC = () => {
                                 </TableCell>
                                 <TableCell align="right" sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
                                     <Typography variant="body2" fontWeight={600} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                                        Rs. 0
+                                        Rs. {(session.opening_cash || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </Typography>
                                 </TableCell>
                                 <TableCell align="right" sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
                                     <Typography variant="body2" fontWeight={600} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                                        Rs. {session.total_sales?.toLocaleString()}
+                                        Rs. {(session.actual_cash || session.total_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </Typography>
                                 </TableCell>
                                 <TableCell align="right">
                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                                         <DollarSign size={14} color="#FFC107" />
                                         <Typography variant="body2" fontWeight={700} color="#FFC107">
-                                            Rs. {session.total_sales?.toLocaleString()}
+                                            Rs. {Number(session.total_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </Typography>
                                     </Box>
                                 </TableCell>
@@ -284,6 +293,16 @@ const SessionReport: React.FC = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

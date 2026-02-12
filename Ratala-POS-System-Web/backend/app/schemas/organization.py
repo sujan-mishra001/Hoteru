@@ -54,6 +54,9 @@ class BranchUpdate(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    facebook_url: Optional[str] = None
+    instagram_url: Optional[str] = None
+    slogan: Optional[str] = None
     is_active: Optional[bool] = None
 
 class BranchResponse(BaseModel):
@@ -65,6 +68,9 @@ class BranchResponse(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    facebook_url: Optional[str] = None
+    instagram_url: Optional[str] = None
+    slogan: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

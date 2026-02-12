@@ -87,13 +87,8 @@ const Sessions: React.FC = () => {
     };
 
     const handleStartSessionClick = () => {
-        // Check if user is cashier
-        if (currentUser?.role?.toLowerCase() === 'cashier') {
-            setOpeningDialog(true);
-        } else {
-            // For non-cashiers, start with 0 opening balance
-            handleStartSession(0);
-        }
+        // Always ask for opening balance regardless of role
+        setOpeningDialog(true);
     };
 
     const handleStartSession = async (openingBalance: number) => {
@@ -115,6 +110,11 @@ const Sessions: React.FC = () => {
     };
 
     const handleEndSessionClick = (sessionId: number) => {
+        const session = sessions.find(s => s.id === sessionId);
+        if (session) {
+            // Set default closing balance to sum of opening balance and total sales
+            setActualCash(((session.opening_cash || 0) + (session.total_sales || 0)).toString());
+        }
         setSessionToClose(sessionId);
         setClosingDialog(true);
     };
@@ -185,6 +185,8 @@ const Sessions: React.FC = () => {
                             <TableCell sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Time</TableCell>
                             <TableCell sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Status</TableCell>
                             <TableCell sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.875rem' }, display: { xs: 'none', sm: 'table-cell' } }}>Orders</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Opening</TableCell>
+                            <TableCell sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Actual</TableCell>
                             <TableCell sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Sales</TableCell>
                             <TableCell sx={{ fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.875rem' } }} align="right">Actions</TableCell>
                         </TableRow>
@@ -234,7 +236,13 @@ const Sessions: React.FC = () => {
                                         <Typography fontWeight={600} sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>{session.total_orders || 0}</Typography>
                                     </TableCell>
                                     <TableCell>
-                                        <Typography fontWeight={700} sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>NPRs. {(session.total_sales || 0).toLocaleString()}</Typography>
+                                        <Typography fontWeight={600} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Rs. {(session.opening_cash || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography fontWeight={600} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Rs. {(session.actual_cash || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography fontWeight={700} sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>NPRs. {(session.total_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                     </TableCell>
                                     <TableCell align="right">
                                         {!session.end_time && session.user_id === currentUser?.id ? (

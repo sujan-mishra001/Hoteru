@@ -44,7 +44,11 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Floors & Tables'),
+        toolbarHeight: 75,
+        title: const Text('Floors & Tables', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFFFC107),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

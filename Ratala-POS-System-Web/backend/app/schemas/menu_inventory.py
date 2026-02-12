@@ -1,4 +1,4 @@
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
@@ -50,6 +50,7 @@ class MenuItemCreate(BaseModel):
     inventory_tracking: bool = False
     kot_bot: str = "KOT"
     is_active: bool = True
+    bom_id: Optional[int] = None
 
 class MenuItemResponse(BaseModel):
     id: int
@@ -64,26 +65,16 @@ class MenuItemResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    bom_id: Optional[int] = None
 
     class Config:
         from_attributes = True
-        
-    # Add computed properties for Dart compatibility
-    @computed_field
-    @property
-    def image_url(self) -> Optional[str]:
-        """Alias for image field to match Dart model"""
-        return self.image
-    
-    @computed_field
-    @property
-    def is_available(self) -> bool:
-        """Alias for is_active field to match Dart model"""
-        return self.is_active
 
 class UnitCreate(BaseModel):
     name: str
     abbreviation: Optional[str] = None
+    base_unit_id: Optional[int] = None
+    conversion_factor: float = 1.0
 
 class ProductCreate(BaseModel):
     name: str

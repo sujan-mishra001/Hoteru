@@ -15,7 +15,9 @@ import {
     DialogTitle,
     DialogContent,
     IconButton,
-    InputAdornment
+    InputAdornment,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { inventoryAPI } from '../../../services/api';
@@ -27,6 +29,12 @@ const Units: React.FC = () => {
     const [editingUnit, setEditingUnit] = useState<any>(null);
     const [formData, setFormData] = useState({ name: '', abbreviation: '' });
     const [searchTerm, setSearchTerm] = useState('');
+    const [openRulesDialog, setOpenRulesDialog] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadUnits();
@@ -67,13 +75,42 @@ const Units: React.FC = () => {
             if (editingUnit) {
                 await inventoryAPI.updateUnit(editingUnit.id, formData);
             } else {
-                await inventoryAPI.createUnit(formData);
+                const res = await inventoryAPI.createUnit(formData);
+                const mainUnitId = res.data.id;
+
+                // Auto-create sub-units for Weight (kg)
+                if (formData.abbreviation?.toLowerCase() === 'kg' || formData.name?.toLowerCase() === 'kilogram') {
+                    const subUnits = [
+                        { name: 'Gram', abbreviation: 'g', base_unit_id: mainUnitId, conversion_factor: 0.001 },
+                        { name: 'Milligram', abbreviation: 'mg', base_unit_id: mainUnitId, conversion_factor: 0.000001 }
+                    ];
+                    for (const sub of subUnits) {
+                        const exists = units.find(u => u.abbreviation?.toLowerCase() === sub.abbreviation.toLowerCase());
+                        if (!exists) {
+                            await inventoryAPI.createUnit(sub);
+                        }
+                    }
+                }
+
+                // Auto-create sub-units for Volume (L)
+                if (formData.abbreviation?.toLowerCase() === 'l' || formData.name?.toLowerCase() === 'liter' || formData.name?.toLowerCase() === 'litre') {
+                    const subUnits = [
+                        { name: 'Milliliter', abbreviation: 'mL', base_unit_id: mainUnitId, conversion_factor: 0.001 }
+                    ];
+                    for (const sub of subUnits) {
+                        const exists = units.find(u => u.abbreviation?.toLowerCase() === sub.abbreviation.toLowerCase());
+                        if (!exists) {
+                            await inventoryAPI.createUnit(sub);
+                        }
+                    }
+                }
             }
             handleCloseDialog();
             loadUnits();
-        } catch (error) {
+            showSnackbar(`Unit ${editingUnit ? 'updated' : 'created'} successfully`);
+        } catch (error: any) {
             console.error('Error saving unit:', error);
-            alert('Error saving unit. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error saving unit', 'error');
         }
     };
 
@@ -82,9 +119,10 @@ const Units: React.FC = () => {
         try {
             await inventoryAPI.deleteUnit(id);
             loadUnits();
-        } catch (error) {
+            showSnackbar('Unit deleted successfully');
+        } catch (error: any) {
             console.error('Error deleting unit:', error);
-            alert('Error deleting unit. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error deleting unit', 'error');
         }
     };
 
@@ -107,7 +145,7 @@ const Units: React.FC = () => {
                 </Button>
             </Box>
 
-            <Paper sx={{ p: 2, mb: 3, borderRadius: '12px' }}>
+            <Paper sx={{ p: 2, mb: 3, borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <TextField
                     size="small"
                     placeholder="Search units..."
@@ -122,6 +160,13 @@ const Units: React.FC = () => {
                     }}
                     sx={{ width: 300 }}
                 />
+                <Button
+                    variant="outlined"
+                    onClick={() => setOpenRulesDialog(true)}
+                    sx={{ borderRadius: '8px', fontWeight: 600, color: '#FFC107', borderColor: '#FFC107', '&:hover': { borderColor: '#FF7700', bgcolor: '#fff7ed' } }}
+                >
+                    Rules
+                </Button>
             </Paper>
 
             <TableContainer component={Paper} sx={{ borderRadius: '16px' }}>
@@ -191,6 +236,43 @@ const Units: React.FC = () => {
                             <Button variant="contained" onClick={handleSubmit} sx={{ bgcolor: '#FFC107' }}>
                                 {editingUnit ? 'Update' : 'Create'}
                             </Button>
+                        </Box>
+                    </Box>
+                </DialogContent>
+            </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+
+            {/* Rules Dialog */}
+            <Dialog open={openRulesDialog} onClose={() => setOpenRulesDialog(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    Unit Conversion Rules
+                    <IconButton onClick={() => setOpenRulesDialog(false)} size="small">
+                        <X size={20} />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ py: 1 }}>
+                        <Typography variant="subtitle1" fontWeight={800} color="#1e293b" gutterBottom>Weight</Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>1 kilogram (kg) = 1000 gram (g)</Typography>
+                        <Typography variant="body2" sx={{ mb: 3 }}>1 gram (g) = 1000 milligram (mg)</Typography>
+
+                        <Typography variant="subtitle1" fontWeight={800} color="#1e293b" gutterBottom>Volume / Capacity</Typography>
+                        <Typography variant="body2">1 liter (L) = 1000 milliliter (mL)</Typography>
+
+                        <Box sx={{ mt: 3, p: 2, bgcolor: '#f8fafc', borderRadius: '8px', borderLeft: '4px solid #FFC107' }}>
+                            <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Note: Kilogram (kg) and Liter (L) are the base units.
+                                Sub-units are automatically created when base units are added.
+                            </Typography>
                         </Box>
                     </Box>
                 </DialogContent>

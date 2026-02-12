@@ -58,7 +58,7 @@ export const OutstandingRevenue: React.FC<{ amount: number }> = ({ amount }) => 
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
                         <Typography variant="h5" fontWeight={900} color={urgencyLevel.color}>
-                            NPRs. {amount.toLocaleString()}
+                            NPRs. {Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Typography>
                         {hasOutstanding && (
                             <Typography variant="caption" color="#94a3b8">
@@ -136,7 +136,7 @@ export const SalesByArea: React.FC<{
                 <Grid size={{ xs: 12, md: 8.5 }}>
                     <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', sm: 'row' } }}>
                         <Box sx={{ minWidth: '140px' }}>
-                            <Typography variant="h4" fontWeight={900}>NPRs. {totalFloorSales.toLocaleString()}</Typography>
+                            <Typography variant="h4" fontWeight={900}>NPRs. {Number(totalFloorSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                             <Typography variant="caption" color="#64748b" sx={{ fontWeight: 600 }}>Total Floor Sales</Typography>
                             <Typography variant="caption" color="#94a3b8" sx={{ display: 'block', mt: 0.5 }}>
                                 Across {data.length || 3} areas
@@ -157,7 +157,7 @@ export const SalesByArea: React.FC<{
                                             </Typography>
                                         </Box>
                                         <Typography variant="caption" fontWeight={700}>
-                                            NPRs. {item.amount.toLocaleString()}
+                                            NPRs. {Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </Typography>
                                     </Box>
                                     <LinearProgress

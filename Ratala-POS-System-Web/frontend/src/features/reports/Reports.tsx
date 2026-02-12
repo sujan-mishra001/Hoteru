@@ -8,7 +8,14 @@ import {
     Card,
     CardContent,
     CircularProgress,
-    Divider
+    Divider,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import {
     Download,
@@ -34,6 +41,15 @@ const Reports: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const navigate = useNavigate();
     const { currentBranch } = useBranch();
+    const [masterDialogOpen, setMasterDialogOpen] = useState(false);
+    const [masterStartDate, setMasterStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [masterEndDate, setMasterEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [exporting, setExporting] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     const fetchSummary = async (date?: string) => {
         try {
@@ -59,8 +75,10 @@ const Reports: React.FC = () => {
         { name: 'Inventory Consumption', icon: <ShoppingCart />, description: 'Track stock usage and low inventory items', type: 'inventory' },
         { name: 'Customer Analytics', icon: <BarChart3 />, description: 'Visit frequency and total spending by customer', type: 'customers' },
         { name: 'Staff Performance', icon: <FileText />, description: 'Orders processed and items served per staff', type: 'staff' },
+        { name: 'Purchase Report', icon: <ShoppingCart />, description: 'Summary of all purchase bills and supplier data', type: 'purchase' },
         { name: 'Session Report', icon: <Calendar />, description: 'View all POS sessions, sales, and staff activity', type: 'sessions', navigateTo: '/reports/sessions' },
     ];
+
 
     const handleExport = async (type: string, format: 'pdf' | 'excel') => {
         try {
@@ -82,7 +100,8 @@ const Reports: React.FC = () => {
                 return;
             }
 
-            const params = type === 'sales' ? { start_date: selectedDate, end_date: selectedDate } : {};
+            const params = (type === 'sales' || type === 'purchase') ? { start_date: selectedDate, end_date: selectedDate } : {};
+
 
             const res = format === 'pdf'
                 ? await reportsAPI.exportPDF(type, params)
@@ -92,30 +111,40 @@ const Reports: React.FC = () => {
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', `${filename}.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
-            document.body.appendChild(link);
             link.click();
             link.remove();
+            showSnackbar('Report exported successfully');
         } catch (err) {
-            alert('Failed to export report');
+            showSnackbar('Failed to export report', 'error');
         }
     };
 
-    const handleExportAll = async () => {
+    const handleExportAll = () => {
+        setMasterDialogOpen(true);
+    };
+
+    const handleGenerateMasterSheet = async () => {
         try {
-            const res = await reportsAPI.exportAllExcel();
+            setExporting(true);
+            const res = await reportsAPI.exportMasterExcel(masterStartDate, masterEndDate);
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
             const prefix = currentBranch?.name?.replace(/\s+/g, '_') || 'Business';
-            const filename = `${prefix}_Full_Business_Report_${new Date().toISOString().split('T')[0]}`;
+            const filename = `${prefix}_Master_Report_${masterStartDate}_to_${masterEndDate}`;
             link.setAttribute('download', `${filename}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
+            setMasterDialogOpen(false);
+            showSnackbar('Master report exported successfully');
         } catch (err) {
-            alert('Failed to export all reports');
+            showSnackbar('Failed to export master report', 'error');
+        } finally {
+            setExporting(false);
         }
     };
+
 
     if (loading && !summary) return (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
@@ -190,7 +219,7 @@ const Reports: React.FC = () => {
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <SummaryCard
                         title="Gross Sales"
-                        value={`NPRs. ${summary?.sales_24h?.toLocaleString() || '0'}`}
+                        value={`NPRs. ${Number(summary?.sales_24h || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         icon={<TrendingUp size={20} />}
                         color="#FFC107"
                         subtitle={`On ${selectedDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedDate}`}
@@ -199,7 +228,7 @@ const Reports: React.FC = () => {
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <SummaryCard
                         title="Cash Collection"
-                        value={`NPRs. ${summary?.paid_sales?.toLocaleString() || '0'}`}
+                        value={`NPRs. ${Number(summary?.paid_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         icon={<Wallet size={20} />}
                         color="#10b981"
                         subtitle={`From ${summary?.orders_24h || 0} Orders on ${selectedDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedDate}`}
@@ -208,7 +237,7 @@ const Reports: React.FC = () => {
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <SummaryCard
                         title="Credit Sales"
-                        value={`NPRs. ${summary?.credit_sales?.toLocaleString() || '0'}`}
+                        value={`NPRs. ${Number(summary?.credit_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         icon={<CreditCard size={20} />}
                         color="#ef4444"
                         subtitle={`Dues as of ${selectedDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedDate}`}
@@ -217,7 +246,7 @@ const Reports: React.FC = () => {
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <SummaryCard
                         title="Avg. Order Value"
-                        value={`NPRs. ${summary?.orders_24h > 0 ? Math.round(summary.sales_24h / summary.orders_24h).toLocaleString() : '0'}`}
+                        value={`NPRs. ${summary?.orders_24h > 0 ? (summary.sales_24h / summary.orders_24h).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}`}
                         icon={<BarChart3 size={20} />}
                         color="#3b82f6"
                         subtitle={`Efficiency on ${selectedDate === new Date().toISOString().split('T')[0] ? 'Today' : selectedDate}`}
@@ -333,6 +362,58 @@ const Reports: React.FC = () => {
                     </Grid>
                 ))}
             </Grid>
+
+            {/* Master Export Dialog */}
+            <Dialog open={masterDialogOpen} onClose={() => setMasterDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Generate Master Report</DialogTitle>
+                <DialogContent sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Select a date range to generate a comprehensive master report with separate sheets for each date.
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+                        <TextField
+                            label="Start Date"
+                            type="date"
+                            value={masterStartDate}
+                            onChange={(e) => setMasterStartDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                        />
+                        <TextField
+                            label="End Date"
+                            type="date"
+                            value={masterEndDate}
+                            onChange={(e) => setMasterEndDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            inputProps={{ min: masterStartDate }}
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+                    <Button onClick={() => setMasterDialogOpen(false)} sx={{ textTransform: 'none' }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleGenerateMasterSheet}
+                        disabled={exporting || !masterStartDate || !masterEndDate}
+                        sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, textTransform: 'none', fontWeight: 700 }}
+                    >
+                        {exporting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Generate Report'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

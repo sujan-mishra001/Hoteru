@@ -18,7 +18,7 @@ from app.api.v1 import api_router
 app = FastAPI(
     title=settings.API_TITLE,
     version=settings.API_VERSION,
-    description="DigiBi - Restaurant Management SaaS Platform API"
+    description="Ratala Hospitality - Restaurant Management SaaS Platform API"
 )
 
 # CORS middleware
@@ -45,18 +45,13 @@ def startup_event():
     """Initialize database tables"""
     try:
         init_db()
-        print("✅ Database initialized successfully")
-        print("📝 No default users created - use signup to create your account")
+        print("✓ Database initialized successfully")
     except Exception as e:
-        print(f"❌ Error during database initialization: {e}")
-        print("\n💡 Troubleshooting:")
-        print("   1. Make sure PostgreSQL is running")
-        print("   2. Check your DATABASE_URL in .env file")
-        print("   3. Verify PostgreSQL credentials are correct")
-        print("   4. Run: python reset_database.py (to reset with fresh schema)")
-        print("   5. Manual database creation:")
-        print("      psql -U postgres")
-        print("      CREATE DATABASE digibi;")
+        print(f"✗ Database initialization failed: {e}")
+        print("\nPlease check:")
+        print("  • PostgreSQL is running")
+        print("  • DATABASE_URL in .env is correct")
+        print("  • Database credentials are valid")
         raise
 
 
@@ -111,9 +106,9 @@ if __name__ == "__main__":
             reload_dirs=[str(backend_dir / "app")]  # Watch app directory for changes
         )
     except KeyboardInterrupt:
-        print("\n\n👋 Server stopped by user")
+        print("\n\nServer stopped by user")
     except Exception as e:
-        print(f"\n❌ Error starting server: {e}")
+        print(f"\nError starting server: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

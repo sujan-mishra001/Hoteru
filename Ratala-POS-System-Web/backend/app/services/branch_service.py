@@ -78,6 +78,9 @@ def create_branch(
         address=branch_data.address,
         phone=branch_data.phone,
         email=branch_data.email,
+        facebook_url=getattr(branch_data, 'facebook_url', None),
+        instagram_url=getattr(branch_data, 'instagram_url', None),
+        slogan=getattr(branch_data, 'slogan', None),
         is_active=True
     )
     

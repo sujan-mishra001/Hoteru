@@ -133,10 +133,10 @@ def update_session(
         from app.models import Order
         orders = db.query(Order).filter(Order.pos_session_id == db_session.id, Order.status == "Paid").all()
         
-        total_sales = sum(o.net_amount for o in orders)
-        cash_sales = sum(o.net_amount for o in orders if o.payment_type == "Cash")
-        online_sales = sum(o.net_amount for o in orders if o.payment_type != "Cash" and o.payment_type != "Credit")
-        credit_sales = sum(o.net_amount for o in orders if o.payment_type == "Credit")
+        total_sales = sum(o.net_amount or 0 for o in orders)
+        cash_sales = sum(o.net_amount or 0 for o in orders if o.payment_type == "Cash")
+        online_sales = sum(o.net_amount or 0 for o in orders if o.payment_type and o.payment_type not in ["Cash", "Credit"])
+        credit_sales = sum(o.net_amount or 0 for o in orders if o.payment_type == "Credit")
         
         update_data["total_sales"] = total_sales
         update_data["cash_sales"] = cash_sales

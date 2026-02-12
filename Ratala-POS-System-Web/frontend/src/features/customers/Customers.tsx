@@ -18,10 +18,14 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    IconButton
+    IconButton,
+    Chip,
+    Divider,
+    Snackbar,
+    Alert
 } from '@mui/material';
-import { UserPlus, Search, Phone, History, X, Edit2, Trash2 } from 'lucide-react';
-import { customersAPI } from '../../services/api';
+import { UserPlus, Search, Phone, History, X, Edit2, Trash2, Calendar, Receipt } from 'lucide-react';
+import { customersAPI, ordersAPI } from '../../services/api';
 
 interface Customer {
     id: number;
@@ -44,6 +48,17 @@ const Customers: React.FC = () => {
     const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [openEditDialog, setOpenEditDialog] = useState(false);
+
+    // History States
+    const [openHistoryDialog, setOpenHistoryDialog] = useState(false);
+    const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<Customer | null>(null);
+    const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
     useEffect(() => {
         loadCustomers();
     }, []);
@@ -71,8 +86,9 @@ const Customers: React.FC = () => {
             setNewCustomer({ name: '', phone: '', email: '' });
             setOpenDialog(false);
             loadCustomers();
+            showSnackbar('Customer registered successfully');
         } catch (error: any) {
-            alert(error.response?.data?.detail || 'Error creating customer');
+            showSnackbar(error.response?.data?.detail || 'Error creating customer', 'error');
         }
     };
 
@@ -83,8 +99,9 @@ const Customers: React.FC = () => {
             setEditingCustomer(null);
             setOpenEditDialog(false);
             loadCustomers();
+            showSnackbar('Customer information updated successfully');
         } catch (error: any) {
-            alert(error.response?.data?.detail || 'Error updating customer');
+            showSnackbar(error.response?.data?.detail || 'Error updating customer', 'error');
         }
     };
 
@@ -93,8 +110,24 @@ const Customers: React.FC = () => {
         try {
             await customersAPI.delete(id);
             loadCustomers();
+            showSnackbar('Customer deleted successfully');
         } catch (error: any) {
-            alert(error.response?.data?.detail || 'Error deleting customer');
+            showSnackbar(error.response?.data?.detail || 'Error deleting customer', 'error');
+        }
+    };
+
+    const handleOpenHistory = async (customer: Customer) => {
+        setSelectedCustomerHistory(customer);
+        setOpenHistoryDialog(true);
+        try {
+            setHistoryLoading(true);
+            const response = await ordersAPI.getAll({ customer_id: customer.id });
+            setCustomerOrders(response.data || []);
+        } catch (error) {
+            console.error('Error loading customer history:', error);
+            setCustomerOrders([]);
+        } finally {
+            setHistoryLoading(false);
         }
     };
 
@@ -189,13 +222,21 @@ const Customers: React.FC = () => {
                                             </Box>
                                         </TableCell>
                                         <TableCell><Typography fontWeight={600}>{visits}</Typography></TableCell>
-                                        <TableCell><Typography fontWeight={700} color="#10b981">NPRs. {spent.toLocaleString()}</Typography></TableCell>
-                                        <TableCell><Typography fontWeight={700} color={due > 0 ? "#ef4444" : "#64748b"}>NPRs. {due.toLocaleString()}</Typography></TableCell>
+                                        <TableCell><Typography fontWeight={700} color="#10b981">NPRs. {Number(spent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography></TableCell>
+                                        <TableCell><Typography fontWeight={700} color={due > 0 ? "#ef4444" : "#64748b"}>NPRs. {Number(due).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography></TableCell>
                                         <TableCell align="right">
                                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                                                 <IconButton size="small" onClick={() => { setEditingCustomer(customer); setOpenEditDialog(true); }} sx={{ color: '#64748b' }}><Edit2 size={16} /></IconButton>
                                                 <IconButton size="small" onClick={() => handleDeleteCustomer(customer.id)} sx={{ color: '#ef4444' }}><Trash2 size={16} /></IconButton>
-                                                <Button variant="outlined" size="small" startIcon={<History size={14} />} sx={{ textTransform: 'none', borderRadius: '8px', color: '#64748b', borderColor: '#e2e8f0' }}>History</Button>
+                                                <Button
+                                                    variant="outlined"
+                                                    size="small"
+                                                    startIcon={<History size={14} />}
+                                                    onClick={() => handleOpenHistory(customer)}
+                                                    sx={{ textTransform: 'none', borderRadius: '8px', color: '#64748b', borderColor: '#e2e8f0' }}
+                                                >
+                                                    History
+                                                </Button>
                                             </Box>
                                         </TableCell>
                                     </TableRow>
@@ -244,6 +285,80 @@ const Customers: React.FC = () => {
                     <Button onClick={handleEditCustomer} variant="contained" sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' } }}>Update Customer</Button>
                 </DialogActions>
             </Dialog>
+
+            {/* History Dialog */}
+            <Dialog open={openHistoryDialog} onClose={() => setOpenHistoryDialog(false)} maxWidth="md" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                    <Box>
+                        <Typography fontWeight={800}>Order History</Typography>
+                        <Typography variant="body2" color="text.secondary">{selectedCustomerHistory?.name}</Typography>
+                    </Box>
+                    <IconButton onClick={() => setOpenHistoryDialog(false)} size="small"><X size={20} /></IconButton>
+                </DialogTitle>
+                <DialogContent sx={{ p: 0, bgcolor: '#f8fafc' }}>
+                    {historyLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+                    ) : customerOrders.length === 0 ? (
+                        <Box sx={{ py: 8, textAlign: 'center' }}>
+                            <Typography color="text.secondary">No past orders found for this customer.</Typography>
+                        </Box>
+                    ) : (
+                        <Box sx={{ p: 2 }}>
+                            {customerOrders.map((order) => (
+                                <Paper key={order.id} sx={{ p: 2, mb: 1.5, borderRadius: '12px', border: '1px solid #e2e8f0' }} elevation={0}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Receipt size={16} color="#FFC107" />
+                                            <Typography fontWeight={700}>#{order.order_number}</Typography>
+                                            <Chip
+                                                label={order.status}
+                                                size="small"
+                                                sx={{
+                                                    height: 20,
+                                                    fontSize: '10px',
+                                                    fontWeight: 800,
+                                                    bgcolor: order.status === 'Paid' ? '#dcfce7' : '#fef2f2',
+                                                    color: order.status === 'Paid' ? '#16a34a' : '#ef4444'
+                                                }}
+                                            />
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748b' }}>
+                                            <Calendar size={14} />
+                                            <Typography variant="caption">{new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Typography>
+                                        </Box>
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                                        {order.items?.map((item: any) => (
+                                            <Chip key={item.id} label={`${item.quantity}x ${item.menu_item?.name}`} size="small" variant="outlined" sx={{ borderRadius: '6px', fontSize: '11px' }} />
+                                        ))}
+                                    </Box>
+
+                                    <Divider sx={{ mb: 1.5, borderStyle: 'dashed' }} />
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="body2" color="text.secondary">{order.order_type} Order</Typography>
+                                        <Typography fontWeight={800} color="#1e293b">Total: NPRs. {Number(order.net_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                                    </Box>
+                                </Paper>
+                            ))}
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ p: 2, borderTop: '1px solid #f1f5f9' }}>
+                    <Button onClick={() => setOpenHistoryDialog(false)} variant="contained" sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' } }}>Close</Button>
+                </DialogActions>
+            </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

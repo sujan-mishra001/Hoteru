@@ -35,7 +35,7 @@ export const TopSellingItemsChart: React.FC<{
                 </Box>
                 {hasData && (
                     <Chip
-                        label={`NPRs. ${totalRevenue.toLocaleString()}`}
+                        label={`NPRs. ${Number(totalRevenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         size="small"
                         sx={{
                             bgcolor: '#ecfdf5',
@@ -73,7 +73,7 @@ export const TopSellingItemsChart: React.FC<{
                                 colors: colors.slice(0, items.length),
                                 dataLabels: {
                                     enabled: true,
-                                    formatter: (val: number) => `NPRs. ${val.toLocaleString()}`,
+                                    formatter: (val: number) => `NPRs. ${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                                     style: {
                                         fontSize: '10px',
                                         fontWeight: 800,
@@ -121,7 +121,7 @@ export const TopSellingItemsChart: React.FC<{
                                 tooltip: {
                                     theme: 'light',
                                     y: {
-                                        formatter: (val) => `NPRs. ${val.toLocaleString()}`
+                                        formatter: (val) => `NPRs. ${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                     }
                                 },
                                 legend: { show: false }
@@ -153,7 +153,7 @@ export const TopSellingItemsChart: React.FC<{
                                 </Typography>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <Typography variant="body2" fontWeight={900} color={index === 0 ? '#10b981' : '#1e293b'}>
-                                        NPRs. {item.revenue.toLocaleString()}
+                                        NPRs. {Number(item.revenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </Typography>
                                     <Typography variant="caption" color="#94a3b8" sx={{ fontSize: '0.65rem' }}>
                                         {item.quantity} units

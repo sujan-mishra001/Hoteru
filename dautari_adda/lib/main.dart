@@ -1,4 +1,6 @@
+import 'package:dautari_adda/features/pos/data/order_workflow_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:dautari_adda/features/home/presentation/screens/main_navigation_screen.dart';
@@ -22,7 +24,12 @@ void main() async {
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
   final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
 
-  runApp(MyApp(isLoggedIn: isLoggedIn, hasSeenOnboarding: hasSeenOnboarding));
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => OrderWorkflowService(),
+      child: MyApp(isLoggedIn: isLoggedIn, hasSeenOnboarding: hasSeenOnboarding),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

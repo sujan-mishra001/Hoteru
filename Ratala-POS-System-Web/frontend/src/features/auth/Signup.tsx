@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 import { authAPI } from '../../services/api';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Box, TextField, Button, IconButton, InputAdornment, Typography, Alert } from '@mui/material';
@@ -97,6 +96,15 @@ const Signup: React.FC = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </IconButton>
+                        </InputAdornment>
+                    ),
+                }}
             />
 
             <Button

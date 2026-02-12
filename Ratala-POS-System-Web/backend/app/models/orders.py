@@ -41,6 +41,8 @@ class Table(Base):
     is_hold_table = Column(String, default="No")  # Yes, No - for hold tables
     hold_table_name = Column(String, nullable=True)  # Unique name for hold table
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
+    merged_to_id = Column(Integer, ForeignKey("tables.id"), nullable=True)
+    merge_group_id = Column(String, nullable=True)  # e.g., "Merge_Table_1", "Merge_Table_2"
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -80,9 +82,9 @@ class Order(Base):
     paid_amount = Column(Float, default=0)
     credit_amount = Column(Float, default=0)
     payment_type = Column(String, nullable=True)  # Cash, Fonepay, Credit Card, etc.
+    service_charge_amount = Column(Float, default=0)
+    tax_amount = Column(Float, default=0)
     delivery_charge = Column(Float, default=0)
-    service_charge = Column(Float, default=0)
-    tax = Column(Float, default=0)
     
     # Branch isolation
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)

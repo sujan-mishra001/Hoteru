@@ -1,7 +1,7 @@
 """
 Settings API endpoints with branch isolation
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import List
 from app.db.database import get_db
@@ -9,6 +9,8 @@ from app.core.dependencies import get_current_user
 from app.models import User, CompanySettings, PaymentMode, StorageArea, DiscountRule
 from pydantic import BaseModel
 from datetime import datetime
+import os
+import uuid
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -18,6 +20,32 @@ def apply_branch_filter_settings(query, model, branch_id):
     if branch_id is not None and hasattr(model, 'branch_id'):
         query = query.filter(model.branch_id == branch_id)
     return query
+
+
+@router.get("/public-company")
+async def get_public_company_settings(
+    branch_id: int | None = None,
+    db: Session = Depends(get_db)
+):
+    """Publicly accessible company/branch settings"""
+    # If branch_id is provided, try to get branch-specific info
+    branch = None
+    if branch_id:
+        from app.models.branch import Branch
+        branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    
+    settings = db.query(CompanySettings).first()
+    
+    # Merge data: branch info takes priority if it exists
+    return {
+        "company_name": (branch.name if branch else settings.company_name) if settings else (branch.name if branch else "RATALA"),
+        "phone": (branch.phone if branch else settings.phone) if (branch and branch.phone) or settings else "",
+        "address": (branch.address if branch else settings.address) if (branch and branch.address) or settings else "",
+        "logo_url": settings.logo_url if settings else None,
+        "slogan": (branch.slogan if branch and branch.slogan else (settings.slogan if settings else "Savor the authentic taste of tradition" if hasattr(settings, 'slogan') else "Savor the authentic taste of tradition")),
+        "facebook_url": branch.facebook_url if branch else None,
+        "instagram_url": branch.instagram_url if branch else None
+    }
 
 
 # Pydantic schemas
@@ -112,15 +140,15 @@ async def get_company_settings(
     """Get company settings"""
     settings = db.query(CompanySettings).first()
     if not settings:
-        # Create default settings if none exist
+        # Create default empty settings if none exist
         settings = CompanySettings(
-            company_name="HOTERU",
-            email="fisap73734@ahanim.com",
-            phone="32908409328",
-            address="Kirtipur",
-            vat_pan_no="39284032",
-            registration_no="23432432",
-            start_date="2025-08-26"
+            company_name="",
+            email="",
+            phone="",
+            address="",
+            vat_pan_no="",
+            registration_no="",
+            start_date=""
         )
         db.add(settings)
         db.commit()
@@ -154,6 +182,62 @@ async def update_company_settings(
     return settings
 
 
+@router.post("/company/logo")
+async def update_company_logo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload and update company logo"""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can update company logo"
+        )
+        
+    # Create directory if it doesn't exist
+    upload_dir = "uploads/company"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Generate unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    filename = f"logo_{uuid.uuid4().hex}{file_extension}"
+    file_path = os.path.join(upload_dir, filename)
+    
+    # Save file
+    try:
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+        
+    # Update settings
+    settings = db.query(CompanySettings).first()
+    if not settings:
+         settings = CompanySettings(company_name="")
+         db.add(settings)
+         db.flush()
+         
+    # Delete old logo if exists
+    if settings.logo_url:
+        old_path = settings.logo_url.lstrip("/")
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except:
+                pass
+                
+    settings.logo_url = f"/{upload_dir}/{filename}"
+    db.commit()
+    
+    return {"logo_url": settings.logo_url}
+
+
 # General Settings Endpoints (aliases/shorthands for mobile app)
 @router.get("", response_model=CompanySettingsBase)
 async def get_all_settings(
@@ -164,7 +248,7 @@ async def get_all_settings(
     settings = db.query(CompanySettings).first()
     if not settings:
         return {
-            "company_name": "HOTERU",
+            "company_name": "",
             "currency": "NPR",
             "tax_rate": 13.0,
             "service_charge_rate": 10.0,
@@ -295,7 +379,7 @@ async def update_notification_settings(
 @router.get("/receipt")
 async def get_receipt_settings():
     """Get receipt settings (placeholder)"""
-    return {"header_text": "Welcome to HOTERU", "footer_text": "Thank you for visiting!"}
+    return {"header_text": "Welcome to Ratala Hospitality", "footer_text": "Thank you for visiting!"}
 
 
 @router.put("/receipt")

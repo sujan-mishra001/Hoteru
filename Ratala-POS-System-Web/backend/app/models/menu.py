@@ -54,6 +54,8 @@ class MenuItem(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
+    bom_id = Column(Integer, ForeignKey("bills_of_materials.id"), nullable=True)
     
     category = relationship("Category")
     group = relationship("MenuGroup")
+    bom = relationship("BillOfMaterials", back_populates="menu_items")

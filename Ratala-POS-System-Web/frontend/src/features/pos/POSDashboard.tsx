@@ -12,9 +12,13 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
+    DialogActions,
     FormControl,
     InputLabel,
     Select,
+    Chip,
+    ListItemButton,
+    Menu,
     MenuItem
 } from '@mui/material';
 import {
@@ -29,8 +33,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { usePermission } from '../../app/providers/PermissionProvider';
-import { floorsAPI, tablesAPI, sessionsAPI, authAPI, deliveryAPI, qrAPI, reportsAPI } from '../../services/api';
+import { floorsAPI, tablesAPI, sessionsAPI, authAPI, deliveryAPI, qrAPI, ordersAPI, customersAPI } from '../../services/api';
 import { useNotification } from '../../app/providers/NotificationProvider';
+import { Search, Plus, UserCircle, MoreHorizontal } from 'lucide-react';
+import { TextField, List, ListItem, InputAdornment } from '@mui/material';
 
 // Types
 interface Floor {
@@ -53,6 +59,8 @@ interface TableData {
     order_start_time?: string;
     is_hold_table: string;
     hold_table_name: string | null;
+    merged_to_id: number | null;
+    merge_group_id: string | null;
 }
 
 // Table Card Component
@@ -60,7 +68,8 @@ const TableCard: React.FC<{
     table: TableData;
     onClick: () => void;
     onPaymentClick: () => void;
-}> = ({ table, onClick, onPaymentClick }) => {
+    onMenuOpen: (e: React.MouseEvent<HTMLElement>, table: TableData) => void;
+}> = ({ table, onClick, onPaymentClick, onMenuOpen }) => {
     const isOccupied = table.status !== 'Available' || table.active_order_id !== null;
     const [duration, setDuration] = useState<string>('');
 
@@ -156,8 +165,18 @@ const TableCard: React.FC<{
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#10b981' }} />
                     <Typography variant="body2" sx={{ color: '#10b981', fontWeight: 600 }}>
-                        Vacant
+                        {table.merged_to_id ? 'Merged' : (table.is_hold_table === "Yes" ? "Hold" : "Vacant")}
                     </Typography>
+                    <IconButton
+                        size="small"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onMenuOpen(e, table);
+                        }}
+                        sx={{ ml: 0.5, p: 0.2, color: '#94a3b8' }}
+                    >
+                        <MoreHorizontal size={14} />
+                    </IconButton>
                 </Box>
             )}
         </Paper>
@@ -169,37 +188,141 @@ const POSDashboard: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { hasPermission } = usePermission();
-    const { showAlert, showConfirm } = useNotification();
+    const { showAlert } = useNotification();
     const [loading, setLoading] = useState(true);
 
     // Data
     const [floors, setFloors] = useState<Floor[]>([]);
-    const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
+    const [selectedFloorId, setSelectedFloorId] = useState<number>(0);
     const [tables, setTables] = useState<TableData[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
     const [globalActiveSession, setGlobalActiveSession] = useState<any>(null); // For Admin to see other's session
     const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
-    const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+    const [selectedPartnerId] = useState<string>('');
     const [openDigitalMenu, setOpenDigitalMenu] = useState(false);
     const [qrSrc, setQrSrc] = useState<string>('');
 
     // Right Panel Tabs
     const [rightPanelTab, setRightPanelTab] = useState(0); // 0: Takeaway, 1: Delivery
+    const [activeOrders, setActiveOrders] = useState<any[]>([]);
+    const [activeSession, setActiveSession] = useState<any>(null);
+
+    // Session dialog states
+    const [openingDialog, setOpeningDialog] = useState(false);
+    const [closingDialog, setClosingDialog] = useState(false);
+    const [openingCash, setOpeningCash] = useState('0');
+    const [actualCash, setActualCash] = useState('0');
+
+    // Customer Selection
+    const [customers, setCustomers] = useState<any[]>([]);
+
+    // Options Menu State
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [menuTarget, setMenuTarget] = useState<TableData | null>(null);
+
+    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, table: TableData) => {
+        event.stopPropagation();
+        setAnchorEl(event.currentTarget);
+        setMenuTarget(table);
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+        setMenuTarget(null);
+    };
+
+    const handleToggleHold = async () => {
+        if (!menuTarget) return;
+        try {
+            const newStatus = menuTarget.is_hold_table === 'Yes' ? 'No' : 'Yes';
+            await tablesAPI.update(menuTarget.id, { ...menuTarget, is_hold_table: newStatus });
+            showAlert(`Table ${menuTarget.table_id} moved to ${newStatus === 'Yes' ? 'Hold' : 'Normal'} section`, 'success');
+            loadData();
+        } catch (error) {
+            showAlert('Error updating hold status', 'error');
+        } finally {
+            handleMenuClose();
+        }
+    };
+
+    const handleMergeTable = async (targetId: number | null) => {
+        if (!menuTarget) return;
+
+        if (targetId === null) {
+            // Unmerge
+            console.log(`Unmerging table ${menuTarget.table_id} (ID: ${menuTarget.id})`);
+            try {
+                const response = await tablesAPI.unmerge(menuTarget.id);
+                console.log('Unmerge response:', response.data);
+                showAlert(`Table ${menuTarget.table_id} unmerged successfully`, 'success');
+                await loadData();
+            } catch (error: any) {
+                console.error('Error unmerging table:', error);
+                showAlert(error.response?.data?.detail || 'Error unmerging table', 'error');
+            } finally {
+                handleMenuClose();
+            }
+        } else {
+            // Merge
+            const targetTable = tables.find(t => t.id === targetId);
+            console.log(`Merging table ${menuTarget.table_id} (ID: ${menuTarget.id}) with ${targetTable?.table_id} (ID: ${targetId})`);
+            try {
+                const response = await tablesAPI.merge(menuTarget.id, targetId);
+                console.log('Merge response:', response.data);
+                const mergeGroupId = response.data.merge_group_id;
+                showAlert(`${menuTarget.table_id} successfully merged with ${targetTable?.table_id} into ${mergeGroupId}`, 'success');
+                await loadData();
+                console.log('Data reloaded after merge');
+            } catch (error: any) {
+                console.error('Error merging table:', error);
+                showAlert(error.response?.data?.detail || 'Error merging table', 'error');
+            } finally {
+                handleMenuClose();
+            }
+        }
+    };
+
+    // New Order Dialog
+    const [openNewOrderDialog, setOpenNewOrderDialog] = useState(false);
+    const [newOrderType, setNewOrderType] = useState<'Takeaway' | 'Delivery'>('Takeaway');
+    const [dialogCustomerSearch, setDialogCustomerSearch] = useState('');
+    const [dialogSelectedCustomer, setDialogSelectedCustomer] = useState<any>(null);
+    const [dialogSelectedPartnerId, setDialogSelectedPartnerId] = useState<string>('');
 
     // Loader
     const loadData = useCallback(async () => {
         try {
-            const [floorsRes, tablesRes, userRes, sessionsRes, deliveryRes] = await Promise.all([
+            const [floorsRes, tablesRes, userRes, sessionsRes, deliveryRes, ordersRes, custRes] = await Promise.all([
                 floorsAPI.getAll(),
                 tablesAPI.getAll(),
                 authAPI.getCurrentUser(),
                 sessionsAPI.getAll(),
-                deliveryAPI.getAll()
+                deliveryAPI.getAll(),
+                ordersAPI.getAll(),
+                customersAPI.getAll()
             ]);
 
             setFloors(floorsRes.data || []);
-            setTables(tablesRes.data || []);
+            const tablesData = tablesRes.data || [];
+            setTables(tablesData);
+
+            // Log merge states
+            const mergedTables = tablesData.filter((t: any) => t.merged_to_id);
+            console.log('Tables with merged_to_id:', mergedTables.map((t: any) => ({
+                id: t.id,
+                table_id: t.table_id,
+                merged_to_id: t.merged_to_id
+            })));
+
             setDeliveryPartners(deliveryRes.data || []);
+            setCustomers(custRes.data || []);
+
+            const allOrders = ordersRes.data || [];
+            const activeOrdersList = allOrders.filter((o: any) =>
+                (o.status === 'Pending' || o.status === 'In Progress' || o.status === 'Draft') &&
+                (o.order_type === 'Takeaway' || o.order_type === 'Delivery')
+            );
+            setActiveOrders(activeOrdersList);
 
             const sessionData = sessionsRes.data || [];
 
@@ -212,18 +335,21 @@ const POSDashboard: React.FC = () => {
 
             if (userActiveSession) {
                 setActiveSessionId(userActiveSession.id);
+                setActiveSession(userActiveSession);
                 setGlobalActiveSession(null);
             } else if (globalSession) {
                 // Everyone adapts to the global session context (Admins can manage, Workers view only)
                 setActiveSessionId(globalSession.id);
+                setActiveSession(globalSession);
                 setGlobalActiveSession(globalSession);
             } else {
                 setActiveSessionId(null);
+                setActiveSession(null);
                 setGlobalActiveSession(null);
             }
 
-            // Set initial floor if not set
-            if (floorsRes.data?.length > 0 && !selectedFloorId) {
+            // Set initial floor if currently on 0 (uninitialized)
+            if (floorsRes.data?.length > 0 && selectedFloorId === 0) {
                 setSelectedFloorId(floorsRes.data[0].id);
             }
         } catch (error) {
@@ -253,14 +379,21 @@ const POSDashboard: React.FC = () => {
     }, [openDigitalMenu, showAlert]);
 
     const handleStartSession = async () => {
+        setOpeningDialog(true);
+    };
+
+    const confirmStartSession = async () => {
         try {
             const payload = {
-                opening_cash: 0,
+                opening_cash: parseFloat(openingCash) || 0,
                 notes: 'Session started via POS Header'
             };
             const response = await sessionsAPI.create(payload);
             setActiveSessionId(response.data.id);
+            setActiveSession(response.data);
             showAlert('Session started successfully', 'success');
+            setOpeningDialog(false);
+            setOpeningCash('0');
             loadData();
         } catch (error: any) {
             showAlert(error.response?.data?.detail || 'Failed to start session', 'error');
@@ -270,43 +403,33 @@ const POSDashboard: React.FC = () => {
     const handleEndSession = async () => {
         if (!activeSessionId) return;
 
-        showConfirm({
-            title: 'End Session?',
-            message: 'Are you sure you want to end your current session? This will generate a session report.',
-            onConfirm: async () => {
-                try {
-                    const payload = {
-                        status: 'Closed'
-                    };
-                    const response = await sessionsAPI.update(activeSessionId, payload);
-                    setActiveSessionId(null);
+        // Use opening_cash + total_sales as default closing balance
+        setActualCash(((activeSession?.opening_cash || 0) + (activeSession?.total_sales || 0)).toString());
+        setClosingDialog(true);
+    };
 
-                    // Trigger PDF Export immediately with authentication
-                    try {
-                        const shiftDetailRes = await reportsAPI.exportShiftReport(activeSessionId);
-                        const blob = new Blob([shiftDetailRes.data], { type: 'application/pdf' });
-                        const url = window.URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.setAttribute('download', `session_report_${activeSessionId}.pdf`);
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-                        window.URL.revokeObjectURL(url);
-                    } catch (exportErr) {
-                        console.error('Failed to auto-export session report:', exportErr);
-                        showAlert('Session closed, but failed to download report automatically.', 'warning');
-                    }
+    const confirmEndSession = async () => {
+        const sessionId = activeSessionId;
+        if (!sessionId) return;
 
-                    showAlert(`Session closed successfully. Total Sales: Rs. ${response.data.total_sales.toLocaleString()}`, 'success');
+        try {
+            const payload = {
+                actual_cash: parseFloat(actualCash) || 0,
+                status: 'Closed'
+            };
+            const response = await sessionsAPI.update(sessionId, payload);
+            setActiveSessionId(null);
+            setActiveSession(null);
+            setClosingDialog(false);
+            setActualCash('0');
 
-                    // Redirect to POS/Tables swiftly
-                    navigate('/pos');
-                } catch (error: any) {
-                    showAlert(error.response?.data?.detail || 'Failed to close session', 'error');
-                }
-            }
-        });
+            showAlert(`Session closed successfully. Total Sales: Rs. ${Number(response.data.total_sales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'success');
+
+            // Redirect to POS/Tables swiftly
+            navigate('/pos');
+        } catch (error: any) {
+            showAlert(error.response?.data?.detail || 'Failed to close session', 'error');
+        }
     };
 
     useEffect(() => {
@@ -317,17 +440,67 @@ const POSDashboard: React.FC = () => {
 
 
     const handleTableClick = (table: TableData, customOrderType?: string, deliveryPartnerId?: string) => {
-        if (table.active_order_id) {
-            navigate(`/pos/order/${table.id}`, { state: { table, orderId: table.active_order_id, customOrderType, deliveryPartnerId } });
+        // Find if any table in the same merge group has an active order
+        let activeOrderId = table.active_order_id;
+
+        if (!activeOrderId && table.merge_group_id) {
+            const groupMemberWithOrder = tables.find(t =>
+                t.merge_group_id === table.merge_group_id && !!t.active_order_id
+            );
+            if (groupMemberWithOrder) {
+                activeOrderId = groupMemberWithOrder.active_order_id;
+            }
+        }
+
+        if (activeOrderId) {
+            navigate(`/pos/order/${table.id}`, { state: { table, orderId: activeOrderId, customOrderType, deliveryPartnerId } });
         } else {
             navigate(`/pos/order/${table.id}`, { state: { table, customOrderType, deliveryPartnerId } });
         }
     };
 
-    // Filter tables by selected floor
+    // Helper to identify tables in merge section
+    const tablesInMergeGroups = tables.filter(t => !!t.merge_group_id);
+    const isInMergeSection = (t: TableData) => !!t.merge_group_id;
+
+    console.log('Tables in merge groups:', tablesInMergeGroups.map(t => ({
+        id: t.id,
+        table_id: t.table_id,
+        merge_group_id: t.merge_group_id
+    })));
+
+    // Group tables by merge_group_id
+    const mergeGroupsMap = new Map<string, TableData[]>();
+    tablesInMergeGroups.forEach(table => {
+        if (table.merge_group_id) {
+            if (!mergeGroupsMap.has(table.merge_group_id)) {
+                mergeGroupsMap.set(table.merge_group_id, []);
+            }
+            mergeGroupsMap.get(table.merge_group_id)!.push(table);
+        }
+    });
+
+    // Convert to array format and calculate totals
+    const mergeGroups = Array.from(mergeGroupsMap.entries()).map(([groupId, members]) => ({
+        groupId,
+        members,
+        totalAmount: members.reduce((sum, m) => sum + (m.total_amount || 0), 0)
+    }));
+
+    // Only show merge groups when on the Merge Table tab
+    const displayMergeGroups = selectedFloorId === -2 ? mergeGroups : [];
+
+    console.log(`Merge Groups: ${displayMergeGroups.length}`);
+
+    // Filter normal tables for current view (excluding merged completely)
+    const effectiveFloorId = selectedFloorId === 0 ? (floors[0]?.id || 0) : selectedFloorId;
     const filteredTables = selectedFloorId === -1
-        ? tables.filter(t => t.is_hold_table === 'Yes')
-        : tables.filter(t => t.floor_id === selectedFloorId);
+        ? tables.filter(t => t.is_hold_table === 'Yes' && !isInMergeSection(t))
+        : selectedFloorId === -2
+            ? []
+            : tables.filter(t => t.floor_id === effectiveFloorId && t.is_hold_table !== 'Yes' && !isInMergeSection(t));
+
+    console.log('Filtered Tables:', filteredTables.length);
 
     return (
         <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#f8fafc', overflow: 'hidden' }}>
@@ -337,7 +510,7 @@ const POSDashboard: React.FC = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                         {/* Floor Tabs */}
                         <Tabs
-                            value={selectedFloorId}
+                            value={selectedFloorId === 0 ? (floors.length > 0 ? floors[0].id : -1) : selectedFloorId}
                             onChange={(_, val) => setSelectedFloorId(val)}
                             variant="scrollable"
                             scrollButtons="auto"
@@ -363,6 +536,7 @@ const POSDashboard: React.FC = () => {
                                 <Tab key={floor.id} label={floor.name} value={floor.id} disableRipple />
                             ))}
                             <Tab label="Hold Table" value={-1} />
+                            <Tab label="Merge Table" value={-2} />
                         </Tabs>
 
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -451,24 +625,62 @@ const POSDashboard: React.FC = () => {
                             <CircularProgress sx={{ color: '#FFC107' }} />
                         </Box>
                     ) : (
-                        <Box sx={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                            gap: 3
-                        }}>
-                            {filteredTables.map(table => (
-                                <TableCard
-                                    key={table.id}
-                                    table={table}
-                                    onClick={() => handleTableClick(table)}
-                                    onPaymentClick={() => navigate(`/pos/billing/${table.id}`, { state: { table } })}
-                                />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {/* 1. Merged Tables Section (Groups) */}
+                            {displayMergeGroups.map((group) => (
+                                <Paper key={group.groupId} elevation={0} sx={{ p: 3, border: '1.5px solid #e2e8f0', borderRadius: '16px', bgcolor: 'white', mb: 2 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                        <Typography variant="subtitle1" fontWeight={800} color="#64748b">
+                                            {group.groupId}
+                                        </Typography>
+                                        <Chip
+                                            label={`Total: Rs. ${Number(group.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                            color="success"
+                                            sx={{ fontWeight: 800, borderRadius: '8px' }}
+                                        />
+                                    </Box>
+                                    <Box sx={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                                        gap: 3
+                                    }}>
+                                        {group.members.map((table: TableData) => (
+                                            <TableCard
+                                                key={table.id}
+                                                table={table}
+                                                onClick={() => handleTableClick(table)}
+                                                onPaymentClick={() => navigate(`/pos/billing/${table.id}`, { state: { table, orderId: table.active_order_id } })}
+                                                onMenuOpen={handleMenuOpen}
+                                            />
+                                        ))}
+                                    </Box>
+                                </Paper>
                             ))}
 
-                            {/* Empty State */}
-                            {filteredTables.length === 0 && (
-                                <Box sx={{ gridColumn: '1/-1', textAlign: 'center', py: 8 }}>
-                                    <Typography color="text.secondary">No tables found on this floor.</Typography>
+                            {/* 2. Normal Tables Grid */}
+                            {filteredTables.length > 0 && (
+                                <Box sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                                    gap: 3
+                                }}>
+                                    {filteredTables.map(table => (
+                                        <TableCard
+                                            key={table.id}
+                                            table={table}
+                                            onClick={() => handleTableClick(table)}
+                                            onPaymentClick={() => navigate(`/pos/billing/${table.id}`, { state: { table, orderId: table.active_order_id } })}
+                                            onMenuOpen={handleMenuOpen}
+                                        />
+                                    ))}
+                                </Box>
+                            )}
+
+                            {/* 3. Empty State */}
+                            {displayMergeGroups.length === 0 && filteredTables.length === 0 && (
+                                <Box sx={{ textAlign: 'center', py: 8 }}>
+                                    <CircularProgress sx={{ color: '#FFC107', mb: 2 }} size={24} />
+                                    <Typography color="text.secondary">No tables found here.</Typography>
                                 </Box>
                             )}
                         </Box>
@@ -510,38 +722,78 @@ const POSDashboard: React.FC = () => {
                 <Divider />
 
                 {/* Content */}
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-                    {rightPanelTab === 0 ? (
-                        <>
-                            <Box
-                                sx={{
-                                    width: 80, height: 80, bgcolor: '#f1f5f9', borderRadius: '50%',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2
-                                }}
-                            >
-                                <ShoppingBag size={40} color="#cbd5e1" />
-                            </Box>
-                            <Typography variant="h6" color="text.secondary" fontWeight={600}>No Takeaway Orders!</Typography>
-                        </>
+                {/* Content */}
+                <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
+                    {activeOrders.filter(o => (rightPanelTab === 0 ? o.order_type === 'Takeaway' : o.order_type === 'Delivery')).length > 0 ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {activeOrders
+                                .filter(o => (rightPanelTab === 0 ? o.order_type === 'Takeaway' : o.order_type === 'Delivery'))
+                                .map((order) => (
+                                    <Paper
+                                        key={order.id}
+                                        onClick={() => {
+                                            const targetUrl = order.table_id ? `/pos/order/${order.table_id}` : '/pos/order';
+                                            navigate(targetUrl, { state: { orderId: order.id } });
+                                        }}
+                                        elevation={0}
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: '16px',
+                                            border: '1px solid #f1f5f9',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            '&:hover': { borderColor: '#FFC107', bgcolor: '#fff7ed' }
+                                        }}
+                                    >
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                            <Typography fontWeight={800} color="#1e293b">#{order.order_number}</Typography>
+                                            <Chip
+                                                label={order.status}
+                                                size="small"
+                                                sx={{
+                                                    height: 20,
+                                                    fontSize: '10px',
+                                                    fontWeight: 800,
+                                                    bgcolor: order.status === 'Draft' ? '#f1f5f9' : '#fff7ed',
+                                                    color: order.status === 'Draft' ? '#64748b' : '#FFC107'
+                                                }}
+                                            />
+                                        </Box>
+                                        <Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>{order.customer?.name || 'Walk-in Customer'}</Typography>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {order.items?.length || 0} Items • Rs. {Number(order.net_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </Typography>
+                                            <Button
+                                                size="small"
+                                                variant="contained"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/pos/billing/${order.table_id || '0'}`, { state: { table: order.table, orderId: order.id } });
+                                                }}
+                                                sx={{
+                                                    height: 26,
+                                                    fontSize: '10px',
+                                                    fontWeight: 800,
+                                                    borderRadius: '8px',
+                                                    bgcolor: '#FFC107',
+                                                    boxShadow: 'none',
+                                                    '&:hover': { bgcolor: '#e67e00', boxShadow: 'none' }
+                                                }}
+                                            >
+                                                Pay
+                                            </Button>
+                                        </Box>
+                                    </Paper>
+                                ))}
+                        </Box>
                     ) : (
-                        <Box sx={{ width: '100%' }}>
-                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>Select Delivery Partner</Typography>
-                            <FormControl fullWidth size="small" sx={{ mb: 3 }}>
-                                <InputLabel>Partner</InputLabel>
-                                <Select
-                                    value={selectedPartnerId}
-                                    onChange={(e) => setSelectedPartnerId(e.target.value as string)}
-                                    label="Partner"
-                                >
-                                    {deliveryPartners.map(p => (
-                                        <MenuItem key={p.id} value={p.id.toString()}>{p.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <Box sx={{ textAlign: 'center' }}>
-                                <Bike size={40} color="#cbd5e1" />
-                                <Typography variant="h6" color="text.secondary" fontWeight={600} sx={{ mt: 2 }}>No Delivery Orders!</Typography>
-                            </Box>
+                        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                            {rightPanelTab === 0 ? <ShoppingBag size={48} color="#94a3b8" /> : <Bike size={48} color="#94a3b8" />}
+                            <Typography variant="h6" fontWeight={700} sx={{ mt: 2 }}>
+                                No {rightPanelTab === 0 ? 'Takeaway' : 'Delivery'} Orders
+                            </Typography>
+                            <Typography variant="body2">Click below to start a new order</Typography>
                         </Box>
                     )}
                 </Box>
@@ -552,19 +804,14 @@ const POSDashboard: React.FC = () => {
                         fullWidth
                         variant="contained"
                         onClick={() => {
-                            const availableHoldTable = tables.find(t => t.is_hold_table === 'Yes' && t.active_order_id === null);
-                            if (availableHoldTable) {
-                                handleTableClick(
-                                    availableHoldTable,
-                                    rightPanelTab === 0 ? 'Takeaway' : 'Delivery',
-                                    rightPanelTab === 1 ? selectedPartnerId : undefined
-                                );
-                            } else {
-                                showAlert("No available hold tables. Please clear some first.", "warning");
-                            }
+                            setNewOrderType(rightPanelTab === 0 ? 'Takeaway' : 'Delivery');
+                            setDialogSelectedCustomer(null);
+                            setDialogCustomerSearch('');
+                            setDialogSelectedPartnerId(selectedPartnerId);
+                            setOpenNewOrderDialog(true);
                         }}
                         sx={{
-                            bgcolor: '#FFC107', // Orange
+                            bgcolor: '#FFC107',
                             '&:hover': { bgcolor: '#e67e00' },
                             py: 1.5,
                             borderRadius: '12px',
@@ -590,22 +837,331 @@ const POSDashboard: React.FC = () => {
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ p: 2, textAlign: 'center' }}>
-                        {qrSrc ? (
-                            <img
-                                src={qrSrc}
-                                alt="Digital Menu QR"
-                                style={{ width: 300, height: 300, borderRadius: '12px' }}
-                            />
-                        ) : (
-                            <Box sx={{ width: 300, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto' }}>
-                                <CircularProgress />
-                            </Box>
-                        )}
-                        <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary' }}>
-                            Scan this QR code to view the live digital menu on any device.
+                        <Box
+                            sx={{
+                                width: '100%', height: 320, bgcolor: '#f1f5f9', mb: 3, borderRadius: '16px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+                            }}
+                        >
+                            {qrSrc ? (
+                                <img
+                                    src={qrSrc}
+                                    alt="Digital Menu QR"
+                                    style={{ width: 280, height: 280 }}
+                                />
+                            ) : (
+                                <Box sx={{ width: 280, height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <CircularProgress sx={{ color: '#FFC107' }} />
+                                </Box>
+                            )}
+                        </Box>
+
+                        <Typography variant="subtitle1" fontWeight={800} color="#1e293b">Professional Digital Menu</Typography>
+
+                        <Box
+                            sx={{
+                                mt: 1.5, mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1',
+                                cursor: 'pointer', '&:hover': { bgcolor: '#f1f5f9' }, transition: 'all 0.2s'
+                            }}
+                            onClick={() => window.open(`${window.location.origin}/digital-menu/${user?.current_branch_id}`, '_blank')}
+                        >
+                            <Typography variant="caption" sx={{ color: '#4f46e5', fontWeight: 800, fontFamily: 'monospace', fontSize: '13px' }}>
+                                {window.location.origin}/digital-menu/{user?.current_branch_id}
+                            </Typography>
+                        </Box>
+
+                        <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary', fontWeight: 500, px: 2 }}>
+                            Customers can scan this QR code to browse your live menu, categories, and prices instantly.
                         </Typography>
+
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Button
+                                fullWidth variant="outlined"
+                                startIcon={<Plus size={18} style={{ transform: 'rotate(45deg)' }} />}
+                                sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: '#e2e8f0', color: '#1e293b' }}
+                                onClick={() => setOpenDigitalMenu(false)}
+                            >
+                                Close
+                            </Button>
+                            <Button
+                                fullWidth variant="contained"
+                                sx={{
+                                    bgcolor: '#2C1810', '&:hover': { bgcolor: '#000' },
+                                    borderRadius: '12px', textTransform: 'none', fontWeight: 700
+                                }}
+                                onClick={() => window.open(`/digital-menu/${user?.current_branch_id}`, '_blank')}
+                            >
+                                View Menu
+                            </Button>
+                        </Box>
                     </Box>
                 </DialogContent>
+            </Dialog>
+
+            {/* New Order (Takeaway/Delivery) Setup Dialog */}
+            <Dialog
+                open={openNewOrderDialog}
+                onClose={() => setOpenNewOrderDialog(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+                    New {newOrderType} Order
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+                        {/* Delivery Partner Selection (for Delivery only) */}
+                        {newOrderType === 'Delivery' && (
+                            <Box>
+                                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#64748b' }}>Select Delivery Partner</Typography>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel>Partner</InputLabel>
+                                    <Select
+                                        value={dialogSelectedPartnerId}
+                                        onChange={(e) => setDialogSelectedPartnerId(e.target.value as string)}
+                                        label="Partner"
+                                        sx={{ borderRadius: '12px' }}
+                                    >
+                                        <MenuItem value=""><em>None</em></MenuItem>
+                                        {deliveryPartners.map(p => (
+                                            <MenuItem key={p.id} value={p.id.toString()}>{p.name}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        )}
+
+                        {/* Customer Search & Select */}
+                        <Box sx={{ position: 'relative' }}>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#64748b' }}>Select Customer</Typography>
+                            {dialogSelectedCustomer ? (
+                                <Paper sx={{
+                                    p: 2, borderRadius: '12px', bgcolor: '#fff7ed', border: '1px solid #ffedd5',
+                                    display: 'flex', alignItems: 'center', gap: 2
+                                }}>
+                                    <UserCircle size={24} color="#FFC107" />
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography fontWeight={800}>{dialogSelectedCustomer.name}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{dialogSelectedCustomer.phone || 'No phone'}</Typography>
+                                    </Box>
+                                    <IconButton size="small" onClick={() => setDialogSelectedCustomer(null)}>
+                                        <Plus size={18} style={{ transform: 'rotate(45deg)' }} />
+                                    </IconButton>
+                                </Paper>
+                            ) : (
+                                <>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        placeholder="Search by name or phone..."
+                                        value={dialogCustomerSearch}
+                                        onChange={(e) => setDialogCustomerSearch(e.target.value)}
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start"><Search size={18} /></InputAdornment>,
+                                            sx: { borderRadius: '12px' }
+                                        }}
+                                    />
+                                    {dialogCustomerSearch && (
+                                        <Paper sx={{
+                                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, mt: 1,
+                                            maxHeight: 200, overflow: 'auto', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                                        }}>
+                                            <List>
+                                                {customers
+                                                    .filter(c => c.name.toLowerCase().includes(dialogCustomerSearch.toLowerCase()) || c.phone?.includes(dialogCustomerSearch))
+                                                    .map(c => (
+                                                        <ListItem
+                                                            key={c.id}
+                                                            disablePadding
+                                                            sx={{ borderBottom: '1px solid #f1f5f9' }}
+                                                        >
+                                                            <ListItemButton
+                                                                onClick={() => setDialogSelectedCustomer(c)}
+                                                                sx={{ py: 1, px: 2 }}
+                                                            >
+                                                                <Box>
+                                                                    <Typography variant="body2" fontWeight={700}>{c.name}</Typography>
+                                                                    <Typography variant="caption" color="text.secondary">{c.phone}</Typography>
+                                                                </Box>
+                                                            </ListItemButton>
+                                                        </ListItem>
+                                                    ))
+                                                }
+                                                <ListItem
+                                                    disablePadding
+                                                    sx={{ bgcolor: '#f8fafc' }}
+                                                >
+                                                    <ListItemButton
+                                                        onClick={async () => {
+                                                            try {
+                                                                const res = await customersAPI.create({ name: dialogCustomerSearch });
+                                                                setDialogSelectedCustomer(res.data);
+                                                                setCustomers(prev => [...prev, res.data]);
+                                                            } catch (err) { showAlert("Error creating customer", "error"); }
+                                                        }}
+                                                    >
+                                                        <Plus size={16} color="#FFC107" style={{ marginRight: 8 }} />
+                                                        <Typography variant="body2" fontWeight={700} color="#FFC107">Quick Add "{dialogCustomerSearch}"</Typography>
+                                                    </ListItemButton>
+                                                </ListItem>
+                                            </List>
+                                        </Paper>
+                                    )}
+                                </>
+                            )}
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 3 }}>
+                    <Button onClick={() => setOpenNewOrderDialog(false)} sx={{ color: '#64748b', fontWeight: 700 }}>Cancel</Button>
+                    <Button
+                        variant="contained"
+                        onClick={() => {
+                            navigate('/pos/order', {
+                                state: {
+                                    customOrderType: newOrderType,
+                                    deliveryPartnerId: dialogSelectedPartnerId,
+                                    preSelectedCustomer: dialogSelectedCustomer
+                                }
+                            });
+                            setOpenNewOrderDialog(false);
+                        }}
+                        sx={{
+                            bgcolor: '#FFC107', '&:hover': { bgcolor: '#e67e00' },
+                            fontWeight: 800, borderRadius: '12px', px: 4
+                        }}
+                    >
+                        Start Order
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            {/* Options Menu */}
+            <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+                <MenuItem onClick={handleToggleHold} sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    {menuTarget?.is_hold_table === 'Yes' ? 'Set as Normal Table' : 'Set as Hold Table'}
+                </MenuItem>
+                <Divider />
+                <Typography variant="caption" sx={{ px: 2, py: 1, display: 'block', color: 'text.secondary', fontWeight: 700 }}>
+                    Merge With
+                </Typography>
+                <MenuItem onClick={() => handleMergeTable(null)} sx={{ fontSize: '0.9rem' }}>
+                    None
+                </MenuItem>
+                {tables
+                    .filter(t => t.status === 'Available' && t.id !== menuTarget?.id && !t.merge_group_id && t.is_hold_table !== 'Yes')
+                    .map(t => (
+                        <MenuItem key={t.id} onClick={() => handleMergeTable(t.id)} sx={{ fontSize: '0.9rem' }}>
+                            Table {t.table_id}
+                        </MenuItem>
+                    ))
+                }
+            </Menu>
+
+            {/* Opening Balance Dialog */}
+            <Dialog open={openingDialog} onClose={() => setOpeningDialog(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 800 }}>Start POS Session</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Please enter the starting cash amount in your drawer.
+                    </Typography>
+                    <TextField
+                        autoFocus
+                        label="Opening Balance"
+                        type="number"
+                        fullWidth
+                        value={openingCash}
+                        onChange={(e) => setOpeningCash(e.target.value)}
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start">Rs.</InputAdornment>,
+                        }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '12px',
+                            }
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ p: 3 }}>
+                    <Button onClick={() => setOpeningDialog(false)} sx={{ color: '#64748b', fontWeight: 700 }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={confirmStartSession}
+                        variant="contained"
+                        sx={{
+                            bgcolor: '#FFC107',
+                            '&:hover': { bgcolor: '#e67e00' },
+                            fontWeight: 800,
+                            borderRadius: '12px',
+                            px: 3
+                        }}
+                    >
+                        Start Session
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Closing Balance Dialog */}
+            <Dialog open={closingDialog} onClose={() => setClosingDialog(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 800 }}>End POS Session</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Enter the actual cash amount currently in the drawer to close your session.
+                    </Typography>
+                    <TextField
+                        autoFocus
+                        label="Actual Cash Reported"
+                        type="number"
+                        fullWidth
+                        value={actualCash}
+                        onChange={(e) => setActualCash(e.target.value)}
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start">Rs.</InputAdornment>,
+                        }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '12px',
+                            }
+                        }}
+                    />
+                    {activeSession && (
+                        <Box sx={{ mt: 3, p: 2, bgcolor: '#f8fafc', borderRadius: '12px' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" color="text.secondary">Total Sales:</Typography>
+                                <Typography variant="body2" fontWeight={700}>Rs. {Number(activeSession.total_sales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <Typography variant="body2" color="text.secondary">Opening Balance:</Typography>
+                                <Typography variant="body2" fontWeight={700}>Rs. {Number(activeSession.opening_cash).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                            </Box>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ p: 3 }}>
+                    <Button onClick={() => setClosingDialog(false)} sx={{ color: '#64748b', fontWeight: 700 }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={confirmEndSession}
+                        variant="contained"
+                        sx={{
+                            bgcolor: '#ef4444',
+                            '&:hover': { bgcolor: '#dc2626' },
+                            fontWeight: 800,
+                            borderRadius: '12px',
+                            px: 3
+                        }}
+                    >
+                        End Session
+                    </Button>
+                </DialogActions>
             </Dialog>
         </Box >
     );

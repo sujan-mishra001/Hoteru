@@ -48,30 +48,31 @@ const AuthLayout: React.FC = () => {
             >
                 <Box sx={{ width: '100%', maxWidth: 400 }}>
                     <Box sx={{ mb: 4, textAlign: 'left' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
                             <Box
                                 component="img"
-                                src="/dautari-logo.png"
-                                alt="Dautari Adda Logo"
+                                src="/Ratala Hospitality Logo.jpg"
+                                alt="Ratala Hospitality Logo"
                                 sx={{
-                                    height: 60,
-                                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'
+                                    height: 80,
+                                    borderRadius: '12px',
+                                    objectFit: 'contain'
                                 }}
                             />
                             <Typography
                                 variant="h4"
                                 sx={{
                                     fontWeight: 900,
-                                    color: '#1e293b',
-                                    letterSpacing: '-1px',
+                                    color: '#FFC107',
+                                    letterSpacing: '-0.5px',
                                     textTransform: 'uppercase'
                                 }}
                             >
-                                Dautari Adda
+                                Ratala Hospitality
                             </Typography>
                         </Box>
-                        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500 }}>
-                            Digital Business Management Platform
+                        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500 ,textAlign:'center'}}>
+                            Premium Restaurant Management App
                         </Typography>
                     </Box>
                     <Outlet />

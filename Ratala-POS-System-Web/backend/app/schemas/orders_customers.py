@@ -35,7 +35,7 @@ class CustomerResponse(BaseModel):
 class TableResponse(BaseModel):
     id: int
     table_id: str
-    floor: Optional[str] = None
+    floor: str
     status: str
     class Config:
         from_attributes = True
@@ -97,16 +97,16 @@ class OrderResponse(BaseModel):
     customer_id: Optional[int] = None
     order_type: str
     status: str
-    total_amount: Optional[float] = 0.0
-    gross_amount: Optional[float] = 0.0
-    discount: Optional[float] = 0.0
-    net_amount: Optional[float] = 0.0
-    paid_amount: Optional[float] = 0.0
-    credit_amount: Optional[float] = 0.0
+    total_amount: float
+    gross_amount: float
+    discount: float
+    net_amount: float
+    paid_amount: float
+    credit_amount: float
     payment_type: Optional[str] = None
-    delivery_charge: Optional[float] = 0.0
-    service_charge: Optional[float] = 0.0
-    tax: Optional[float] = 0.0
+    service_charge_amount: float = 0
+    tax_amount: float = 0
+    delivery_charge: float = 0
     created_at: datetime
     updated_at: datetime
     table: Optional[TableResponse] = None
@@ -130,9 +130,9 @@ class OrderCreate(BaseModel):
     credit_amount: Optional[float] = 0
     payment_type: Optional[str] = None
     delivery_partner_id: Optional[int] = None
+    service_charge_amount: Optional[float] = 0
+    tax_amount: Optional[float] = 0
     delivery_charge: Optional[float] = 0
-    service_charge: Optional[float] = 0
-    tax: Optional[float] = 0
 
 class RoleBase(BaseModel):
     name: str

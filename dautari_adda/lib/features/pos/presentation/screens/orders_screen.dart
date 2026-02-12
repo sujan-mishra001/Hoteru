@@ -61,6 +61,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
+        toolbarHeight: 75,
         title: Text(
           "Orders Management",
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
@@ -79,91 +80,97 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
           ),
           const SizedBox(width: 8),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(130),
-          child: ListenableBuilder(
-            listenable: tableService,
-            builder: (context, _) {
-              final activeTableIds = tableService.activeTableIds;
-              return Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "LIVE OPERATIONS",
-                                style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-                              ),
-                              Text(
-                                "${activeTableIds.length} tables require attention",
-                                style: GoogleFonts.poppins(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
-                              ),
-                            ],
+
+      ),
+      body: ListenableBuilder(
+        listenable: tableService,
+        builder: (context, _) {
+          final activeTableIds = tableService.activeTableIds;
+          return Column(
+            children: [
+              Container(
+                color: Theme.of(context).cardColor,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "LIVE OPERATIONS",
+                                  style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                ),
+                                Text(
+                                  "${activeTableIds.length} tables require attention",
+                                  style: GoogleFonts.poppins(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), shape: BoxShape.circle),
-                          child: const Icon(Icons.receipt_long_rounded, color: Colors.black87, size: 20),
-                        ),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), shape: BoxShape.circle),
+                            child: const Icon(Icons.receipt_long_rounded, color: Colors.black87, size: 20),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      labelColor: Colors.black87,
+                      unselectedLabelColor: Colors.black54,
+                      indicatorColor: Colors.black87,
+                      indicatorWeight: 3,
+                      labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12),
+                      unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
+                      tabs: const [
+                        Tab(text: 'All'),
+                        Tab(text: 'Dine-in'),
+                        Tab(text: 'Takeaway'),
+                        Tab(text: 'Delivery'),
+                        Tab(text: 'Drafts'),
                       ],
                     ),
-                  ),
-                  // TabBar integrated into Header
-                  TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    labelColor: Colors.black87,
-                    unselectedLabelColor: Colors.black54,
-                    indicatorColor: Colors.black87,
-                    indicatorWeight: 3,
-                    labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12),
-                    unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
-                    tabs: const [
-                      Tab(text: 'All'),
-                      Tab(text: 'Dine-in'),
-                      Tab(text: 'Takeaway'),
-                      Tab(text: 'Delivery'),
-                      Tab(text: 'Drafts'),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _isFetching 
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(color: Color(0xFFFFC107)),
+                          SizedBox(height: 16),
+                          Text("Fetching your orders...", style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    )
+                  : HorizontalSwipeHitTestFilter(
+                      startPercentage: 0.15,
+                      endPercentage: 0.85,
+                      child: TabBarView(
+                        controller: _tabController,
+                        physics: const ClampingScrollPhysics(), // Important for Android to allow boundary hit
+                        children: [
+                          _buildOrdersList(tableService, OrderStatus.all),
+                          _buildOrdersList(tableService, OrderStatus.dineIn),
+                          _buildOrdersList(tableService, OrderStatus.takeaway),
+                          _buildOrdersList(tableService, OrderStatus.delivery),
+                          _buildOrdersList(tableService, OrderStatus.drafts),
+                        ],
+                      ),
+                    ),
+              ),
+            ],
+          );
+        },
       ),
-      body: _isFetching 
-        ? const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: Color(0xFFFFC107)),
-                SizedBox(height: 16),
-                Text("Fetching your orders...", style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-          )
-        : HorizontalSwipeHitTestFilter(
-            startPercentage: 0.15,
-            endPercentage: 0.85,
-            child: TabBarView(
-              controller: _tabController,
-              physics: const ClampingScrollPhysics(), // Important for Android to allow boundary hit
-              children: [
-                _buildOrdersList(tableService, OrderStatus.all),
-                _buildOrdersList(tableService, OrderStatus.dineIn),
-                _buildOrdersList(tableService, OrderStatus.takeaway),
-                _buildOrdersList(tableService, OrderStatus.delivery),
-                _buildOrdersList(tableService, OrderStatus.drafts),
-              ],
-            ),
-          ),
     );
   }
 
@@ -409,7 +416,11 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                      if (tableId != 0) {
+                      if (backendOrder != null && backendOrder['id'] != null) {
+                        // Confirmed order: Show Bill Dialog
+                         _showBillDialog(context, backendOrder['id']);
+                      } else if (tableId != 0) {
+                        // Draft: Navigate to Overview
                         final result = await Navigator.push(
                           context, 
                           MaterialPageRoute(builder: (context) => OrderOverviewScreen(
@@ -436,6 +447,206 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _showBillDialog(BuildContext context, int orderId) async {
+    // 1. Fetch full details if needed (or just ensure we have latest)
+    // We show a dialog with FutureBuilder or similar, or just fetch then show.
+    // Let's show a loading dialog first or just render the dialog with a FutureBuilder.
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.all(16),
+        child: FutureBuilder<Map<String, dynamic>?>(
+          future: _orderService.getOrder(orderId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator(color: Color(0xFFFFC107))),
+              );
+            }
+            
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                    const SizedBox(height: 16),
+                    const Text("Failed to load bill details"),
+                    const SizedBox(height: 16),
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+                  ],
+                ),
+              );
+            }
+
+            final order = snapshot.data!;
+            final items = order['items'] as List? ?? [];
+            final subtotal = (order['gross_amount'] as num?)?.toDouble() ?? 0.0;
+            final discount = (order['discount'] as num?)?.toDouble() ?? 0.0;
+            final serviceCharge = (order['service_charge'] as num?)?.toDouble() ?? 0.0;
+            final tax = (order['tax'] as num?)?.toDouble() ?? 0.0;
+            final total = (order['net_amount'] as num?)?.toDouble() ?? 0.0;
+            final orderNumber = order['order_number'] ?? order['id'].toString();
+            final date = order['created_at'] != null 
+                ? DateFormat('MMM d, yyyy h:mm a').format(DateTime.parse(order['created_at']))
+                : '-';
+
+            return Container(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFC107),
+                      borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Bill #$orderNumber", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Body
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Column(
+                              children: [
+                                Text("Dautari Adda", style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)),
+                                Text(date, style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 32),
+                          if (items.isEmpty)
+                            const Center(child: Text("No items found"))
+                          else
+                            ...items.map((item) {
+                              final name = item['menu_item']?['name'] ?? 'Item';
+                              final qty = item['quantity'] ?? 0;
+                              final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+                              final total = (item['subtotal'] as num?)?.toDouble() ?? (price * qty);
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text("$qty x $name", style: GoogleFonts.poppins(fontSize: 13))),
+                                    Text("Rs ${total.toStringAsFixed(0)}", style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                              );
+                            }),
+                          const Divider(height: 32),
+                          _buildBillSummaryRow("Subtotal", subtotal),
+                          if (discount > 0) _buildBillSummaryRow("Discount", -discount, isDiscount: true),
+                          if (serviceCharge > 0) _buildBillSummaryRow("Service Charge", serviceCharge),
+                          if (tax > 0) _buildBillSummaryRow("Tax", tax),
+                          const SizedBox(height: 12),
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("Grand Total", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+                              Text("Rs ${total.toStringAsFixed(0)}", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFFFFC107))),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: order['status'] == 'Paid' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                order['status']?.toUpperCase() ?? 'UNKNOWN',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12, 
+                                  fontWeight: FontWeight.bold,
+                                  color: order['status'] == 'Paid' ? Colors.green : Colors.orange,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Footer Actions
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        Expanded(child: OutlinedButton.icon(
+                          onPressed: () { 
+                             // TODO: Implement actual printing logic
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text("Printing Bill..."))
+                             );
+                             // If there is an API:
+                             // _orderService.printBill(orderId);
+                          },
+                          icon: const Icon(Icons.print),
+                          label: const Text("Print Bill"),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: const BorderSide(color: Colors.black12),
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBillSummaryRow(String label, double amount, {bool isDiscount = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600])),
+          Text(
+            "Rs ${amount.toStringAsFixed(0)}", 
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600, 
+              color: isDiscount ? Colors.green : Colors.black87
+            )
+          ),
+        ],
       ),
     );
   }

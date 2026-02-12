@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     Box,
     Typography,
-    Paper,
     Button,
     TextField,
     Dialog,
@@ -13,25 +12,30 @@ import {
     Divider,
     Card,
     CardContent,
-    Alert
+    Alert,
+    Snackbar
 } from '@mui/material';
 import { Plus, X, Edit, Trash2, Save, Package, Utensils } from 'lucide-react';
-import { inventoryAPI, menuAPI } from '../../../services/api';
+import { inventoryAPI } from '../../../services/api';
 
 const BOM: React.FC = () => {
     const [boms, setBoms] = useState<any[]>([]);
-    const [menuItems, setMenuItems] = useState<any[]>([]);
     const [products, setProducts] = useState<any[]>([]);
+    const [units, setUnits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingBOM, setEditingBOM] = useState<any>(null);
     const [formData, setFormData] = useState<any>({
         name: '',
-        finished_product_id: '',
         output_quantity: 1,
-        menu_item_id: '',
+        finished_product_id: '',
         components: []
     });
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadData();
@@ -40,14 +44,14 @@ const BOM: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [bomsRes, menuRes, productsRes] = await Promise.all([
+            const [bomsRes, productsRes, unitsRes] = await Promise.all([
                 inventoryAPI.getBOMs(),
-                menuAPI.getItems(),
-                inventoryAPI.getProducts()
+                inventoryAPI.getProducts(),
+                inventoryAPI.getUnits()
             ]);
             setBoms(bomsRes.data || []);
-            setMenuItems(menuRes.data || []);
             setProducts(productsRes.data || []);
+            setUnits(unitsRes.data || []);
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
@@ -60,11 +64,11 @@ const BOM: React.FC = () => {
             setEditingBOM(bom);
             setFormData({
                 name: bom.name || '',
-                finished_product_id: bom.finished_product_id || '',
                 output_quantity: bom.output_quantity || 1,
-                menu_item_id: bom.menu_item_id || '',
+                finished_product_id: bom.finished_product_id || '',
                 components: bom.components.map((c: any) => ({
                     product_id: c.product_id,
+                    unit_id: c.unit_id || '',
                     quantity: c.quantity
                 }))
             });
@@ -72,9 +76,8 @@ const BOM: React.FC = () => {
             setEditingBOM(null);
             setFormData({
                 name: '',
-                finished_product_id: '',
                 output_quantity: 1,
-                menu_item_id: '',
+                finished_product_id: '',
                 components: []
             });
         }
@@ -89,7 +92,7 @@ const BOM: React.FC = () => {
     const handleAddComponent = () => {
         setFormData({
             ...formData,
-            components: [...formData.components, { product_id: '', quantity: 1 }]
+            components: [...formData.components, { product_id: '', unit_id: '', quantity: 1 }]
         });
     };
 
@@ -112,10 +115,7 @@ const BOM: React.FC = () => {
             // Filter out empty components
             const filteredData = {
                 ...formData,
-                components: formData.components.filter((c: any) => c.product_id !== ''),
-                // Convert empty strings to null for the backend
-                menu_item_id: formData.menu_item_id === '' ? null : formData.menu_item_id,
-                finished_product_id: formData.finished_product_id === '' ? null : formData.finished_product_id
+                components: formData.components.filter((c: any) => c.product_id !== '')
             };
 
             if (editingBOM) {
@@ -125,9 +125,22 @@ const BOM: React.FC = () => {
             }
             handleCloseDialog();
             loadData();
-        } catch (error) {
+            showSnackbar(`Recipe ${editingBOM ? 'updated' : 'created'} successfully`);
+        } catch (error: any) {
             console.error('Error saving BOM:', error);
-            alert('Error saving BOM. Ensure all components have a product selected.');
+            showSnackbar(error.response?.data?.detail || 'Error saving BOM. Ensure all components have a product selected.', 'error');
+        }
+    };
+
+    const handleDeleteBOM = async (id: number) => {
+        if (!window.confirm('Are you sure you want to delete this recipe?')) return;
+        try {
+            await inventoryAPI.deleteBOM(id);
+            loadData();
+            showSnackbar('Recipe deleted successfully');
+        } catch (error: any) {
+            console.error('Error deleting BOM:', error);
+            showSnackbar(error.response?.data?.detail || 'Failed to delete recipe', 'error');
         }
     };
 
@@ -189,27 +202,24 @@ const BOM: React.FC = () => {
                                 <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', bgcolor: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                                     <Box>
                                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>{bom.name}</Typography>
-                                        {bom.menu_item && (
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, gap: 0.5 }}>
-                                                <Utensils size={14} color="#64748b" />
-                                                <Typography variant="caption" color="text.secondary">{bom.menu_item.name}</Typography>
-                                            </Box>
-                                        )}
                                     </Box>
                                     <Box sx={{ display: 'flex', gap: 1 }}>
                                         <IconButton size="small" onClick={() => handleOpenDialog(bom)} sx={{ color: '#64748b' }}>
                                             <Edit size={16} />
                                         </IconButton>
+                                        <IconButton size="small" onClick={() => handleDeleteBOM(bom.id)} sx={{ color: '#ef4444' }}>
+                                            <Trash2 size={16} />
+                                        </IconButton>
                                     </Box>
                                 </Box>
                                 <Box sx={{ p: 2.5 }}>
                                     <Box sx={{ mb: 2 }}>
-                                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished Product</Typography>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Batch Yield</Typography>
                                         <Typography variant="body2" sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Package size={16} color="#FFC107" />
-                                            {bom.finished_product?.name || 'Manual Selection'}
-                                            <Typography variant="caption" sx={{ ml: 1, bgcolor: '#f1f5f9', px: 1, py: 0.5, borderRadius: '4px' }}>
-                                                Yield: {bom.output_quantity} {bom.finished_product?.unit?.abbreviation || 'pcs'}
+                                            {bom.name}
+                                            <Typography variant="caption" sx={{ ml: 1, bgcolor: '#f1f5f9', px: 1, py: 0.5, borderRadius: '4px', fontWeight: 700 }}>
+                                                {Number(bom.output_quantity).toFixed(2)} units
                                             </Typography>
                                         </Typography>
                                     </Box>
@@ -219,7 +229,7 @@ const BOM: React.FC = () => {
                                         {bom.components?.slice(0, 3).map((comp: any, idx: number) => (
                                             <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Typography variant="body2" color="text.secondary">{comp.product?.name}</Typography>
-                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>{comp.quantity} {comp.product?.unit?.abbreviation}</Typography>
+                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>{Number(comp.quantity).toFixed(2)} {comp.unit?.abbreviation || comp.product?.unit?.abbreviation}</Typography>
                                             </Box>
                                         ))}
                                         {bom.components?.length > 3 && (
@@ -242,7 +252,7 @@ const BOM: React.FC = () => {
                 </DialogTitle>
                 <DialogContent sx={{ px: 3, pb: 3 }}>
                     <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1.5fr' }, gap: 2 }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' }, gap: 3 }}>
                             <TextField
                                 label="Recipe Name"
                                 fullWidth
@@ -253,47 +263,32 @@ const BOM: React.FC = () => {
                                 required
                             />
                             <TextField
-                                select
-                                label="Linked Menu Item (Optional)"
+                                label="Output Quantity (Yield)"
+                                type="number"
                                 fullWidth
-                                value={formData.menu_item_id}
-                                onChange={(e) => setFormData({ ...formData, menu_item_id: e.target.value })}
-                            >
-                                <MenuItem value=""><em>None</em></MenuItem>
-                                {menuItems.map((item) => (
-                                    <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
-                                ))}
-                            </TextField>
+                                value={formData.output_quantity}
+                                onChange={(e) => setFormData({ ...formData, output_quantity: parseFloat(e.target.value) || 1 })}
+                                required
+                                helperText="How many units does this recipe produce?"
+                            />
                         </Box>
 
-                        <Paper variant="outlined" sx={{ p: 2, borderRadius: '12px', bgcolor: '#f8fafc' }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Package size={18} color="#FFC107" />
-                                Resulting Product
-                            </Typography>
-                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' }, gap: 2 }}>
-                                <TextField
-                                    select
-                                    label="Finished Product"
-                                    fullWidth
-                                    value={formData.finished_product_id}
-                                    onChange={(e) => setFormData({ ...formData, finished_product_id: e.target.value })}
-                                    required
-                                >
-                                    {products.map((p) => (
-                                        <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-                                    ))}
-                                </TextField>
-                                <TextField
-                                    label="Output Quantity"
-                                    type="number"
-                                    fullWidth
-                                    value={formData.output_quantity}
-                                    onChange={(e) => setFormData({ ...formData, output_quantity: parseFloat(e.target.value) || 1 })}
-                                    required
-                                />
-                            </Box>
-                        </Paper>
+                        <TextField
+                            select
+                            label="Produced Product (Target Stock)"
+                            fullWidth
+                            variant="outlined"
+                            value={formData.finished_product_id}
+                            onChange={(e) => setFormData({ ...formData, finished_product_id: e.target.value })}
+                            helperText="Linking a product will track its stock level in the inventory page."
+                        >
+                            <MenuItem value=""><em>None (Ingredient Consumption Only)</em></MenuItem>
+                            {products.map((p) => (
+                                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                            ))}
+                        </TextField>
+
+
 
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -316,7 +311,7 @@ const BOM: React.FC = () => {
                             ) : (
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                                     {formData.components.map((comp: any, index: number) => (
-                                        <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '3fr 1.5fr 40px', gap: 2, alignItems: 'center' }}>
+                                        <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '3fr 1.5fr 1.5fr 40px', gap: 2, alignItems: 'center' }}>
                                             <TextField
                                                 select
                                                 size="small"
@@ -335,6 +330,18 @@ const BOM: React.FC = () => {
                                                 value={comp.quantity}
                                                 onChange={(e) => handleComponentChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                                             />
+                                            <TextField
+                                                select
+                                                size="small"
+                                                label="Unit"
+                                                value={comp.unit_id}
+                                                onChange={(e) => handleComponentChange(index, 'unit_id', e.target.value)}
+                                            >
+                                                <MenuItem value=""><em>Base Unit</em></MenuItem>
+                                                {units.map((u) => (
+                                                    <MenuItem key={u.id} value={u.id}>{u.abbreviation}</MenuItem>
+                                                ))}
+                                            </TextField>
                                             <IconButton size="small" onClick={() => handleRemoveComponent(index)} sx={{ color: '#ef4444' }}>
                                                 <Trash2 size={16} />
                                             </IconButton>
@@ -363,6 +370,16 @@ const BOM: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

@@ -213,16 +213,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
     const drawer = (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
-            <Box sx={{ p: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Avatar
-                    src="/logo.png"
+            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                <Box
+                    component="img"
+                    src="/Ratala Hospitality Logo.jpg"
+                    alt="Ratala Hospitality"
                     sx={{
-                        width: 100,
-                        height: 100,
-                        border: '2px solid #f8fafc',
-                        boxShadow: '0 8px 16px rgba(0,0,0,0.05)'
+                        width: 42,
+                        height: 42,
+                        borderRadius: '8px',
+                        objectFit: 'contain',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                     }}
                 />
+                <Typography variant="subtitle1" fontWeight={800} color="#FFC107" sx={{ lineHeight: 1.2 }}>
+                    Ratala Hospitality
+                </Typography>
             </Box>
 
             <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 1 }}>

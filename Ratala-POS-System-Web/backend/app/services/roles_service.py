@@ -68,20 +68,5 @@ def get_available_permissions() -> List[str]:
     """
     return [
         "dashboard.view",
-        "pos.access",
-        "orders.view",
-        "orders.create",
-        "orders.edit",
-        "orders.cancel",
-        "billing.process",
-        "inventory.view",
-        "inventory.manage",
-        "reports.view",
-        "users.manage",
-        "roles.manage",
-        "settings.edit",
-        "customers.manage",
-        "menu.manage",
-        "branches.manage",
-        "sessions.manage"
+        "pos.access"
     ]

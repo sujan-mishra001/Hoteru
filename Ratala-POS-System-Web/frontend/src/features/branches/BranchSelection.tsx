@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { useBranch } from '../../app/providers/BranchProvider';
+import { usePermission } from '../../app/providers/PermissionProvider';
 import { Building2, MapPin, Check, Loader2, Plus } from 'lucide-react';
 import { Box, Typography, Grid, Paper, Button, Avatar, CircularProgress, Alert } from '@mui/material';
 
 const BranchSelection: React.FC = () => {
     const { user } = useAuth();
     const { accessibleBranches, selectBranch, loading: branchesLoading } = useBranch();
+    const { hasPermission } = usePermission();
     const navigate = useNavigate();
     const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -27,8 +29,8 @@ const BranchSelection: React.FC = () => {
             await selectBranch(branchId);
             // Workflow: "When user selects a branch -> Redirect to Selected Branch Admin Panel"
             // For managers/admins go to dashboard, others go to POS
-            const role = user?.role.toLowerCase();
-            if (role === 'admin' || role === 'manager') {
+            // Logic: Land on POS only if they don't have dashboard access
+            if (hasPermission('dashboard.view')) {
                 navigate('/dashboard');
             } else {
                 navigate('/pos');

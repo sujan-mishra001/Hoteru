@@ -2,6 +2,7 @@
 Order management routes
 """
 from fastapi import APIRouter, Depends, Body, HTTPException, BackgroundTasks
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 import random
@@ -10,10 +11,10 @@ from app.services.printing_service import PrintingService
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
-from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession
+from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession, CompanySettings
+
 from app.schemas import OrderResponse
 from app.services.inventory_service import InventoryService
-from app.services.order_service import OrderService
 
 router = APIRouter()
 
@@ -22,13 +23,13 @@ router = APIRouter()
 async def get_orders(
     order_type: Optional[str] = None,
     status: Optional[str] = None,
-    branch_id: Optional[int] = None,
+    customer_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all orders, optionally filtered by order_type and status"""
-    # Use provided branch_id or fallback to user's current branch
-    target_branch_id = branch_id if branch_id is not None else current_user.current_branch_id
+    """Get all orders, optionally filtered by order_type, status, and customer_id"""
+    # Get user's current branch for filtering
+    branch_id = current_user.current_branch_id
     
     query = db.query(Order).options(
         joinedload(Order.table),
@@ -38,17 +39,15 @@ async def get_orders(
     )
     
     # Filter by branch_id for data isolation
-    if target_branch_id:
-        query = query.filter(Order.branch_id == target_branch_id)
+    if branch_id:
+        query = query.filter(Order.branch_id == branch_id)
     
     if order_type:
         query = query.filter(Order.order_type == order_type)
     if status:
-        if "," in status:
-            status_list = [s.strip() for s in status.split(",")]
-            query = query.filter(Order.status.in_(status_list))
-        else:
-            query = query.filter(Order.status == status)
+        query = query.filter(Order.status == status)
+    if customer_id:
+        query = query.filter(Order.customer_id == customer_id)
     
     orders = query.order_by(Order.created_at.desc()).all()
     return orders
@@ -93,7 +92,11 @@ async def create_order(
     items_data = order_data.pop('items', [])
     
     if 'order_number' not in order_data:
-        order_data['order_number'] = f"ORD-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+        # Get global count of orders for this branch to generate sequential number
+        branch_id = current_user.current_branch_id
+        order_count = db.query(Order).filter(Order.branch_id == branch_id).count()
+        seq = order_count + 1
+        order_data['order_number'] = f"ORD-{datetime.now().strftime('%Y%m%d')}-{seq:04d}"
     order_data['created_by'] = current_user.id
     
     # Tie to active POS Session
@@ -104,26 +107,34 @@ async def create_order(
     if active_session:
         order_data['pos_session_id'] = active_session.id
     
-    # Calculate amounts if not provided
-    if 'gross_amount' not in order_data:
-        order_data['gross_amount'] = order_data.get('total_amount', 0)
-    if 'net_amount' not in order_data:
-        discount = order_data.get('discount', 0)
-        order_data['net_amount'] = order_data['gross_amount'] - discount
+    # Calculate accurate amounts based on business rules
+    # 1. Gross - sum of items
+    gross = sum(item.get('price', 0) * item.get('quantity', 0) for item in items_data)
+    order_data['gross_amount'] = gross
     
-    # Sync total_amount with net_amount for consistency
-    if 'total_amount' not in order_data or order_data.get('total_amount') == 0:
-        order_data['total_amount'] = order_data.get('net_amount', 0)
+    # 2. Charges from settings
+    settings = db.query(CompanySettings).first()
+    sc_rate = settings.service_charge_rate if settings else 10.0
+    tax_rate = settings.tax_rate if settings else 13.0
+    
+    discount = order_data.get('discount', 0)
+    delivery_charge = order_data.get('delivery_charge', 0)
+    
+    # SC calculation: Net of discount? (Standard is on gross)
+    sc_amount = round(gross * (sc_rate / 100), 2)
+    # Tax calculation: usually on (Gross + SC)
+    tax_amount = round((gross + sc_amount) * (tax_rate / 100), 2)
+    
+    order_data['service_charge_amount'] = sc_amount
+    order_data['tax_amount'] = tax_amount
+    order_data['net_amount'] = round(gross - discount + sc_amount + tax_amount + delivery_charge, 2)
+    order_data['total_amount'] = order_data['net_amount']
     
     # Set branch_id for data isolation
     if current_user.current_branch_id:
         order_data['branch_id'] = current_user.current_branch_id
     
-    # Filter fields to only include valid model columns
-    valid_order_keys = {c.key for c in Order.__table__.columns}
-    filtered_order_data = {k: v for k, v in order_data.items() if k in valid_order_keys}
-    
-    new_order = Order(**filtered_order_data)
+    new_order = Order(**order_data)
     db.add(new_order)
     db.flush() # Get ID before adding items
     
@@ -143,30 +154,31 @@ async def create_order(
     if new_order.table_id:
         table = db.query(Table).filter(Table.id == new_order.table_id).first()
         if table:
-            # If creating a Paid order (direct payment), keep it Available
+            # Determine target status
+            target_status = "Occupied"
             if new_order.status in ['Paid', 'Completed']:
-                table.status = "Available"
-            elif new_order.status == 'Draft':
-                # Optional: Decide if Draft should mark table as Occupied. 
-                # Usually Pending marks it.
-                table.status = "Occupied" 
+                target_status = "Available"
+            
+            if table.merge_group_id:
+                # Update all tables in merge group
+                db.query(Table).filter(
+                    Table.merge_group_id == table.merge_group_id,
+                    Table.branch_id == new_order.branch_id
+                ).update({"status": target_status})
             else:
-                table.status = "Occupied"
+                table.status = target_status
     
     # Update customer stats if Paid
     if new_order.status in ['Paid', 'Completed'] and new_order.customer_id:
         customer = db.query(Customer).filter(Customer.id == new_order.customer_id).first()
         if customer:
             customer.total_visits += 1
-            customer.total_spent += new_order.net_amount
-            customer.due_amount += new_order.credit_amount
+            customer.total_spent += (new_order.net_amount or 0)
+            customer.due_amount += (new_order.credit_amount or 0)
             customer.updated_at = datetime.now()
 
     db.commit()
     db.refresh(new_order)
-    
-    # AUTOMATICALLY CREATE KOT/BOT for the order items
-    await OrderService.create_kots_for_order(db, new_order.id, current_user.id)
     
     # Reload with relationships
     order = db.query(Order).options(
@@ -197,10 +209,8 @@ async def update_order(
     # Separate items if they exist
     items_data = order_data.pop('items', None)
     
-    # Filter fields to only include valid model columns
-    valid_order_keys = {c.key for c in Order.__table__.columns}
     for key, value in order_data.items():
-        if key in valid_order_keys:
+        if hasattr(order, key):
             setattr(order, key, value)
     
     # Update items if provided
@@ -220,23 +230,29 @@ async def update_order(
             db.add(new_order_item)
     
     # Recalculate amounts if items were updated or specific amounts provided
-    if items_data is not None:
-        total = sum(item['price'] * item['quantity'] for item in items_data)
-        order.gross_amount = total
-        # Include current tax/sc in calculation if they exist
-        order.net_amount = total - order.discount + (order.service_charge or 0) + (order.tax or 0)
-        order.total_amount = order.net_amount
-    elif any(k in order_data for k in ['gross_amount', 'discount', 'service_charge', 'tax']):
-        # If any financial field was updated, update net and total
-        order.net_amount = (order.gross_amount or 0) - (order.discount or 0) + (order.service_charge or 0) + (order.tax or 0)
+    if items_data is not None or 'gross_amount' in order_data or 'discount' in order_data or 'delivery_charge' in order_data:
+        # Use existing gross if items not provided
+        gross = sum(item.quantity * item.price for item in order.items)
+        
+        settings = db.query(CompanySettings).first()
+        sc_rate = settings.service_charge_rate if settings else 10.0
+        tax_rate = settings.tax_rate if settings else 13.0
+        
+        sc_amount = round(gross * (sc_rate / 100), 2)
+        tax_amount = round((gross + sc_amount) * (tax_rate / 100), 2)
+        
+        order.gross_amount = gross
+        order.service_charge_amount = sc_amount
+        order.tax_amount = tax_amount
+        order.net_amount = round(gross - order.discount + sc_amount + tax_amount + order.delivery_charge, 2)
         order.total_amount = order.net_amount
     
     # Handle KOT status when order status changes
     if 'status' in order_data:
         new_status = order_data['status']
         if new_status in ['Paid', 'Completed'] and old_status not in ['Paid', 'Completed']:
-            # DEDUCT INVENTORY BASED ON BOM
-            InventoryService.deduct_inventory_for_order(db, order, current_user.id)
+            # Inventory is already deducted when KOT/BOT is marked as Served
+            # No need to deduct again here
             
             # Mark all associated KOTs as Served when payment is done
             db.query(KOT).filter(KOT.order_id == order.id).update({"status": "Served"})
@@ -245,15 +261,22 @@ async def update_order(
             if order.table_id:
                 table = db.query(Table).filter(Table.id == order.table_id).first()
                 if table:
-                    table.status = "Available"
+                    if table.merge_group_id:
+                        # Update all tables in merge group
+                        db.query(Table).filter(
+                            Table.merge_group_id == table.merge_group_id,
+                            Table.branch_id == order.branch_id
+                        ).update({"status": "Available"})
+                    else:
+                        table.status = "Available"
             
             # Update customer stats if applicable
             if order.customer_id:
                 customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
                 if customer:
                     customer.total_visits += 1
-                    customer.total_spent += order.net_amount
-                    customer.due_amount += order.credit_amount
+                    customer.total_spent += (order.net_amount or 0)
+                    customer.due_amount += (order.credit_amount or 0)
                     customer.updated_at = datetime.now()
             
             # Update active POS Session for the current user (Real-time tracking)
@@ -265,31 +288,43 @@ async def update_order(
                 
                 if active_session:
                     # Update session stats
-                    active_session.total_sales += order.net_amount
+                    active_session.total_sales += (order.net_amount or 0)
                     active_session.total_orders += 1
                     active_session.updated_at = datetime.now()
                     
         elif new_status == 'Cancelled':
-            # Optionally mark KOTs as Cancelled too? The user didn't ask, but it makes sense.
-            # However, I'll stick to 'Served' for payment as requested.
             if order.table_id:
                 table = db.query(Table).filter(Table.id == order.table_id).first()
                 if table:
-                    table.status = "Available"
+                    if table.merge_group_id:
+                        db.query(Table).filter(
+                            Table.merge_group_id == table.merge_group_id,
+                            Table.branch_id == order.branch_id
+                        ).update({"status": "Available"})
+                    else:
+                        table.status = "Available"
         elif new_status == 'BillRequested' and order.table_id:
             table = db.query(Table).filter(Table.id == order.table_id).first()
             if table:
-                table.status = "BillRequested"
+                if table.merge_group_id:
+                    db.query(Table).filter(
+                        Table.merge_group_id == table.merge_group_id,
+                        Table.branch_id == order.branch_id
+                    ).update({"status": "BillRequested"})
+                else:
+                    table.status = "BillRequested"
         elif new_status in ['Pending', 'In Progress'] and order.table_id:
             table = db.query(Table).filter(Table.id == order.table_id).first()
             if table:
-                table.status = "Occupied"
+                if table.merge_group_id:
+                    db.query(Table).filter(
+                        Table.merge_group_id == table.merge_group_id,
+                        Table.branch_id == order.branch_id
+                    ).update({"status": "Occupied"})
+                else:
+                    table.status = "Occupied"
     
     db.commit()
-    
-    # AUTOMATICALLY CREATE KOT/BOT for the order items if order is being built
-    if items_data is not None and order.status not in ['Paid', 'Completed', 'Cancelled']:
-        await OrderService.create_kots_for_order(db, order.id, current_user.id)
     
     # Reload with relationships
     updated_order = db.query(Order).options(
@@ -299,59 +334,6 @@ async def update_order(
     ).filter(Order.id == order_id).first()
     
     return updated_order
-
-
-@router.post("/{order_id}/items")
-async def add_items_to_order(
-    order_id: int,
-    items_data: List[dict] = Body(..., embed=True),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """Add items to an existing order and trigger KOT generation"""
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-        
-    for item in items_data:
-        order_item = OrderItem(
-            order_id=order.id,
-            menu_item_id=item['menu_item_id'],
-            quantity=item['quantity'],
-            price=item.get('price', 0),
-            subtotal=item.get('subtotal', item.get('price', 0) * item['quantity']),
-            notes=item.get('notes', '')
-        )
-        db.add(order_item)
-        
-    db.commit()
-    
-    # Automatically generate KOT/BOT for new items
-    await OrderService.create_kots_for_order(db, order.id, current_user.id)
-    
-    return {"message": "Items added and KOTs generated"}
-
-
-@router.delete("/{order_id}/items/{item_id}")
-async def remove_item_from_order(
-    order_id: int,
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """Remove an item from an order"""
-    item = db.query(OrderItem).filter(
-        OrderItem.order_id == order_id,
-        OrderItem.id == item_id
-    ).first()
-    
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
-        
-    db.delete(item)
-    db.commit()
-    
-    return {"message": "Item removed from order"}
 
 
 @router.delete("/{order_id}")
@@ -369,7 +351,13 @@ async def delete_order(
     if order.table_id:
         table = db.query(Table).filter(Table.id == order.table_id).first()
         if table:
-            table.status = "Available"
+            if table.merge_group_id:
+                db.query(Table).filter(
+                    Table.merge_group_id == table.merge_group_id,
+                    Table.branch_id == order.branch_id
+                ).update({"status": "Available"})
+            else:
+                table.status = "Available"
     
     db.delete(order)
     db.commit()
@@ -401,3 +389,53 @@ async def print_bill(
     background_tasks.add_task(printing_service.print_bill, order)
     
     return {"message": "Bill print job queued"}
+    
+@router.post("/{order_id}/change-table")
+async def change_order_table(
+    order_id: int,
+    new_table_id: int = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Change order's table and update statuses"""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+        
+    old_table_id = order.table_id
+    if old_table_id == new_table_id:
+        return {"message": "Table is the same"}
+        
+    # 1. Handle Old Table(s)
+    if old_table_id:
+        old_table = db.query(Table).filter(Table.id == old_table_id).first()
+        if old_table:
+            if old_table.merge_group_id:
+                # Make all tables in the old group available
+                db.query(Table).filter(
+                    Table.merge_group_id == old_table.merge_group_id,
+                    Table.branch_id == order.branch_id
+                ).update({"status": "Available"})
+            else:
+                old_table.status = "Available"
+                
+    # 2. Handle New Table(s)
+    new_table = db.query(Table).filter(Table.id == new_table_id).first()
+    if not new_table:
+        raise HTTPException(status_code=404, detail="New table not found")
+        
+    # Update order
+    order.table_id = new_table_id
+    
+    # 3. Update New table status
+    if new_table.merge_group_id:
+        # Update all tables in new merge group
+        db.query(Table).filter(
+            Table.merge_group_id == new_table.merge_group_id,
+            Table.branch_id == order.branch_id
+        ).update({"status": "Occupied"})
+    else:
+        new_table.status = "Occupied"
+        
+    db.commit()
+    return {"message": "Table changed successfully", "new_table_id": new_table_id}

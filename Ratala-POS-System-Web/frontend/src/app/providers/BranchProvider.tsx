@@ -50,6 +50,10 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     useEffect(() => {
         if (token) {
             fetchBranches();
+        } else {
+            setCurrentBranch(null);
+            setAccessibleBranches([]);
+            setLoading(false);
         }
     }, [token]);
 

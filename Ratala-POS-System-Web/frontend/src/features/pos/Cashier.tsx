@@ -18,9 +18,10 @@ import {
     DialogActions,
     IconButton
 } from '@mui/material';
-import { Search, Receipt, Download, Printer, X } from 'lucide-react';
+import { Search, Receipt, Download, Printer, X, CreditCard } from 'lucide-react';
 import { ordersAPI } from '../../services/api';
 import { useReactToPrint } from 'react-to-print';
+import { useNavigate } from 'react-router-dom';
 import { useBranch } from '../../app/providers/BranchProvider';
 import BillView from './billing/BillView';
 import html2canvas from 'html2canvas';
@@ -102,6 +103,15 @@ const Cashier: React.FC = () => {
         order.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const navigate = useNavigate();
+
+    const handlePay = (order: any) => {
+        // Navigate to billing page with orderId in state
+        // If it's a table order, pass tableId, otherwise use 0
+        const tableId = order.table_id || 0;
+        navigate(`/pos/billing/${tableId}`, { state: { orderId: order.id } });
+    };
+
     return (
         <Box>
             <Box sx={{ mb: 4 }}>
@@ -175,7 +185,7 @@ const Cashier: React.FC = () => {
                                     <TableCell>
                                         {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>NPRs. {order.net_amount?.toLocaleString() || 0}</TableCell>
+                                    <TableCell sx={{ fontWeight: 700 }}>NPRs. {Number(order.net_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>
                                         <Chip
                                             label={order.status || 'Pending'}
@@ -195,6 +205,21 @@ const Cashier: React.FC = () => {
                                             sx={{ color: '#FFC107', textTransform: 'none', mr: 1 }}
                                         >
                                             Bill
+                                        </Button>
+                                        <Button
+                                            size="small"
+                                            startIcon={<CreditCard size={14} />}
+                                            onClick={() => handlePay(order)}
+                                            variant="contained"
+                                            sx={{
+                                                bgcolor: '#FFC107',
+                                                '&:hover': { bgcolor: '#e67e00' },
+                                                textTransform: 'none',
+                                                fontWeight: 800,
+                                                borderRadius: '8px'
+                                            }}
+                                        >
+                                            Pay
                                         </Button>
                                     </TableCell>
                                 </TableRow>

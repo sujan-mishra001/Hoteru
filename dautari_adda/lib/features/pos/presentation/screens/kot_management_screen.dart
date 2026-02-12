@@ -57,6 +57,7 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        toolbarHeight: 75,
         title: const Text('KOT/BOT Management', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
@@ -66,62 +67,70 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
             onPressed: _loadKots,
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(100),
-          child: Column(
-            children: [
-              // KOT / BOT Switcher
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Container(
-                  height: 45,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildTypeButton('KOT', Icons.restaurant_menu_rounded),
-                      ),
-                      Expanded(
-                        child: _buildTypeButton('BOT', Icons.local_bar_rounded),
-                      ),
-                    ],
+
+      ),
+      body: Column(
+        children: [
+          Container(
+            color: Colors.grey[50], // Match scaffold background
+            child: Column(
+              children: [
+                // KOT / BOT Switcher
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Container(
+                    height: 45,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildTypeButton('KOT', Icons.restaurant_menu_rounded),
+                        ),
+                        Expanded(
+                          child: _buildTypeButton('BOT', Icons.local_bar_rounded),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              TabBar(
-                controller: _tabController,
-                labelColor: Colors.black87,
-                unselectedLabelColor: Colors.black54,
-                indicatorColor: Colors.black87,
-                indicatorWeight: 3,
-                tabs: const [
-                  Tab(text: 'Pending'),
-                  Tab(text: 'Completed'),
-                  Tab(text: 'All'),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-          : HorizontalSwipeHitTestFilter(
-              startPercentage: 0.15,
-              endPercentage: 0.85,
-              child: TabBarView(
-                controller: _tabController,
-                physics: const ClampingScrollPhysics(),
-                children: [
-                  _buildKotList('Pending'),
-                  _buildKotList('Completed'),
-                  _buildKotList('All'),
-                ],
-              ),
+                TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.black87,
+                  unselectedLabelColor: Colors.black54,
+                  indicatorColor: Colors.black87,
+                  indicatorWeight: 3,
+                  tabs: const [
+                    Tab(text: 'Pending'),
+                    Tab(text: 'Completed'),
+                    Tab(text: 'All'),
+                  ],
+                ),
+              ],
             ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
+                : HorizontalSwipeHitTestFilter(
+                    startPercentage: 0.15,
+                    endPercentage: 0.85,
+                    child: TabBarView(
+                      controller: _tabController,
+                      physics: const ClampingScrollPhysics(),
+                      children: [
+                        _buildKotList('Pending'),
+                        _buildKotList('Completed'),
+                        _buildKotList('All'),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 

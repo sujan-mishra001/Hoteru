@@ -12,13 +12,19 @@ const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch, set
 
     const subtotal = order.gross_amount || 0;
     const discount = order.discount || 0;
-    const scRate = settings?.service_charge_rate || 5;
-    const taxRate = settings?.tax_rate || 0;
+    const scRate = settings?.service_charge_rate !== undefined ? settings.service_charge_rate : (order.service_charge_amount > 0 ? Math.round((order.service_charge_amount * 100) / (subtotal - discount)) : 0);
+    const taxRate = settings?.tax_rate !== undefined ? settings.tax_rate : (order.tax_amount > 0 ? Math.round((order.tax_amount * 100) / ((subtotal - discount) + (order.service_charge_amount || 0))) : 0);
 
-    // Attempt to calculate backward if not clearly stored, but prefer dynamic calculation for preview
-    const serviceCharge = Math.round(subtotal * (scRate / 100));
-    const vat = Math.round((subtotal + serviceCharge) * (taxRate / 100));
-    const total = order.net_amount || (subtotal - discount + serviceCharge + vat);
+    // Use stored values if available, otherwise calculate fallback
+    const serviceCharge = order.service_charge_amount !== undefined && order.service_charge_amount !== null
+        ? order.service_charge_amount
+        : Math.round(subtotal * (scRate / 100));
+
+    const vat = order.tax_amount !== undefined && order.tax_amount !== null
+        ? order.tax_amount
+        : Math.round((subtotal + serviceCharge) * (taxRate / 100));
+
+    const total = order.net_amount || (subtotal - discount + serviceCharge + vat + (order.delivery_charge || 0));
 
     return (
         <Box
@@ -59,8 +65,11 @@ const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch, set
             <Box sx={{ mb: 1 }}>
                 <Typography sx={{ fontSize: '11px' }}><strong>Bill No:</strong> {order.order_number}</Typography>
                 <Typography sx={{ fontSize: '11px' }}><strong>Date:</strong> {new Date(order.created_at).toLocaleString()}</Typography>
-                <Typography sx={{ fontSize: '11px' }}><strong>Table:</strong> {order.table?.table_id || 'Walk-in'}</Typography>
-                <Typography sx={{ fontSize: '11px' }}><strong>Order Type:</strong> {order.order_type}</Typography>
+                {order.table?.table_id ? (
+                    <Typography sx={{ fontSize: '11px' }}><strong>Table:</strong> {order.table.table_id}</Typography>
+                ) : (
+                    <Typography sx={{ fontSize: '11px' }}><strong>Type:</strong> {order.order_type || 'Takeaway'}</Typography>
+                )}
                 {order.customer && <Typography sx={{ fontSize: '11px' }}><strong>Customer:</strong> {order.customer.name}</Typography>}
             </Box>
 
@@ -78,8 +87,8 @@ const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch, set
                     {order.items?.map((item: any) => (
                         <TableRow key={item.id}>
                             <TableCell sx={{ maxWidth: '40mm', overflow: 'hidden' }}>{item.menu_item?.name}</TableCell>
-                            <TableCell align="center">{item.quantity}</TableCell>
-                            <TableCell align="right">{item.subtotal}</TableCell>
+                            <TableCell align="center">{Number(item.quantity).toFixed(2)}</TableCell>
+                            <TableCell align="right">{Number(item.subtotal).toFixed(2)}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
@@ -90,35 +99,35 @@ const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch, set
             <Box sx={{ px: 0.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography sx={{ fontSize: '11px' }}>Subtotal:</Typography>
-                    <Typography sx={{ fontSize: '11px' }}>{subtotal}</Typography>
+                    <Typography sx={{ fontSize: '11px' }}>{Number(subtotal).toFixed(2)}</Typography>
                 </Box>
-                {discount > 0 && (
+                {(discount > 0 || order.discount > 0) && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography sx={{ fontSize: '11px' }}>Discount:</Typography>
-                        <Typography sx={{ fontSize: '11px' }}>-{discount}</Typography>
+                        <Typography sx={{ fontSize: '11px' }}>-{Number(discount || order.discount).toFixed(2)}</Typography>
                     </Box>
                 )}
-                {serviceCharge > 0 && (
+                {(serviceCharge > 0 || order.service_charge_amount > 0) && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography sx={{ fontSize: '11px' }}>Service Charge ({scRate}%):</Typography>
-                        <Typography sx={{ fontSize: '11px' }}>{serviceCharge}</Typography>
+                        <Typography sx={{ fontSize: '11px' }}>{Number(serviceCharge || order.service_charge_amount).toFixed(2)}</Typography>
                     </Box>
                 )}
-                {taxRate > 0 && (
+                {(vat > 0 || order.tax_amount > 0 || taxRate > 0) && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography sx={{ fontSize: '11px' }}>VAT ({taxRate}%):</Typography>
-                        <Typography sx={{ fontSize: '11px' }}>{vat}</Typography>
+                        <Typography sx={{ fontSize: '11px' }}>{Number(vat || order.tax_amount).toFixed(2)}</Typography>
                     </Box>
                 )}
                 {order.delivery_charge > 0 && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography sx={{ fontSize: '11px' }}>Delivery Charge:</Typography>
-                        <Typography sx={{ fontSize: '11px' }}>{order.delivery_charge}</Typography>
+                        <Typography sx={{ fontSize: '11px' }}>{Number(order.delivery_charge).toFixed(2)}</Typography>
                     </Box>
                 )}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
                     <Typography sx={{ fontSize: '14px', fontWeight: 900 }}>TOTAL:</Typography>
-                    <Typography sx={{ fontSize: '14px', fontWeight: 900 }}>NPRs. {total}</Typography>
+                    <Typography sx={{ fontSize: '14px', fontWeight: 900 }}>NPRs. {Number(total).toFixed(2)}</Typography>
                 </Box>
             </Box>
 
@@ -132,12 +141,12 @@ const BillView = forwardRef<HTMLDivElement, BillViewProps>(({ order, branch, set
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography sx={{ fontSize: '11px' }}>Paid Amount:</Typography>
-                            <Typography sx={{ fontSize: '11px', fontWeight: 800 }}>{order.paid_amount || 0}</Typography>
+                            <Typography sx={{ fontSize: '11px', fontWeight: 800 }}>{Number(order.paid_amount || 0).toFixed(2)}</Typography>
                         </Box>
                         {(order.credit_amount > 0 || order.payment_type === 'Credit') && (
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.2 }}>
                                 <Typography sx={{ fontSize: '11px', color: 'red' }}>Remaining Due:</Typography>
-                                <Typography sx={{ fontSize: '11px', fontWeight: 800, color: 'red' }}>{order.credit_amount || 0}</Typography>
+                                <Typography sx={{ fontSize: '11px', fontWeight: 800, color: 'red' }}>{Number(order.credit_amount || 0).toFixed(2)}</Typography>
                             </Box>
                         )}
                     </Box>

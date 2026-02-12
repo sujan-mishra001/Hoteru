@@ -34,9 +34,11 @@ const KOTPrintView = forwardRef<HTMLDivElement, KOTPrintViewProps>(({ kot, branc
             <Divider sx={{ my: 0.5, borderStyle: 'dashed', borderColor: 'black' }} />
 
             <Box sx={{ mb: 0.5 }}>
-                <Typography sx={{ fontSize: '16px', fontWeight: 900 }}>Table: {kot.order?.table?.table_id || 'N/A'}</Typography>
+                <Typography sx={{ fontSize: '16px', fontWeight: 900 }}>
+                    {kot.order?.table?.table_id ? `Table: ${kot.order.table.table_id}` : `Type: ${kot.order?.order_type || 'Takeaway'}`}
+                </Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography sx={{ fontSize: '11px' }}>Type: {kot.order?.order_type || 'N/A'}</Typography>
+                    <Typography sx={{ fontSize: '11px' }}>Date: {new Date(kot.created_at).toLocaleDateString()}</Typography>
                     <Typography sx={{ fontSize: '11px' }}>Time: {new Date(kot.created_at).toLocaleTimeString()}</Typography>
                 </Box>
                 {kot.user && (
@@ -52,7 +54,7 @@ const KOTPrintView = forwardRef<HTMLDivElement, KOTPrintViewProps>(({ kot, branc
                 {kot.items?.map((item: any, idx: number) => (
                     <ListItem key={idx} disablePadding sx={{ py: 0.5, alignItems: 'flex-start' }}>
                         <Typography sx={{ fontSize: '16px', fontWeight: 900, mr: 1, minWidth: '30px' }}>
-                            {item.quantity}x
+                            {Number(item.quantity).toFixed(2)}x
                         </Typography>
                         <Box sx={{ flexGrow: 1 }}>
                             <Typography sx={{ fontSize: '16px', fontWeight: 900 }}>{item.menu_item?.name}</Typography>

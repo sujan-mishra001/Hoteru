@@ -26,17 +26,14 @@ import {
     CircularProgress,
     IconButton,
     Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
+    Snackbar,
+    Alert,
 } from '@mui/material';
 import {
     Settings as SettingsIcon,
     Utensils,
     Building2,
     User,
-    Wallet,
-    CreditCard,
     ArrowLeftRight,
     Package,
     Square,
@@ -53,11 +50,14 @@ import {
     Printer,
     FileText,
     Download,
-    Check
+    Check,
+    Instagram,
+    Facebook
 } from 'lucide-react';
 import QRManagement from './QRManagement';
 import FloorTableSettings from './FloorTableSettings';
-import { menuAPI, settingsAPI, branchAPI, authAPI, deliveryAPI, reportsAPI, qrAPI } from '../../services/api';
+import PrinterSettings from './PrinterSettings';
+import { menuAPI, settingsAPI, branchAPI, authAPI, deliveryAPI, reportsAPI, qrAPI, API_BASE_URL } from '../../services/api';
 import { useAuth } from '../../app/providers/AuthProvider';
 
 const Settings: React.FC = () => {
@@ -92,19 +92,32 @@ const Settings: React.FC = () => {
     const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
     const [openDeliveryDialog, setOpenDeliveryDialog] = useState(false);
     const [editingPartner, setEditingPartner] = useState<any>(null);
-    const [partnerForm, setPartnerForm] = useState({ name: '', phone: '', vehicle_number: '', status: 'Active' });
+    const [partnerForm, setPartnerForm] = useState({ name: '', phone: '', status: 'Active' });
 
     // States for User Profile
     const { user, updateUser } = useAuth();
     const [profileForm, setProfileForm] = useState({ full_name: '', email: '', username: '', password: '' });
     const [qrSrc, setQrSrc] = useState<string>('');
-    const [uploading, setUploading] = useState(false);
+    const [logoUploading, setLogoUploading] = useState(false);
+    const [currentBranchSettings, setCurrentBranchSettings] = useState<any>(null);
+    const [branchSaving, setBranchSaving] = useState(false);
+    const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
+        open: false, message: '', severity: 'success'
+    });
+
+    const showAlert = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+        setNotification({ open: true, message, severity });
+    };
+
+    const isAdmin = user?.role?.toLowerCase() === 'admin';
 
     useEffect(() => {
         if (mainTab === 0 && subTab === 'company-profile') {
             loadCompanySettings();
         } else if (mainTab === 0 && subTab === 'profile') {
             if (user) setProfileForm({ full_name: user.full_name || '', email: user.email || '', username: user.username || '', password: '' });
+        } else if (mainTab === 0 && subTab === 'manage-branch') {
+            loadCurrentBranch();
         } else if (mainTab === 1 && subTab === 'update-menu-rate') {
             loadMenuItems();
         } else if (mainTab === 1 && subTab === 'add-branches') {
@@ -146,7 +159,7 @@ const Settings: React.FC = () => {
             window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Export failed:', error);
-            alert('Failed to export report');
+            showAlert('Failed to export report', 'error');
         } finally {
             setLoading(false);
         }
@@ -168,7 +181,7 @@ const Settings: React.FC = () => {
             window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Master export failed:', error);
-            alert('Failed to export master report');
+            showAlert('Failed to export master report', 'error');
         } finally {
             setLoading(false);
         }
@@ -213,10 +226,10 @@ const Settings: React.FC = () => {
         try {
             setLoading(true);
             await settingsAPI.updateCompanySettings(companySettings);
-            alert('Company settings updated successfully!');
+            showAlert('Company settings saved smoothly!', 'success');
         } catch (error) {
             console.error('Error updating company settings:', error);
-            alert('Failed to update company settings');
+            showAlert('Failed to update company settings', 'error');
         } finally {
             setLoading(false);
         }
@@ -246,6 +259,36 @@ const Settings: React.FC = () => {
         }
     };
 
+    const loadCurrentBranch = async () => {
+        try {
+            setLoading(true);
+            const branchId = user?.current_branch_id;
+            if (branchId) {
+                const res = await branchAPI.getById(branchId);
+                setCurrentBranchSettings(res.data);
+            }
+        } catch (error) {
+            console.error('Error loading current branch:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveBranchSettings = async () => {
+        try {
+            setBranchSaving(true);
+            if (currentBranchSettings?.id) {
+                await branchAPI.update(currentBranchSettings.id, currentBranchSettings);
+                showAlert('Branch settings updated successfully!', 'success');
+            }
+        } catch (error) {
+            console.error('Error saving branch settings:', error);
+            showAlert('Failed to update branch settings', 'error');
+        } finally {
+            setBranchSaving(false);
+        }
+    };
+
     const handlePriceChange = (id: number, val: string) => {
         const price = parseFloat(val);
         if (!isNaN(price)) {
@@ -254,14 +297,35 @@ const Settings: React.FC = () => {
     };
 
     const handleSaveMenuRates = async () => {
-        console.log('Saving prices:', updatedPrices);
-        alert('Changes saved successfully (Simulation)');
+        try {
+            setLoading(true);
+            const updates = Object.keys(updatedPrices).map(id => ({
+                id: parseInt(id),
+                price: updatedPrices[parseInt(id)]
+            }));
+
+            if (updates.length === 0) {
+                showAlert('No changes to save', 'info');
+                return;
+            }
+
+            await menuAPI.bulkUpdateItems(updates);
+            showAlert('Success! All menu rates have been updated perfectly.', 'success');
+            setUpdatedPrices({});
+            loadMenuItems();
+        } catch (error) {
+            console.error('Error saving menu rates:', error);
+            showAlert('Oops! We couldn\'t save the menu rates. Please try again.', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const renderGeneralSidebar = () => (
         <List sx={{ p: 0 }}>
             {[
                 { id: 'company-profile', text: 'Company Profile', icon: <Building2 size={20} /> },
+                { id: 'manage-branch', text: 'Manage Branch', icon: <GitMerge size={20} /> },
                 { id: 'profile', text: 'Profile', icon: <User size={20} /> },
                 { id: 'import-export', text: 'Import/Export', icon: <ArrowLeftRight size={20} /> },
                 { id: 'plans-subscription', text: 'Plans & Subscription', icon: <Package size={20} /> },
@@ -327,18 +391,82 @@ const Settings: React.FC = () => {
         <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h6" fontWeight={800}>Company Profile</Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<Save size={18} />}
-                    onClick={handleSaveSettings}
-                    sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' }, textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
-                >
-                    Update Settings
-                </Button>
+                {isAdmin && (
+                    <Button
+                        variant="contained"
+                        startIcon={<Save size={18} />}
+                        onClick={handleSaveSettings}
+                        disabled={loading || logoUploading}
+                        sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' }, textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
+                    >
+                        {loading ? 'Saving...' : 'Update Settings'}
+                    </Button>
+                )}
             </Box>
 
+            <Paper sx={{ p: 4, mb: 4, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: 'center' }}>
+                    <Box sx={{ position: 'relative' }}>
+                        <Avatar
+                            src={companySettings.logo_url ? `${API_BASE_URL}${companySettings.logo_url}` : undefined}
+                            sx={{ width: 140, height: 140, borderRadius: '16px', border: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}
+                            variant="rounded"
+                        >
+                            {!companySettings.logo_url && <Building2 size={60} color="#94a3b8" />}
+                        </Avatar>
+                        {isAdmin && (
+                            <IconButton
+                                component="label"
+                                size="small"
+                                sx={{
+                                    position: 'absolute', bottom: -10, right: -10, bgcolor: '#FFC107',
+                                    '&:hover': { bgcolor: '#FF7700' }, color: 'white', border: '2px solid white',
+                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                }}
+                                disabled={logoUploading}
+                            >
+                                {logoUploading ? <CircularProgress size={16} color="inherit" /> : <Plus size={16} />}
+                                <input
+                                    type="file" hidden accept="image/*"
+                                    onChange={async (e) => {
+                                        if (e.target.files?.[0]) {
+                                            const formData = new FormData();
+                                            formData.append('file', e.target.files[0]);
+                                            try {
+                                                setLogoUploading(true);
+                                                const res = await settingsAPI.updateCompanyLogo(formData);
+                                                setCompanySettings((prev: any) => ({ ...prev, logo_url: res.data.logo_url }));
+                                                showAlert('Company logo updated beautifully!', 'success');
+                                            } catch (err) {
+                                                showAlert('Failed to upload logo', 'error');
+                                            } finally {
+                                                setLogoUploading(false);
+                                            }
+                                        }
+                                    }}
+                                />
+                            </IconButton>
+                        )}
+                    </Box>
+                    <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="h5" fontWeight={800}>{companySettings.company_name || 'Your Company Name'}</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            {companySettings.address || 'Address not set'} • {companySettings.phone || 'Contact not set'}
+                        </Typography>
+                        {!isAdmin && (
+                            <Chip
+                                label="View Only"
+                                size="small"
+                                icon={<User size={14} />}
+                                sx={{ mt: 2, bgcolor: '#f1f5f9', fontWeight: 700 }}
+                            />
+                        )}
+                    </Box>
+                </Box>
+            </Paper>
+
             <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2, textTransform: 'uppercase' }}>General Settings</Typography>
+                <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2, textTransform: 'uppercase' }}>General Information</Typography>
                 <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
                     <Grid container spacing={3}>
                         <Grid size={{ xs: 12, md: 6 }}>
@@ -347,6 +475,7 @@ const Settings: React.FC = () => {
                                 label="Company Name"
                                 value={companySettings.company_name}
                                 onChange={(e) => handleSettingsChange('company_name', e.target.value)}
+                                disabled={!isAdmin}
                                 sx={{ mb: 2 }}
                             />
                             <TextField
@@ -354,6 +483,7 @@ const Settings: React.FC = () => {
                                 label="Email Address"
                                 value={companySettings.email}
                                 onChange={(e) => handleSettingsChange('email', e.target.value)}
+                                disabled={!isAdmin}
                                 sx={{ mb: 2 }}
                             />
                             <TextField
@@ -361,6 +491,7 @@ const Settings: React.FC = () => {
                                 label="Address"
                                 value={companySettings.address}
                                 onChange={(e) => handleSettingsChange('address', e.target.value)}
+                                disabled={!isAdmin}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, md: 6 }}>
@@ -369,6 +500,7 @@ const Settings: React.FC = () => {
                                 label="Contact No."
                                 value={companySettings.phone}
                                 onChange={(e) => handleSettingsChange('phone', e.target.value)}
+                                disabled={!isAdmin}
                                 sx={{ mb: 2 }}
                             />
                             <TextField
@@ -376,6 +508,7 @@ const Settings: React.FC = () => {
                                 label="VAT/PAN No."
                                 value={companySettings.vat_pan_no}
                                 onChange={(e) => handleSettingsChange('vat_pan_no', e.target.value)}
+                                disabled={!isAdmin}
                                 sx={{ mb: 2 }}
                             />
                             <TextField
@@ -383,6 +516,7 @@ const Settings: React.FC = () => {
                                 label="Registration No."
                                 value={companySettings.registration_no}
                                 onChange={(e) => handleSettingsChange('registration_no', e.target.value)}
+                                disabled={!isAdmin}
                             />
                         </Grid>
                     </Grid>
@@ -400,6 +534,7 @@ const Settings: React.FC = () => {
                                 label="Tax Rate (%)"
                                 value={companySettings.tax_rate}
                                 onChange={(e) => handleSettingsChange('tax_rate', parseFloat(e.target.value))}
+                                disabled={!isAdmin}
                                 InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
                             />
                         </Grid>
@@ -410,6 +545,7 @@ const Settings: React.FC = () => {
                                 label="Service Charge (%)"
                                 value={companySettings.service_charge_rate}
                                 onChange={(e) => handleSettingsChange('service_charge_rate', parseFloat(e.target.value))}
+                                disabled={!isAdmin}
                                 InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
                             />
                         </Grid>
@@ -420,6 +556,7 @@ const Settings: React.FC = () => {
                                 label="Default Discount (%)"
                                 value={companySettings.discount_rate}
                                 onChange={(e) => handleSettingsChange('discount_rate', parseFloat(e.target.value))}
+                                disabled={!isAdmin}
                                 InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
                             />
                         </Grid>
@@ -427,31 +564,9 @@ const Settings: React.FC = () => {
                 </Paper>
             </Box>
 
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2, textTransform: 'uppercase' }}>Invoice Settings</Typography>
-                <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                fullWidth
-                                label="Invoice Prefix"
-                                value={companySettings.invoice_prefix}
-                                onChange={(e) => handleSettingsChange('invoice_prefix', e.target.value)}
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <TextField
-                                fullWidth
-                                label="Invoice Footer Text"
-                                value={companySettings.invoice_footer_text}
-                                onChange={(e) => handleSettingsChange('invoice_footer_text', e.target.value)}
-                            />
-                        </Grid>
-                    </Grid>
-                </Paper>
-            </Box>
         </Box>
     );
+
 
     const renderUpdateMenuRate = () => (
         <Box>
@@ -520,12 +635,10 @@ const Settings: React.FC = () => {
                                             <TextField
                                                 size="small"
                                                 fullWidth
-                                                placeholder=""
+                                                value={updatedPrices[item.id] !== undefined ? updatedPrices[item.id] : item.price}
                                                 onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                                                sx={{
-                                                    '& .MuiOutlinedInput-root': { borderRadius: '4px', bgcolor: '#f8fafc', height: 32 },
-                                                    '& .MuiOutlinedInput-input': { fontSize: '0.8rem' }
-                                                }}
+                                                onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
                                             />
                                         </TableCell>
                                     </TableRow>
@@ -600,6 +713,76 @@ const Settings: React.FC = () => {
         </Box>
     );
 
+    const renderManageBranch = () => (
+        <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" fontWeight={800}>Manage Branch</Typography>
+                {isAdmin && (
+                    <Button
+                        variant="contained"
+                        startIcon={<Save size={18} />}
+                        onClick={handleSaveBranchSettings}
+                        disabled={branchSaving || !currentBranchSettings}
+                        sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' }, textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
+                    >
+                        {branchSaving ? 'Saving...' : 'Save Branch Details'}
+                    </Button>
+                )}
+            </Box>
+
+            {currentBranchSettings ? (
+                <Paper sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                    <Grid container spacing={3}>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <TextField
+                                fullWidth label="Branch Name" sx={{ mb: 2 }}
+                                value={currentBranchSettings.name || ''}
+                                onChange={(e) => setCurrentBranchSettings({ ...currentBranchSettings, name: e.target.value })}
+                            />
+                            <TextField
+                                fullWidth label="Phone Number" sx={{ mb: 2 }}
+                                value={currentBranchSettings.phone || ''}
+                                onChange={(e) => setCurrentBranchSettings({ ...currentBranchSettings, phone: e.target.value })}
+                            />
+                            <TextField
+                                fullWidth label="Address" sx={{ mb: 2 }}
+                                value={currentBranchSettings.address || ''}
+                                onChange={(e) => setCurrentBranchSettings({ ...currentBranchSettings, address: e.target.value })}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <TextField
+                                fullWidth label="Slogan / Tagline" sx={{ mb: 2 }}
+                                value={currentBranchSettings.slogan || ''}
+                                placeholder="Your branch message..."
+                                onChange={(e) => setCurrentBranchSettings({ ...currentBranchSettings, slogan: e.target.value })}
+                            />
+                            <TextField
+                                fullWidth label="Instagram URL" sx={{ mb: 2 }}
+                                value={currentBranchSettings.instagram_url || ''}
+                                placeholder="https://instagram.com/yourhandle"
+                                onChange={(e) => setCurrentBranchSettings({ ...currentBranchSettings, instagram_url: e.target.value })}
+                                InputProps={{ startAdornment: <InputAdornment position="start"><Instagram size={18} /></InputAdornment> }}
+                            />
+                            <TextField
+                                fullWidth label="Facebook URL" sx={{ mb: 2 }}
+                                value={currentBranchSettings.facebook_url || ''}
+                                placeholder="https://facebook.com/yourpage"
+                                onChange={(e) => setCurrentBranchSettings({ ...currentBranchSettings, facebook_url: e.target.value })}
+                                InputProps={{ startAdornment: <InputAdornment position="start"><Facebook size={18} /></InputAdornment> }}
+                            />
+                        </Grid>
+                    </Grid>
+                </Paper>
+            ) : (
+                <Box sx={{ textAlign: 'center', py: 10 }}>
+                    <CircularProgress sx={{ color: '#FFC107' }} />
+                    <Typography sx={{ mt: 2 }} color="text.secondary">Loading branch details...</Typography>
+                </Box>
+            )}
+        </Box>
+    );
+
     const renderUserProfile = () => (
         <Box>
             <Typography variant="h6" fontWeight={800} sx={{ mb: 3 }}>My Profile</Typography>
@@ -607,7 +790,7 @@ const Settings: React.FC = () => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 4 }}>
                     <Box sx={{ position: 'relative' }}>
                         <Avatar
-                            src={user?.profile_image_url ? `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${user.profile_image_url}` : undefined}
+                            src={user?.profile_image_url ? `${API_BASE_URL}${user.profile_image_url}` : undefined}
                             sx={{ width: 120, height: 120, mb: 2, border: '4px solid #f8fafc', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         >
                             {user?.full_name?.charAt(0) || 'U'}
@@ -626,16 +809,16 @@ const Settings: React.FC = () => {
                                         const formData = new FormData();
                                         formData.append('file', e.target.files[0]);
                                         try {
-                                            setUploading(true);
+                                            setProfileUploading(true);
                                             await authAPI.updatePhoto(formData);
                                             // Refresh user context
                                             const updatedUser = await authAPI.getCurrentUser();
                                             updateUser(updatedUser.data);
-                                            alert('Profile picture updated!');
+                                            showAlert('Your profile picture has been updated!', 'success');
                                         } catch (err) {
-                                            alert('Failed to upload photo');
+                                            showAlert('Failed to upload photo', 'error');
                                         } finally {
-                                            setUploading(false);
+                                            setProfileUploading(false);
                                         }
                                     }
                                 }}
@@ -681,9 +864,9 @@ const Settings: React.FC = () => {
                             await authAPI.updateMe(profileForm);
                             const updatedUser = await authAPI.getCurrentUser();
                             updateUser(updatedUser.data);
-                            alert('Profile updated successfully!');
+                            showAlert('Profile updated successfully!', 'success');
                         } catch (err) {
-                            alert('Failed to update profile');
+                            showAlert('Failed to update profile', 'error');
                         } finally {
                             setLoading(false);
                         }
@@ -785,7 +968,7 @@ const Settings: React.FC = () => {
                 <Typography variant="h6" fontWeight={800}>Manage Delivery Partners</Typography>
                 <Button
                     variant="contained" startIcon={<Plus size={18} />}
-                    onClick={() => { setEditingPartner(null); setPartnerForm({ name: '', phone: '', vehicle_number: '', status: 'Active' }); setOpenDeliveryDialog(true); }}
+                    onClick={() => { setEditingPartner(null); setPartnerForm({ name: '', phone: '', status: 'Active' }); setOpenDeliveryDialog(true); }}
                     sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, fontWeight: 700 }}
                 >
                     Add Partner
@@ -801,9 +984,8 @@ const Settings: React.FC = () => {
                                 <Chip label={p.status} size="small" color={p.status === 'Active' ? 'success' : 'default'} sx={{ height: 20, fontSize: '10px' }} />
                             </Box>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Phone: {p.phone || '-'}</Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Vehicle: {p.vehicle_number || '-'}</Typography>
                             <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                                <Button size="small" onClick={() => { setEditingPartner(p); setPartnerForm({ name: p.name, phone: p.phone, vehicle_number: p.vehicle_number, status: p.status }); setOpenDeliveryDialog(true); }}>Edit</Button>
+                                <Button size="small" onClick={() => { setEditingPartner(p); setPartnerForm({ name: p.name, phone: p.phone, status: p.status }); setOpenDeliveryDialog(true); }}>Edit</Button>
                                 <Button size="small" color="error" onClick={async () => { if (confirm('Remove partner?')) { await deliveryAPI.delete(p.id); loadDeliveryPartners(); } }}>Delete</Button>
                             </Box>
                         </Paper>
@@ -816,7 +998,6 @@ const Settings: React.FC = () => {
                     <Typography variant="h6" fontWeight={800} mb={3}>{editingPartner ? 'Edit Partner' : 'Add Partner'}</Typography>
                     <TextField fullWidth label="Partner Name" sx={{ mb: 2 }} value={partnerForm.name} onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })} />
                     <TextField fullWidth label="Phone" sx={{ mb: 2 }} value={partnerForm.phone} onChange={(e) => setPartnerForm({ ...partnerForm, phone: e.target.value })} />
-                    <TextField fullWidth label="Vehicle Number" sx={{ mb: 2 }} value={partnerForm.vehicle_number} onChange={(e) => setPartnerForm({ ...partnerForm, vehicle_number: e.target.value })} />
                     <Button
                         fullWidth variant="contained" sx={{ mt: 2, bgcolor: '#FFC107' }}
                         onClick={async () => {
@@ -857,61 +1038,55 @@ const Settings: React.FC = () => {
                     {!qrSrc && <QrCode size={100} color="#cbd5e1" id="placeholder-qr" style={{ position: 'absolute' }} />}
                 </Box>
                 <Typography variant="subtitle1" fontWeight={700}>Professional Digital Menu</Typography>
+                <Box
+                    sx={{
+                        mt: 1, mb: 2, p: 1, bgcolor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1',
+                        cursor: 'pointer', '&:hover': { bgcolor: '#f1f5f9' }
+                    }}
+                    onClick={() => window.open(`${window.location.origin}/digital-menu/${user?.current_branch_id}`, '_blank')}
+                >
+                    <Typography variant="caption" sx={{ color: '#4f46e5', fontWeight: 700, fontFamily: 'monospace' }}>
+                        {window.location.origin}/digital-menu/{user?.current_branch_id}
+                    </Typography>
+                </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3 }}>
                     This QR links directly to your real-time menu. Customers can scan it to browse items, categories, and prices.
                 </Typography>
-                <Button
-                    fullWidth variant="contained" startIcon={<Download size={18} />} sx={{ bgcolor: '#2C1810', '&:hover': { bgcolor: '#000' } }}
-                    onClick={async () => {
-                        try {
-                            const res = await qrAPI.getMenuQR();
-                            const blob = new Blob([res.data], { type: 'image/png' });
-                            const url = window.URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.setAttribute('download', 'digital-menu-qr.png');
-                            document.body.appendChild(link);
-                            link.click();
-                            link.remove();
-                        } catch (err) {
-                            console.error('Download error:', err);
-                        }
-                    }}
-                >
-                    Download QR Code
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                    <Button
+                        fullWidth variant="outlined" startIcon={<Monitor size={18} />}
+                        sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, borderColor: '#e2e8f0', color: '#1e293b' }}
+                        onClick={() => window.open(`/digital-menu/${user?.current_branch_id}`, '_blank')}
+                    >
+                        View Menu
+                    </Button>
+                    <Button
+                        fullWidth variant="contained" startIcon={<Download size={18} />} sx={{ bgcolor: '#2C1810', '&:hover': { bgcolor: '#000' } }}
+                        onClick={async () => {
+                            try {
+                                const res = await qrAPI.getMenuQR();
+                                const blob = new Blob([res.data], { type: 'image/png' });
+                                const url = window.URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.setAttribute('download', 'digital-menu-qr.png');
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove();
+                            } catch (err) {
+                                console.error('Download error:', err);
+                            }
+                        }}
+                    >
+                        Download QR Code
+                    </Button>
+                </Box>
             </Paper>
         </Box>
     );
 
     const renderPrinterSetup = () => (
-        <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" fontWeight={800}>Printer Setup</Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<Plus size={18} />}
-                    sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, color: '#000', textTransform: 'none', borderRadius: '8px', fontWeight: 700 }}
-                >
-                    Add Printer
-                </Button>
-            </Box>
-
-            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
-                <Printer size={64} color="#94a3b8" />
-                <Typography variant="h6" sx={{ mt: 2 }} fontWeight={700}>No Printers Configured</Typography>
-                <Typography color="text.secondary" sx={{ mb: 3 }}>
-                    Configure your kitchen, bar, and billing printers here.
-                </Typography>
-                <Button
-                    variant="outlined"
-                    startIcon={<Plus size={18} />}
-                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
-                >
-                    Connect New Printer
-                </Button>
-            </Paper>
-        </Box>
+        <PrinterSettings />
     );
 
     return (
@@ -948,13 +1123,14 @@ const Settings: React.FC = () => {
                     <Box sx={{ pb: 4 }}>
                         {mainTab === 0 ? (
                             subTab === 'company-profile' ? renderCompanyProfile() :
-                                subTab === 'profile' ? renderUserProfile() :
-                                    subTab === 'import-export' ? renderImportExport() :
-                                        subTab === 'plans-subscription' ? renderPlansSubscription() : (
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
-                                                <Typography color="text.secondary">Configuration for <strong>{subTab}</strong> coming soon.</Typography>
-                                            </Box>
-                                        )
+                                subTab === 'manage-branch' ? renderManageBranch() :
+                                    subTab === 'profile' ? renderUserProfile() :
+                                        subTab === 'import-export' ? renderImportExport() :
+                                            subTab === 'plans-subscription' ? renderPlansSubscription() : (
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '400px' }}>
+                                                    <Typography color="text.secondary">Configuration for <strong>{subTab}</strong> coming soon.</Typography>
+                                                </Box>
+                                            )
                         ) : (
                             subTab === 'update-menu-rate' ? renderUpdateMenuRate() :
                                 subTab === 'manage-tables' ? <FloorTableSettings /> :
@@ -971,6 +1147,28 @@ const Settings: React.FC = () => {
                     </Box>
                 </Grid>
             </Grid>
+
+            {/* Premium Notification Prompt */}
+            <Snackbar
+                open={notification.open}
+                autoHideDuration={4000}
+                onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+                    severity={notification.severity}
+                    variant="filled"
+                    sx={{
+                        width: '100%',
+                        borderRadius: '12px',
+                        fontWeight: 600,
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                    }}
+                >
+                    {notification.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

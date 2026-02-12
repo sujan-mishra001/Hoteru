@@ -98,22 +98,22 @@ export const SalesSummary: React.FC<{
                         <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <DollarSign size={20} color="#FFC107" />
-                                <Typography variant="h4" fontWeight={900}>NPRs. {totalSales.toLocaleString()}</Typography>
+                                <Typography variant="h4" fontWeight={900}>NPRs. {Number(totalSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                                 <Typography variant="caption" color="#64748b">Net sales today</Typography>
                                 {discount > 0 && (
                                     <Typography variant="caption" color="#94a3b8" sx={{ ml: 1 }}>
-                                        (Gross: NPRs. {grossSales.toLocaleString()})
+                                        (Gross: NPRs. {Number(grossSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                                     </Typography>
                                 )}
                             </Box>
                         </Box>
                         <Box sx={{ mt: 3 }}>
                             {[
-                                { label: 'Paid Sales', val: `NPRs. ${paidSales.toLocaleString()}`, percent: paidPercent, color: '#22c55e', icon: <TrendingUp size={12} /> },
-                                { label: 'Credit Sales', val: `NPRs. ${creditSales.toLocaleString()}`, percent: creditPercent, color: '#ff9800', icon: <TrendingDown size={12} /> },
-                                { label: 'Discount Given', val: `NPRs. ${discount.toLocaleString()}`, percent: discountPercent, color: '#ef4444', icon: null },
+                                { label: 'Paid Sales', val: `NPRs. ${Number(paidSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, percent: paidPercent, color: '#22c55e', icon: <TrendingUp size={12} /> },
+                                { label: 'Credit Sales', val: `NPRs. ${Number(creditSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, percent: creditPercent, color: '#ff9800', icon: <TrendingDown size={12} /> },
+                                { label: 'Discount Given', val: `NPRs. ${Number(discount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, percent: discountPercent, color: '#ef4444', icon: null },
                             ].map((item) => (
                                 <Box key={item.label} sx={{ mb: 2 }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>

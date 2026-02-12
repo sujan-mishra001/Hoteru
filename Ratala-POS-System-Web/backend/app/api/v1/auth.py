@@ -40,12 +40,16 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
             detail="Only admin accounts can be created via signup. Contact your admin to create worker accounts."
         )
     
-    # Check if user already exists
-    existing_user = db.query(DBUser).filter(DBUser.email == user_data.email).first()
+    # Check if user already exists by email or username
+    existing_user = db.query(DBUser).filter(
+        (DBUser.email == user_data.email) | (DBUser.username == user_data.email)
+    ).first()
+    
     if existing_user:
+        print(f"⚠️ Signup failed: User with email {user_data.email} already exists.")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered. Please log in instead."
         )
     
     # Create user
@@ -126,18 +130,29 @@ async def login_for_access_token(
     ).first()
     
     if not user:
+        print(f"❌ Login failed: User {form_data.username} not found.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    if user.disabled:
+        print(f"❌ Login failed: Account for {form_data.username} is disabled.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been disabled. Please contact support.",
+        )
+    
     if not verify_password(form_data.password, user.hashed_password):
+        print(f"❌ Login failed: Incorrect password for user {form_data.username}.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    print(f"✅ Login successful for {form_data.username}")
     
     # Get user's accessible branches
     accessible_branches = []
@@ -208,22 +223,9 @@ async def read_users_me(
         # 2. Fallback to standard permissions for legacy or default roles if no dynamic perms found
         if not permissions:
             if user_role_name == 'manager':
-                permissions = ['dashboard.view', 'pos.access', 'inventory.view', 'orders.view', 'customers.manage', 'sessions.manage']
-            elif user_role_name in ['waiter', 'bartender']:
-                permissions = ['pos.access', 'orders.view', 'customers.manage']
-            elif user_role_name == 'store keeper':
-                permissions = ['inventory.manage', 'inventory.view']
-            elif user_role_name == 'cashier':
-                permissions = ['pos.access', 'orders.view', 'cashier.view', 'sessions.manage']
-            elif user_role_name == 'worker':
-                permissions = ['pos.access', 'orders.view', 'sessions.manage']
+                permissions = ['dashboard.view', 'pos.access']
             else:
-                permissions = ['pos.access'] # Minimal access default
-
-    # Ensure sessions.manage is included if the role is a worker and it's missing but expected
-    # (Safety net for the user's specific request)
-    if user_role_name == 'worker' and 'sessions.manage' not in permissions:
-        permissions.append('sessions.manage')
+                permissions = ['pos.access'] # Default to POS only for other staff roles
 
     current_user.permissions = permissions
     return current_user
@@ -261,7 +263,6 @@ async def update_user_me(
     return current_user
 
 
-@router.post("/users/me/profile-picture")
 @router.post("/users/me/photo")
 async def update_user_photo(
     file: UploadFile = File(...),
@@ -274,13 +275,7 @@ async def update_user_photo(
     os.makedirs(upload_dir, exist_ok=True)
     
     # Validate file type
-    valid_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-    file_extension = os.path.splitext(file.filename)[1].lower()
-    
-    is_image_content = file.content_type and file.content_type.startswith("image/")
-    is_valid_ext = file_extension in valid_extensions
-
-    if not (is_image_content or is_valid_ext):
+    if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
     
     # Generate unique filename

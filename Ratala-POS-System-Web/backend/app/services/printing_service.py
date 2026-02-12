@@ -137,7 +137,7 @@ class PrintingService:
         
         data += gen.align('left')
         data += gen.text(f"Ticket: {kot.kot_number}")
-        data += gen.text(f"Table: {kot.order.table.table_id if (kot.order and kot.order.table) else 'N/A'}")
+        data += gen.text(f"Table: {kot.order.table.name if (kot.order and kot.order.table) else 'N/A'}")
         data += gen.text(f"Waiter: {kot.user.full_name if kot.user else 'N/A'}")
         data += gen.text(f"Date: {kot.created_at.strftime('%Y-%m-%d %H:%M')}")
         data += gen.text("-" * (printer.paper_size // 2))
@@ -150,6 +150,12 @@ class PrintingService:
         for item in kot.items:
             item_name = item.menu_item.name if item.menu_item else "Unknown Item"
             data += gen.text(f"{item_name[:col_width]:<{col_width}} {item.quantity:>5}")
+            
+            # Show BOM/Recipe info if linked
+            if item.menu_item and item.menu_item.bom:
+                bom_name = item.menu_item.bom.name
+                data += gen.text(f"  Recipe: {bom_name}")
+            
             if item.notes:
                 data += gen.text(f"  Note: {item.notes}")
         
@@ -175,7 +181,7 @@ class PrintingService:
         data += gen.text(f"Bill No: {order.order_number}")
         data += gen.text(f"Date: {order.created_at.strftime('%Y-%m-%d %H:%M')}")
         if order.table:
-            data += gen.text(f"Table: {order.table.table_id}")
+            data += gen.text(f"Table: {order.table.name}")
         if order.customer:
             data += gen.text(f"Customer: {order.customer.name}")
             
@@ -199,6 +205,13 @@ class PrintingService:
         data += gen.text(f"Subtotal: {order.gross_amount:>10.2f}")
         if order.discount:
             data += gen.text(f"Discount: {order.discount:>10.2f}")
+        
+        if order.service_charge_amount:
+            data += gen.text(f"Service Charge: {order.service_charge_amount:>10.2f}")
+        if order.tax_amount:
+            data += gen.text(f"VAT: {order.tax_amount:>10.2f}")
+        if order.delivery_charge:
+            data += gen.text(f"Delivery: {order.delivery_charge:>10.2f}")
         
         data += gen.bold(True)
         data += gen.font_size(1, 2)

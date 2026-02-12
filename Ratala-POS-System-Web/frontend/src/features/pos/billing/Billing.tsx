@@ -23,10 +23,13 @@ import {
     UserCircle,
     Download,
     X,
-    History
+    History,
+    Armchair,
+    ShoppingBag,
+    Bike
 } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ordersAPI, tablesAPI, settingsAPI } from '../../../services/api';
+import { ordersAPI, tablesAPI, settingsAPI, API_BASE_URL } from '../../../services/api';
 import { useReactToPrint } from 'react-to-print';
 import BillView from './BillView';
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
@@ -54,6 +57,7 @@ const Billing: React.FC = () => {
     const [selectedQR, setSelectedQR] = useState<any>(null);
     const [largeQRDialogOpen, setLargeQRDialogOpen] = useState(false);
     const [paidAmount, setPaidAmount] = useState<number>(0);
+    const [discountPercent, setDiscountPercent] = useState<number>(0);
     const [billDialogOpen, setBillDialogOpen] = useState(false);
     const [isPaid, setIsPaid] = useState(false);
     const [companySettings, setCompanySettings] = useState<any>(null);
@@ -92,25 +96,45 @@ const Billing: React.FC = () => {
 
             // 1. Get Table Info
             let currentTable = tableInfo;
-            if (!currentTable && tableId) {
-                const tableRes = await tablesAPI.getById(parseInt(tableId));
-                currentTable = tableRes.data;
-                setTable(currentTable);
+            if (!currentTable && tableId && tableId !== '0') {
+                const parsedId = parseInt(tableId);
+                if (!isNaN(parsedId)) {
+                    try {
+                        const tableRes = await tablesAPI.getById(parsedId);
+                        currentTable = tableRes.data;
+                        setTable(currentTable);
+                    } catch (err) {
+                        console.error("Error fetching table info:", err);
+                    }
+                }
             }
 
-            // 2. Get Active Order for this table
-            const ordersRes = await ordersAPI.getAll();
-            const allOrders = ordersRes.data || [];
-            const activeOrder = allOrders.find((o: any) =>
-                o.table_id === parseInt(tableId!) &&
-                o.status !== 'Completed' &&
-                o.status !== 'Cancelled' &&
-                o.status !== 'Paid'
-            );
+            // 2. Get Active Order (Direct ID or search by Table)
+            let activeOrder = null;
+            const stateOrderId = location.state?.orderId;
+
+            if (stateOrderId) {
+                const orderRes = await ordersAPI.getById(stateOrderId);
+                activeOrder = orderRes.data;
+            } else if (tableId && tableId !== '0') {
+                const ordersRes = await ordersAPI.getAll();
+                const allOrders = ordersRes.data || [];
+                activeOrder = allOrders.find((o: any) =>
+                    o.table_id === parseInt(tableId!) &&
+                    o.status !== 'Cancelled' &&
+                    o.status !== 'Paid'
+                );
+            }
 
             if (activeOrder) {
                 setOrder(activeOrder);
                 setPaidAmount(activeOrder.net_amount);
+                if (activeOrder.discount > 0 && activeOrder.gross_amount > 0) {
+                    setDiscountPercent(Math.round((activeOrder.discount * 100) / activeOrder.gross_amount));
+                }
+                if (!table && activeOrder.table) {
+                    setTable(activeOrder.table);
+                }
             }
 
             // 3. Get Payment Modes, QRs & Company Settings
@@ -128,6 +152,32 @@ const Billing: React.FC = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleDiscountChange = (newPercent: number) => {
+        setDiscountPercent(newPercent);
+        if (!order) return;
+
+        const gross = order.gross_amount || 0;
+        const discValue = Math.round((gross * newPercent) / 100);
+
+        // Use current company settings for SC and Tax to ensure consistency
+        const scRate = companySettings?.service_charge_rate || 5;
+        const taxRate = companySettings?.tax_rate || 13;
+        const deliveryCharge = order.delivery_charge || 0;
+
+        const scAmount = Math.round((gross - discValue) * scRate / 100);
+        const taxAmount = Math.round(((gross - discValue) + scAmount) * taxRate / 100);
+        const netAmount = (gross - discValue) + scAmount + taxAmount + deliveryCharge;
+
+        setOrder({
+            ...order,
+            discount: discValue,
+            service_charge_amount: scAmount,
+            tax_amount: taxAmount,
+            net_amount: netAmount
+        });
+        setPaidAmount(netAmount);
     };
 
     const handleProcessPayment = async () => {
@@ -148,7 +198,11 @@ const Billing: React.FC = () => {
                 status: 'Paid',
                 payment_type: selectedPaymentMode,
                 paid_amount: paidAmount,
-                credit_amount: creditAmount
+                credit_amount: creditAmount,
+                discount: order.discount,
+                service_charge_amount: order.service_charge_amount,
+                tax_amount: order.tax_amount,
+                net_amount: order.net_amount
             });
 
             // Update local order state with the response or merge it
@@ -175,7 +229,7 @@ const Billing: React.FC = () => {
     };
 
 
-    if (loading && !table) {
+    if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
                 <CircularProgress sx={{ color: '#FFC107' }} />
@@ -183,7 +237,7 @@ const Billing: React.FC = () => {
         );
     }
 
-    if (!order && !loading) {
+    if (!order) {
         return (
             <Box sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h6" color="text.secondary">No active order found for this table.</Typography>
@@ -212,7 +266,17 @@ const Billing: React.FC = () => {
                             Order Checkout
                         </Typography>
                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {table?.hold_table_name || `Table ${table?.table_id}`}
+                            {table ? (
+                                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Armchair size={12} />
+                                    {table.hold_table_name || `Table ${table.table_id}`}
+                                </Box>
+                            ) : (
+                                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    {order?.order_type === 'Delivery' ? <Bike size={12} /> : <ShoppingBag size={12} />}
+                                    {order?.order_type || 'Takeaway'}
+                                </Box>
+                            )}
                             <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: '#cbd5e1' }} />
                             #{order?.order_number}
                         </Typography>
@@ -221,7 +285,7 @@ const Billing: React.FC = () => {
 
                 <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
                     <Typography variant="h4" fontWeight={900} color={isPaid ? "#16a34a" : "#FFC107"} sx={{ lineHeight: 1 }}>
-                        Rs. {isPaid ? order?.paid_amount : (order?.net_amount || 0)}
+                        Rs. {Number(isPaid ? order?.paid_amount : (order?.net_amount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Typography>
                     <Typography variant="caption" fontWeight={700} color="#94a3b8">{isPaid ? 'TOTAL PAID' : 'TOTAL PAYABLE'}</Typography>
                 </Box>
@@ -269,11 +333,11 @@ const Billing: React.FC = () => {
                                         </Box>
                                         <Box>
                                             <Typography variant="subtitle2" fontWeight={800} color="#1e293b">{item.menu_item?.name}</Typography>
-                                            <Typography variant="caption" fontWeight={600} color="#94a3b8">Rs. {item.price} each</Typography>
+                                            <Typography variant="caption" fontWeight={600} color="#94a3b8">Rs. {Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each</Typography>
                                         </Box>
                                     </Box>
                                     <Typography variant="subtitle1" fontWeight={900} color="#1e293b">
-                                        Rs. {item.subtotal}
+                                        Rs. {Number(item.subtotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </Typography>
                                 </Box>
                             ))}
@@ -284,20 +348,57 @@ const Billing: React.FC = () => {
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" fontWeight={600} color="#64748b">Subtotal</Typography>
-                                <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {order?.gross_amount || 0}</Typography>
+                                <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {Number(order?.gross_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" fontWeight={600} color="#64748b">Discount (%)</Typography>
+                                <TextField
+                                    size="small"
+                                    type="number"
+                                    value={discountPercent}
+                                    onChange={(e) => handleDiscountChange(parseFloat(e.target.value) || 0)}
+                                    sx={{
+                                        width: '80px',
+                                        '& .MuiInputBase-input': {
+                                            py: 0.5,
+                                            px: 1,
+                                            textAlign: 'right',
+                                            fontWeight: 800,
+                                            fontSize: '0.875rem'
+                                        },
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: '8px',
+                                            bgcolor: '#f8fafc'
+                                        }
+                                    }}
+                                />
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography variant="body2" fontWeight={600} color="#64748b">Discount</Typography>
-                                <Typography variant="body2" fontWeight={800} color="#ef4444">- Rs. {order?.discount || 0}</Typography>
+                                <Typography variant="body2" fontWeight={600} color="#64748b">Discount Amount</Typography>
+                                <Typography variant="body2" fontWeight={800} color="#ef4444">- Rs. {Number(order?.discount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" fontWeight={600} color="#64748b">Service Charge ({companySettings?.service_charge_rate || 0}%)</Typography>
-                                <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {order ? Math.round(order.gross_amount * (companySettings?.service_charge_rate || 0) / 100) : 0}</Typography>
+                                <Typography variant="body2" fontWeight={800} color="#1e293b">
+                                    Rs. {Number(order?.service_charge_amount !== undefined && order?.service_charge_amount !== null
+                                        ? order.service_charge_amount
+                                        : ((order?.gross_amount || 0) - (order?.discount || 0)) * (companySettings?.service_charge_rate || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Typography>
                             </Box>
-                            {companySettings?.tax_rate > 0 && (
+                            {(companySettings?.tax_rate > 0 || (order?.tax_amount > 0)) && (
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography variant="body2" fontWeight={600} color="#64748b">VAT ({companySettings?.tax_rate || 0}%)</Typography>
-                                    <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {order ? Math.round((order.gross_amount + (order.gross_amount * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100) : 0}</Typography>
+                                    <Typography variant="body2" fontWeight={800} color="#1e293b">
+                                        Rs. {Number(order?.tax_amount !== undefined && order?.tax_amount !== null
+                                            ? order.tax_amount
+                                            : (((order?.gross_amount || 0) - (order?.discount || 0)) + (((order?.gross_amount || 0) - (order?.discount || 0)) * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </Typography>
+                                </Box>
+                            )}
+                            {(order?.delivery_charge > 0) && (
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2" fontWeight={600} color="#64748b">Delivery Charge</Typography>
+                                    <Typography variant="body2" fontWeight={800} color="#1e293b">Rs. {Number(order?.delivery_charge || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                 </Box>
                             )}
                             <Box sx={{
@@ -305,7 +406,7 @@ const Billing: React.FC = () => {
                                 bgcolor: '#1e293b', borderRadius: '16px', color: 'white'
                             }}>
                                 <Typography variant="h6" fontWeight={800}>Total Amount</Typography>
-                                <Typography variant="h5" fontWeight={900} color="#FFC107">Rs. {order?.net_amount || 0}</Typography>
+                                <Typography variant="h5" fontWeight={900} color="#FFC107">Rs. {Number(order?.net_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                             </Box>
                         </Box>
                     </Paper>
@@ -335,14 +436,14 @@ const Billing: React.FC = () => {
                                 </Grid>
                                 {(() => {
                                     // Find a QR mode to put beside Cash
-                                    const qrModes = paymentModes.filter(m => m.name.toLowerCase().includes('qr') || m.name.toLowerCase().includes('fonepay'));
+                                    const qrModes = paymentModes.filter(m => m.name?.toLowerCase().includes('qr') || m.name?.toLowerCase().includes('fonepay'));
                                     const otherModes = paymentModes.filter(m => m.name !== 'Cash' && !qrModes.find(q => q.id === m.id));
-                                    
+
                                     // Combine them: QR modes first (to be beside cash), then others
                                     return [...qrModes, ...otherModes].map((mode) => {
-                                        const isQR = mode.name.toLowerCase().includes('qr') || mode.name.toLowerCase().includes('fonepay');
+                                        const isQR = mode.name?.toLowerCase().includes('qr') || mode.name?.toLowerCase().includes('fonepay');
                                         const displayName = isQR ? "QR Pay" : mode.name;
-                                        
+
                                         return (
                                             <Grid size={{ xs: 6 }} key={mode.id}>
                                                 <Box
@@ -361,7 +462,7 @@ const Billing: React.FC = () => {
                                                         '&:hover': { borderColor: '#FFC107' }
                                                     }}
                                                 >
-                                                    {mode.name.toLowerCase().includes('card') ? (
+                                                    {mode.name?.toLowerCase().includes('card') ? (
                                                         <CreditCard size={24} color={selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />
                                                     ) : (
                                                         <Smartphone size={24} color={(selectedPaymentMode.startsWith('QR Pay') && isQR) || selectedPaymentMode === mode.name ? '#FFC107' : '#64748b'} style={{ marginBottom: 8 }} />
@@ -423,13 +524,13 @@ const Billing: React.FC = () => {
                                 {paidAmount > (order?.net_amount || 0) && (
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: '#dcfce7', borderRadius: '16px' }}>
                                         <Typography variant="body2" fontWeight={800} color="#16a34a">Change Return</Typography>
-                                        <Typography variant="subtitle1" fontWeight={900} color="#16a34a">Rs. {paidAmount - (order?.net_amount || 0)}</Typography>
+                                        <Typography variant="subtitle1" fontWeight={900} color="#16a34a">Rs. {Number(paidAmount - (order?.net_amount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                     </Box>
                                 )}
                                 {paidAmount < (order?.net_amount || 0) && (
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: '#fee2e2', borderRadius: '16px' }}>
                                         <Typography variant="body2" fontWeight={800} color="#dc2626">Balance Due</Typography>
-                                        <Typography variant="subtitle1" fontWeight={900} color="#dc2626">Rs. {(order?.net_amount || 0) - paidAmount}</Typography>
+                                        <Typography variant="subtitle1" fontWeight={900} color="#dc2626">Rs. {Number((order?.net_amount || 0) - paidAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                     </Box>
                                 )}
 
@@ -541,7 +642,7 @@ const Billing: React.FC = () => {
                     {selectedQR && (
                         <Box
                             component="img"
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${selectedQR.image_url}`}
+                            src={`${API_BASE_URL}${selectedQR.image_url}`}
                             sx={{
                                 maxWidth: '100%',
                                 maxHeight: '100%',

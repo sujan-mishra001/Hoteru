@@ -37,6 +37,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        toolbarHeight: 75,
         title: const Text('Menu Management', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,

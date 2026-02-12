@@ -15,7 +15,9 @@ import {
     DialogTitle,
     DialogContent,
     IconButton,
-    InputAdornment
+    InputAdornment,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 
@@ -34,6 +36,11 @@ const Supplier: React.FC = () => {
         address: ''
     });
     const [searchTerm, setSearchTerm] = useState('');
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadSuppliers();
@@ -84,9 +91,10 @@ const Supplier: React.FC = () => {
             }
             handleCloseDialog();
             loadSuppliers();
-        } catch (error) {
+            showSnackbar(`Supplier ${editingSupplier ? 'updated' : 'created'} successfully`);
+        } catch (error: any) {
             console.error('Error saving supplier:', error);
-            alert('Error saving supplier. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error saving supplier', 'error');
         }
     };
 
@@ -95,9 +103,10 @@ const Supplier: React.FC = () => {
         try {
             await purchaseAPI.deleteSupplier(id);
             loadSuppliers();
-        } catch (error) {
+            showSnackbar('Supplier deleted successfully');
+        } catch (error: any) {
             console.error('Error deleting supplier:', error);
-            alert('Error deleting supplier. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error deleting supplier', 'error');
         }
     };
 
@@ -231,6 +240,16 @@ const Supplier: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

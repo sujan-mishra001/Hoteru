@@ -1,3 +1,4 @@
+import 'package:dautari_adda/features/pos/presentation/screens/order_workflow_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -222,12 +223,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             selectedFontSize: 11,
             unselectedFontSize: 11,
             elevation: 0,
-            items: _navigationItems.map((item) {
-              return BottomNavigationBarItem(
-                icon: Icon(item.icon),
-                label: item.label,
-              );
-            }).toList(),
+            items: _navigationItems.map((item) => BottomNavigationBarItem(
+              icon: Icon(item.icon),
+              label: item.label,
+            )).toList(),
           ),
         ),
         floatingActionButton: FloatingActionButton.small(

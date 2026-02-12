@@ -15,7 +15,9 @@ import {
     DialogTitle,
     DialogContent,
     IconButton,
-    MenuItem
+    MenuItem,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { Plus, X } from 'lucide-react';
 import { purchaseAPI } from '../../../services/api';
@@ -30,6 +32,11 @@ const PurchaseReturn: React.FC = () => {
         total_amount: 0,
         reason: ''
     });
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadData();
@@ -68,9 +75,10 @@ const PurchaseReturn: React.FC = () => {
             await purchaseAPI.createReturn(formData);
             handleCloseDialog();
             loadData();
-        } catch (error) {
+            showSnackbar('Return recorded successfully');
+        } catch (error: any) {
             console.error('Error creating return:', error);
-            alert('Error creating return. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error creating return', 'error');
         }
     };
 
@@ -113,7 +121,7 @@ const PurchaseReturn: React.FC = () => {
                                 <TableRow key={ret.id} hover>
                                     <TableCell sx={{ fontWeight: 600 }}>{ret.return_number || 'N/A'}</TableCell>
                                     <TableCell>{ret.purchase_bill?.bill_number || 'N/A'}</TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>NPRs. {ret.total_amount?.toLocaleString() || 0}</TableCell>
+                                    <TableCell sx={{ fontWeight: 700 }}>NPRs. {Number(ret.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{ret.reason || '-'}</TableCell>
                                     <TableCell>{new Date(ret.created_at).toLocaleDateString()}</TableCell>
                                 </TableRow>
@@ -172,6 +180,16 @@ const PurchaseReturn: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

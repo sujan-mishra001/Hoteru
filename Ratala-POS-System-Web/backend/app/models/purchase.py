@@ -36,6 +36,24 @@ class PurchaseBill(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     supplier = relationship("Supplier")
+    items = relationship("PurchaseBillItem", back_populates="purchase_bill", cascade="all, delete-orphan")
+
+
+class PurchaseBillItem(Base):
+    """Individual item in a purchase bill"""
+    __tablename__ = "purchase_bill_items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_bill_id = Column(Integer, ForeignKey("purchase_bills.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Float, nullable=False)
+    unit_id = Column(Integer, ForeignKey("units_of_measurement.id"), nullable=True)
+    rate = Column(Float, nullable=False) # Unit price
+    total_amount = Column(Float, nullable=False)
+    
+    purchase_bill = relationship("PurchaseBill", back_populates="items")
+    product = relationship("Product")
+    unit = relationship("UnitOfMeasurement")
 
 
 class PurchaseReturn(Base):

@@ -11,14 +11,14 @@ class SyncService extends ChangeNotifier {
   final ApiService _apiService = ApiService();
   
   List<MenuCategory> _categories = [];
-  List<TableInfo> _tables = [];
+  List<PosTable> _tables = [];
   List<FloorInfo> _floors = [];
   Map<String, dynamic>? _activeSession;
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
 
   List<MenuCategory> get categories => _categories;
-  List<TableInfo> get tables => _tables;
+  List<PosTable> get tables => _tables;
   List<FloorInfo> get floors => _floors;
   Map<String, dynamic>? get activeSession => _activeSession;
   bool get isSyncing => _isSyncing;
@@ -55,7 +55,7 @@ class SyncService extends ChangeNotifier {
         
         // 3. Parse Tables
         final List tablesJson = data['tables'] ?? [];
-        _tables = tablesJson.map((t) => TableInfo.fromJson(t)).toList();
+        _tables = tablesJson.map((t) => PosTable.fromJson(t)).toList();
 
         // 4. Parse Active Session
         _activeSession = data['active_session'];

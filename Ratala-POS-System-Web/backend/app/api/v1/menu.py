@@ -1,8 +1,11 @@
 """
 Menu management routes with branch isolation
 """
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, File, UploadFile
 from sqlalchemy.orm import Session
+import os
+import uuid
+import shutil
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
@@ -19,6 +22,34 @@ def apply_branch_filter_menu(query, model, branch_id):
     return query
 
 
+@router.get("/public-items")
+async def get_public_menu_items(
+    branch_id: int | None = None,
+    db: Session = Depends(get_db)
+):
+    """Publicly accessible menu items - strictly branch-based"""
+    if not branch_id:
+        return []
+    
+    query = db.query(MenuItem).filter(MenuItem.is_active == True)
+    query = query.filter(MenuItem.branch_id == branch_id)
+    return query.all()
+
+
+@router.get("/public-categories")
+async def get_public_categories(
+    branch_id: int | None = None,
+    db: Session = Depends(get_db)
+):
+    """Publicly accessible categories - strictly branch-based"""
+    if not branch_id:
+        return []
+        
+    query = db.query(Category).filter(Category.is_active == True)
+    query = query.filter(Category.branch_id == branch_id)
+    return query.all()
+
+
 @router.get("/items")
 async def get_menu_items(
     db: Session = Depends(get_db),
@@ -29,29 +60,7 @@ async def get_menu_items(
     query = db.query(MenuItem)
     query = apply_branch_filter_menu(query, MenuItem, branch_id)
     items = query.all()
-    
-    # Transform response to match Dart model expectations
-    result = []
-    for item in items:
-        item_dict = {
-            "id": item.id,
-            "name": item.name,
-            "category_id": item.category_id,
-            "group_id": item.group_id,
-            "price": item.price,
-            "image": item.image,
-            "image_url": item.image,  # Dart expects image_url
-            "description": item.description,
-            "inventory_tracking": item.inventory_tracking,
-            "kot_bot": item.kot_bot,
-            "is_active": item.is_active,
-            "is_available": item.is_active,  # Dart expects is_available
-            "created_at": item.created_at,
-            "updated_at": item.updated_at,
-        }
-        result.append(item_dict)
-    
-    return result
+    return items
 
 
 @router.post("/items")
@@ -141,33 +150,6 @@ async def create_group(
     return new_group
 
 
-@router.put("/items/{item_id}")
-@router.patch("/items/{item_id}")
-async def update_menu_item(
-    item_id: int,
-    item_data: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """Update a menu item in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(MenuItem).filter(MenuItem.id == item_id)
-    query = apply_branch_filter_menu(query, MenuItem, branch_id)
-    item = query.first()
-    
-    if not item:
-        raise HTTPException(status_code=404, detail="Menu item not found or access denied")
-    
-    for key, value in item_data.items():
-        if hasattr(item, key) and key != 'branch_id':
-            setattr(item, key, value)
-    
-    db.commit()
-    db.refresh(item)
-    return item
-
-
 @router.put("/items/bulk-update")
 async def bulk_update_menu_items(
     updates: list[dict] = Body(...),
@@ -207,6 +189,33 @@ async def bulk_update_menu_items(
     return {"updated_count": len(updated_items), "items": updated_items}
 
 
+@router.put("/items/{item_id}")
+@router.patch("/items/{item_id}")
+async def update_menu_item(
+    item_id: int,
+    item_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update a menu item in the current user's branch"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(MenuItem).filter(MenuItem.id == item_id)
+    query = apply_branch_filter_menu(query, MenuItem, branch_id)
+    item = query.first()
+    
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found or access denied")
+    
+    for key, value in item_data.items():
+        if hasattr(item, key) and key != 'branch_id':
+            setattr(item, key, value)
+    
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 @router.delete("/items/{item_id}")
 async def delete_menu_item(
     item_id: int,
@@ -226,6 +235,52 @@ async def delete_menu_item(
     db.delete(item)
     db.commit()
     return {"message": "Menu item deleted"}
+
+
+@router.post("/items/{item_id}/image")
+async def upload_menu_item_image(
+    item_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Upload and update image for a menu item"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(MenuItem).filter(MenuItem.id == item_id)
+    query = apply_branch_filter_menu(query, MenuItem, branch_id)
+    item = query.first()
+    
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found or access denied")
+        
+    # Create directory if it doesn't exist
+    upload_dir = "uploads/menu_items"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Generate unique filename
+    extension = os.path.splitext(file.filename)[1]
+    filename = f"{uuid.uuid4()}{extension}"
+    file_path = os.path.join(upload_dir, filename)
+    
+    # Save file
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+        
+    # Update menu item image path (relative to static files server)
+    image_url = f"/uploads/menu_items/{filename}"
+    item.image = image_url
+    db.commit()
+    db.refresh(item)
+    
+    return item
 
 
 @router.put("/categories/{category_id}")
@@ -301,49 +356,6 @@ async def update_group(
     db.commit()
     db.refresh(group)
     return group
-
-
-@router.get("/export")
-async def export_menu_items(
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """Export all menu items for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    query = db.query(MenuItem)
-    query = apply_branch_filter_menu(query, MenuItem, branch_id)
-    items = query.all()
-    return items
-
-
-@router.post("/import")
-async def import_menu_items(
-    items_data: list[dict] = Body(..., embed=True),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """Import menu items in bulk"""
-    branch_id = current_user.current_branch_id
-    imported_count = 0
-    
-    for item in items_data:
-        # Simple import logic - could be expanded to handle categories/groups
-        new_item = MenuItem(
-            name=item['name'],
-            category_id=item.get('category_id'),
-            group_id=item.get('group_id'),
-            price=item['price'],
-            description=item.get('description'),
-            image=item.get('image'),
-            inventory_tracking=item.get('inventory_tracking', False),
-            kot_bot=item.get('kot_bot', 'KOT'),
-            branch_id=branch_id
-        )
-        db.add(new_item)
-        imported_count += 1
-        
-    db.commit()
-    return {"message": f"Successfully imported {imported_count} items"}
 
 
 @router.delete("/groups/{group_id}")

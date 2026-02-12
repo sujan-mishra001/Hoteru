@@ -66,6 +66,8 @@ async def get_tables(
             "display_order": table.display_order,
             "is_hold_table": table.is_hold_table,
             "hold_table_name": table.hold_table_name,
+            "merge_group_id": table.merge_group_id,
+            "merged_to_id": table.merged_to_id,
             "kot_count": 0,
             "bot_count": 0,
             "active_order_id": None,
@@ -130,6 +132,8 @@ async def get_tables_with_stats(
                 "table_type": table.table_type,
                 "status": table.status,
                 "capacity": table.capacity,
+                "merge_group_id": table.merge_group_id,
+                "merged_to_id": table.merged_to_id,
                 "kot_count": 0,
                 "bot_count": 0,
                 "total_amount": 0,
@@ -158,6 +162,112 @@ async def get_tables_with_stats(
         result.append(floor_data)
     
     return result
+
+
+@router.post("/{table_id}/merge")
+async def merge_tables(
+    table_id: int,
+    target_table_id: int = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Merge two tables into a merge group"""
+    branch_id = current_user.current_branch_id
+    
+    # Get source table
+    source_query = db.query(Table).filter(Table.id == table_id)
+    source_query = apply_branch_filter_table(db, source_query, branch_id)
+    source_table = source_query.first()
+    if not source_table:
+        raise HTTPException(status_code=404, detail="Source table not found or access denied")
+    
+    # Get target table
+    target_query = db.query(Table).filter(Table.id == target_table_id)
+    target_query = apply_branch_filter_table(db, target_query, branch_id)
+    target_table = target_query.first()
+    if not target_table:
+        raise HTTPException(status_code=404, detail="Target table not found or access denied")
+    
+    # Check if either table is already in a merge group
+    if source_table.merge_group_id or target_table.merge_group_id:
+        # If one has a group, add the other to that group
+        merge_group_id = source_table.merge_group_id or target_table.merge_group_id
+    else:
+        # Create new merge group - find next available number
+        existing_groups = db.query(Table).filter(
+            Table.merge_group_id.isnot(None)
+        )
+        existing_groups = apply_branch_filter_table(db, existing_groups, branch_id)
+        existing_groups = existing_groups.all()
+        
+        group_numbers = []
+        for t in existing_groups:
+            if t.merge_group_id and t.merge_group_id.startswith("Merge_Table_"):
+                try:
+                    num = int(t.merge_group_id.split("_")[-1])
+                    group_numbers.append(num)
+                except:
+                    pass
+        
+        next_number = max(group_numbers) + 1 if group_numbers else 1
+        merge_group_id = f"Merge_Table_{next_number}"
+    
+    # Assign both tables to the merge group
+    source_table.merge_group_id = merge_group_id
+    source_table.merged_to_id = target_table_id
+    target_table.merge_group_id = merge_group_id
+    
+    db.commit()
+    db.refresh(source_table)
+    db.refresh(target_table)
+    
+    return {
+        "message": f"Tables merged successfully into {merge_group_id}",
+        "merge_group_id": merge_group_id,
+        "source_table": source_table,
+        "target_table": target_table
+    }
+
+
+@router.post("/{table_id}/unmerge")
+async def unmerge_table(
+    table_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Remove a table from its merge group"""
+    branch_id = current_user.current_branch_id
+    
+    # Get table
+    query = db.query(Table).filter(Table.id == table_id)
+    query = apply_branch_filter_table(db, query, branch_id)
+    table = query.first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found or access denied")
+    
+    if not table.merge_group_id:
+        raise HTTPException(status_code=400, detail="Table is not in a merge group")
+    
+    merge_group_id = table.merge_group_id
+    
+    # Remove from merge group
+    table.merge_group_id = None
+    table.merged_to_id = None
+    
+    # Check if any other tables are still in this group
+    remaining_query = db.query(Table).filter(Table.merge_group_id == merge_group_id)
+    remaining_query = apply_branch_filter_table(db, remaining_query, branch_id)
+    remaining_tables = remaining_query.all()
+    
+    # If only one table left, remove it from the group too
+    if len(remaining_tables) == 1:
+        remaining_tables[0].merge_group_id = None
+        remaining_tables[0].merged_to_id = None
+    
+    db.commit()
+    db.refresh(table)
+    
+    return {"message": "Table unmerged successfully", "table": table}
 
 
 @router.get("/{table_id}")
@@ -283,7 +393,8 @@ async def update_table(
             table_data['floor'] = floor.name
     
     for key, value in table_data.items():
-        setattr(table, key, value)
+        if hasattr(table, key):
+            setattr(table, key, value)
     
     db.commit()
     db.refresh(table)
@@ -336,6 +447,7 @@ async def delete_table(
     table.is_active = False
     db.commit()
     return {"message": "Table deleted successfully"}
+
 
 
 @router.put("/{table_id}/reorder")

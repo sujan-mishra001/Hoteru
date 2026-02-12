@@ -110,6 +110,7 @@ class _CashierScreenState extends State<CashierScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 75,
         title: const Text('Cashier'),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,

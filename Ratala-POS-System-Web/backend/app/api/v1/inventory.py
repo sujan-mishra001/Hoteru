@@ -14,6 +14,7 @@ from app.models import (
     Product, UnitOfMeasurement, InventoryTransaction,
     BillOfMaterials, BOMItem, BatchProduction, POSSession
 )
+from app.services.inventory_service import InventoryService
 
 router = APIRouter()
 
@@ -119,6 +120,26 @@ async def create_product(
     
     new_product = Product(**data)
     db.add(new_product)
+    db.flush() # Get ID
+    
+    # Handle initial stock if provided
+    initial_stock = 0.0
+    if 'current_stock' in product_data:
+        try:
+            qty = float(product_data['current_stock'])
+            if qty > 0:
+                txn = InventoryTransaction(
+                    product_id=new_product.id,
+                    transaction_type='IN',
+                    quantity=qty,
+                    notes="Opening Stock",
+                    created_by=current_user.id
+                )
+                db.add(txn)
+                initial_stock = qty
+        except (ValueError, TypeError):
+            pass
+
     db.commit()
     db.refresh(new_product)
     
@@ -127,9 +148,9 @@ async def create_product(
         "name": new_product.name,
         "category": new_product.category,
         "unit_id": new_product.unit_id,
-        "current_stock": 0.0,
+        "current_stock": initial_stock,
         "min_stock": new_product.min_stock,
-        "status": "Out of Stock"
+        "status": get_product_status(initial_stock, new_product.min_stock)
     }
 
 
@@ -156,6 +177,25 @@ async def update_product(
         if key in allowed_fields:
             setattr(db_product, key, value)
     
+    # Handle direct stock update
+    if 'current_stock' in product_data:
+        try:
+            new_stock = float(product_data['current_stock'])
+            current_stock = calculate_product_stock(db, product_id)
+            diff = new_stock - current_stock
+            
+            if abs(diff) > 0.001: # Avoid floating point issues
+                txn = InventoryTransaction(
+                    product_id=product_id,
+                    transaction_type='Adjustment',
+                    quantity=diff, # Adjustment takes signed value
+                    notes="Manual update from product form",
+                    created_by=current_user.id
+                )
+                db.add(txn)
+        except (ValueError, TypeError):
+            pass
+
     db.commit()
     db.refresh(db_product)
     
@@ -438,15 +478,68 @@ async def get_boms(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all BOMs for the current user's branch"""
+    """Get all BOMs with real-time component stock for the current user's branch"""
     branch_id = current_user.current_branch_id
     
     query = db.query(BillOfMaterials).options(
-        joinedload(BillOfMaterials.components).joinedload(BOMItem.product),
-        joinedload(BillOfMaterials.finished_product)
+        joinedload(BillOfMaterials.components).joinedload(BOMItem.product).joinedload(Product.unit),
+        joinedload(BillOfMaterials.components).joinedload(BOMItem.unit),
+        joinedload(BillOfMaterials.menu_items)
     )
     query = apply_branch_filter_inventory(query, BillOfMaterials, branch_id)
-    return query.all()
+    boms = query.all()
+    
+    result = []
+    for bom in boms:
+        components = []
+        for comp in bom.components:
+            stock = calculate_product_stock(db, comp.product_id)
+            components.append({
+                "id": comp.id,
+                "product_id": comp.product_id,
+                "unit_id": comp.unit_id,
+                "quantity": comp.quantity,
+                "product": {
+                    "id": comp.product.id,
+                    "name": comp.product.name,
+                    "current_stock": stock,
+                    "unit": {
+                        "id": comp.product.unit.id,
+                        "name": comp.product.unit.name,
+                        "abbreviation": comp.product.unit.abbreviation,
+                        "conversion_factor": comp.product.unit.conversion_factor
+                    } if comp.product.unit else None
+                },
+                "unit": {
+                    "id": comp.unit.id,
+                    "name": comp.unit.name,
+                    "abbreviation": comp.unit.abbreviation,
+                    "conversion_factor": comp.unit.conversion_factor
+                } if comp.unit else None
+            })
+            
+        result.append({
+            "id": bom.id,
+            "name": bom.name,
+            "output_quantity": bom.output_quantity,
+            "is_active": bom.is_active,
+            "created_at": bom.created_at,
+            "finished_product_id": bom.finished_product_id,
+            "finished_product": {
+                "id": bom.finished_product.id,
+                "name": bom.finished_product.name,
+                "unit": {
+                    "id": bom.finished_product.unit.id,
+                    "abbreviation": bom.finished_product.unit.abbreviation
+                } if bom.finished_product.unit else None
+            } if bom.finished_product else None,
+            "components": components,
+            "menu_items": [
+                {"id": mi.id, "name": mi.name} for mi in bom.menu_items
+            ]
+        })
+        
+    return result
 
 
 @router.post("/boms")
@@ -459,24 +552,27 @@ async def create_bom(
     branch_id = current_user.current_branch_id
     components = bom_data.pop('components', [])
     
-    # Clean up empty string IDs
-    if bom_data.get('menu_item_id') == '':
-        bom_data['menu_item_id'] = None
+    # Set branch_id if the column exists
+    if branch_id is not None:
+        bom_data['branch_id'] = branch_id
+        
+    # Handle empty finished_product_id
     if bom_data.get('finished_product_id') == '':
         bom_data['finished_product_id'] = None
-    
-    # Set branch_id if the column exists
-    if branch_id is not None and hasattr(BillOfMaterials, 'branch_id'):
-        bom_data['branch_id'] = branch_id
         
     new_bom = BillOfMaterials(**bom_data)
     db.add(new_bom)
     db.flush()
     
     for comp in components:
-        # Clean up component product_id if empty
+        # Clean up component data
         if not comp.get('product_id'):
             continue
+            
+        # Convert empty string unit_id to None
+        if comp.get('unit_id') == '':
+            comp['unit_id'] = None
+            
         db.add(BOMItem(bom_id=new_bom.id, **comp))
         
     db.commit()
@@ -497,15 +593,12 @@ async def update_bom(
         raise HTTPException(status_code=404, detail="BOM not found")
         
     components = bom_data.pop('components', None)
-    
-    # Clean up empty string IDs
-    if bom_data.get('menu_item_id') == '':
-        bom_data['menu_item_id'] = None
-    if bom_data.get('finished_product_id') == '':
-        bom_data['finished_product_id'] = None
         
     for key, value in bom_data.items():
         if key != 'id':
+            # Handle empty finished_product_id
+            if key == 'finished_product_id' and value == '':
+                value = None
             setattr(db_bom, key, value)
             
     if components is not None:
@@ -513,6 +606,11 @@ async def update_bom(
         for comp in components:
             if not comp.get('product_id'):
                 continue
+                
+            # Convert empty string unit_id to None
+            if comp.get('unit_id') == '':
+                comp['unit_id'] = None
+                
             db.add(BOMItem(bom_id=bom_id, **comp))
             
     db.commit()
@@ -552,7 +650,10 @@ async def create_production(
     if insufficient:
         raise HTTPException(status_code=400, detail={"msg": "Insufficient materials", "items": insufficient})
         
-    prod_num = f"PROD-{datetime.now().strftime('%Y%m%d%H%M')}-{random.randint(100, 999)}"
+    today_date = datetime.now().strftime('%Y%m%d')
+    # Count ALL productions for serial number sequence
+    total_count = db.query(BatchProduction).count()
+    prod_num = f"PROD-{today_date}-{str(total_count + 1).zfill(4)}"
     
     # Find active session
     active_session = db.query(POSSession).filter(
@@ -568,14 +669,36 @@ async def create_production(
         pos_session_id=active_session.id if active_session else None,
         created_by=current_user.id,
         completed_at=datetime.utcnow(),
-        notes=prod_data.get('notes')
+        notes=prod_data.get('notes'),
+        finished_product_id=bom.finished_product_id
     )
     db.add(production)
     db.flush()
     
+    # 1. IN Transaction for Finished Product (Stock Addition)
+    if bom.finished_product_id:
+        in_txn = InventoryTransaction(
+            product_id=bom.finished_product_id,
+            transaction_type='Production_IN',
+            quantity=bom.output_quantity * quantity,
+            reference_number=prod_num,
+            reference_id=production.id,
+            pos_session_id=active_session.id if active_session else None,
+            notes=f"Produced from BOM: {bom.name} ({prod_num})",
+            created_by=current_user.id
+        )
+        db.add(in_txn)
+    
     # 1. OUT Transactions for components (Consumption)
     for component in bom.components:
-        consumed_qty = component.quantity * quantity
+        # Total component quantity required = component.quantity * output_quantity
+        raw_qty = component.quantity * quantity
+        
+        # Convert to product's base unit for stock deduction
+        consumed_qty = InventoryService.convert_quantity(
+            db, raw_qty, component.unit_id, component.product.unit_id
+        )
+        
         out_txn = InventoryTransaction(
             product_id=component.product_id,
             transaction_type='Production_OUT',
@@ -588,21 +711,6 @@ async def create_production(
         )
         db.add(out_txn)
         
-    # 2. IN Transaction for finished product (Output)
-    if bom.finished_product_id:
-        produced_qty = bom.output_quantity * quantity
-        in_txn = InventoryTransaction(
-            product_id=bom.finished_product_id,
-            transaction_type='Production_IN',
-            quantity=produced_qty,
-            reference_number=prod_num,
-            reference_id=production.id,
-            pos_session_id=active_session.id if active_session else None,
-            notes=f"Produced from BOM: {bom.name} ({prod_num})",
-            created_by=current_user.id
-        )
-        db.add(in_txn)
-        
     db.commit()
     db.refresh(production)
     return production
@@ -613,6 +721,66 @@ async def get_productions(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    return db.query(BatchProduction).options(
-        joinedload(BatchProduction.bom).joinedload(BillOfMaterials.finished_product)
-    ).order_by(BatchProduction.created_at.desc()).all()
+    """Get all productions for the current user's branch with detailed info"""
+    branch_id = current_user.current_branch_id
+    query = db.query(BatchProduction).options(
+        joinedload(BatchProduction.bom).joinedload(BillOfMaterials.menu_items)
+    )
+    query = apply_branch_filter_inventory(query, BatchProduction, branch_id)
+    productions = query.order_by(BatchProduction.created_at.asc()).all()
+    
+    # Accurate FIFO distribution of sales across batches
+    from app.models import OrderItem, Order
+    
+    # 1. Group productions by BOM
+    bom_productions = {}
+    for p in productions:
+        if p.bom_id not in bom_productions:
+            bom_productions[p.bom_id] = []
+        bom_productions[p.bom_id].append(p)
+        
+    result_map = {} # Store final objects by ID
+    
+    for bom_id, prods in bom_productions.items():
+        # Get all sales for this BOM
+        menu_item_ids = [mi.id for mi in prods[0].bom.menu_items]
+        total_sold = 0
+        if menu_item_ids:
+            sold = db.query(func.sum(OrderItem.quantity)).join(Order).filter(
+                OrderItem.menu_item_id.in_(menu_item_ids),
+                Order.status != 'Cancelled'
+            ).scalar()
+            total_sold = float(sold) if sold else 0.0
+            
+        remaining_sold = total_sold
+        
+        # Distribute total_sold across prods in FIFO order (they are already sorted asc)
+        for p in prods:
+            total_produced = p.bom.output_quantity * p.quantity
+            consumed = min(total_produced, remaining_sold)
+            remaining_sold -= consumed
+            
+            result_map[p.id] = {
+                "id": p.id,
+                "production_number": p.production_number,
+                "bom_id": p.bom_id,
+                "quantity": p.quantity,
+                "total_produced": total_produced,
+                "consumed_quantity": consumed,
+                "remaining_quantity": total_produced - consumed,
+                "status": p.status,
+                "created_at": p.created_at,
+                "bom": {
+                    "id": p.bom.id,
+                    "name": p.bom.name,
+                    "output_quantity": p.bom.output_quantity,
+                    "menu_items": [
+                        {"id": mi.id, "name": mi.name} for mi in p.bom.menu_items
+                    ]
+                }
+            }
+            
+    # Sort back to descending order for the UI
+    final_result = [result_map[p.id] for p in productions]
+    final_result.reverse()
+    return final_result

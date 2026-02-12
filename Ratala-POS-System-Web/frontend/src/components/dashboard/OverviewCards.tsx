@@ -363,7 +363,7 @@ export const PeakTimeChart: React.FC<{ data: number[]; salesData?: number[] }> =
             theme: 'light',
             y: {
                 formatter: (value) => isSalesData
-                    ? `NPRs. ${value.toLocaleString()}`
+                    ? `NPRs. ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     : `${value} order${value !== 1 ? 's' : ''}`
             }
         },
@@ -428,7 +428,7 @@ export const PeakTimeChart: React.FC<{ data: number[]; salesData?: number[] }> =
                 </Box>
                 <Chip
                     label={isSalesData
-                        ? `NPRs. ${totalSales.toLocaleString()}`
+                        ? `NPRs. ${Number(totalSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         : `${totalSales} orders`
                     }
                     size="small"

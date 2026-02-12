@@ -131,13 +131,13 @@ class TableService extends ChangeNotifier {
   final Map<int, String> _tableNames = {};
   List<BillRecord> _pastBills = [];
   List<FloorInfo> _floors = [];
-  List<TableInfo> _tables = [];
+  List<PosTable> _tables = [];
   List<dynamic> _activeOrders = [];
   bool _isLoading = false;
 
   List<BillRecord> get pastBills => _pastBills;
   List<FloorInfo> get floors => _floors;
-  List<TableInfo> get tables => _tables;
+  List<PosTable> get tables => _tables;
   List<dynamic> get activeOrders => _activeOrders;
   bool get isLoading => _isLoading;
 
@@ -147,14 +147,6 @@ class TableService extends ChangeNotifier {
 
   List<int> get activeTableIds {
     final ids = <int>{};
-    // Include tables from active orders in backend
-    for (var order in _activeOrders) {
-      if (order['table_id'] != null) ids.add(order['table_id']);
-    }
-    // Include tables with local items
-    for (var entry in _tableCarts.entries) {
-      if (entry.value.isNotEmpty) ids.add(entry.key);
-    }
     // Include tables marked as Occupied/BillRequested in backend
     for (var table in _tables) {
       if (table.status != 'Available') ids.add(table.id);
@@ -163,12 +155,19 @@ class TableService extends ChangeNotifier {
   }
 
   String getTableName(int id) {
-    final table = _tables.firstWhere((t) => t.id == id, orElse: () => TableInfo(id: id, tableId: 'T$id', floor: '', floorId: 0, status: ''));
+    final table = _tables.firstWhere((t) => t.id == id, orElse: () => PosTable(id: id, tableId: 'T$id', floor: '', floorId: 0, status: ''));
     return table.tableId;
   }
 
-  Future<void> fetchFloors() async {
+  Future<void> fetchFloors({bool force = false}) async {
     try {
+      final syncService = SyncService();
+      if (!force && syncService.isCacheValid && syncService.floors.isNotEmpty) {
+        _floors = syncService.floors;
+        notifyListeners();
+        return;
+      }
+      
       String endpoint = '/floors';
       if (_currentBranchId != null) {
         endpoint += '?branch_id=$_currentBranchId';
@@ -184,37 +183,42 @@ class TableService extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchTables({int? floorId}) async {
+  Future<void> fetchTables({int? floorId, bool force = false}) async {
     _isLoading = true;
     notifyListeners();
     try {
-      String url = '/tables';
-      final params = <String>[];
-      if (_currentBranchId != null) params.add('branch_id=$_currentBranchId');
-      if (floorId != null) params.add('floor_id=$floorId');
-      if (params.isNotEmpty) url += '?${params.join("&")}';
-      final response = await _apiService.get(url);
+      final syncService = SyncService();
       
-      // Also fetch active orders to sync table booking
-      String ordersUrl = '/orders?status=Pending,Draft,In Progress,BillRequested';
-      if (_currentBranchId != null) ordersUrl += '&branch_id=$_currentBranchId';
-      final ordersResponse = await _apiService.get(ordersUrl);
-      
-      if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        _tables = data.map((json) => TableInfo.fromJson(json)).toList();
-        for (var table in _tables) {
-          _tableStatus[table.id] = table.status != 'Available';
+      // 1. Try to use SyncService cache first
+      if (!force && syncService.isCacheValid && syncService.tables.isNotEmpty) {
+        if (floorId != null) {
+          _tables = syncService.tables.where((t) => t.floorId == floorId).toList();
+        } else {
+          _tables = syncService.tables;
         }
+      } else {
+         // Fallback to API if cache invalid or forced
+         String url = '/tables';
+         final params = <String>[];
+         if (_currentBranchId != null) params.add('branch_id=$_currentBranchId');
+         if (floorId != null) params.add('floor_id=$floorId');
+         if (params.isNotEmpty) url += '?${params.join("&")}';
+         
+         final response = await _apiService.get(url);
+         if (response.statusCode == 200) {
+           final List data = jsonDecode(response.body);
+           _tables = data.map((json) => PosTable.fromJson(json)).toList();
+         }
       }
-      
-      if (ordersResponse.statusCode == 200) {
-        _activeOrders = jsonDecode(ordersResponse.body);
+
+      // Update local status map based on table status
+      for (var table in _tables) {
+         _tableStatus[table.id] = table.status != 'Available';
       }
       
       notifyListeners();
     } catch (e) {
-      debugPrint("Error fetching tables/orders: $e");
+      debugPrint("Error fetching tables: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -255,6 +259,34 @@ class TableService extends ChangeNotifier {
       return false;
     } catch (e) {
       debugPrint("Error creating table: $e");
+      return false;
+    }
+  }
+
+  Future<bool> updateTable(int id, Map<String, dynamic> data) async {
+    try {
+      final response = await _apiService.patch('/tables/$id', data);
+      if (response.statusCode == 200) {
+        await fetchTables(floorId: data['floor_id']);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error updating table: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deleteTable(int id) async {
+    try {
+      final response = await _apiService.delete('/tables/$id');
+      if (response.statusCode == 200) {
+        await fetchTables();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error deleting table: $e");
       return false;
     }
   }
@@ -483,8 +515,8 @@ class TableService extends ChangeNotifier {
       final tax = calculateTax(subtotal, sc);
       final total = subtotal - discountAmount + sc + tax;
 
-      // Find active order for this table if any
-      final backendOrder = _activeOrders.firstWhere((o) => o['table_id'] == tableId, orElse: () => null);
+      // Fetch fresh active order for this table
+      Map<String, dynamic>? backendOrder = await getActiveOrderForTable(tableId);
       
       dynamic response;
       if (backendOrder != null) {
@@ -526,7 +558,11 @@ class TableService extends ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 201) {
         _tableCarts[tableId] = [];
         _tableDiscounts.remove(tableId); // Clear discount
-        // Explicitly refresh state to clear bookings
+        
+        // Explicitly free the table
+        await updateTableStatus(tableId, 'Available');
+        
+        // Refresh state
         await _loadState();
         return true;
       }
@@ -537,7 +573,7 @@ class TableService extends ChangeNotifier {
     }
   }
 
-  bool isTableBooked(int tableId) => _tables.any((t) => t.id == tableId && t.status != 'Available') || (_tableCarts[tableId]?.isNotEmpty ?? false);
+  bool isTableBooked(int tableId) => _tables.any((t) => t.id == tableId && t.status != 'Available');
 
   void clearTable(int tableId) {
     _tableCarts[tableId] = [];
@@ -567,5 +603,10 @@ class TableService extends ChangeNotifier {
     } catch (e) {
       return false;
     }
+  }
+
+  Future<List<PosTable>> getTables() async {
+    await fetchTables();
+    return _tables;
   }
 }

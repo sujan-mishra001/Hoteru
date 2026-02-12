@@ -15,10 +15,13 @@ import {
     DialogTitle,
     DialogContent,
     IconButton,
-    MenuItem
+    MenuItem,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { Plus, X } from 'lucide-react';
 import { inventoryAPI } from '../../../services/api';
+import { useInventory } from '../../../app/providers/InventoryProvider';
 
 const Adjustment: React.FC = () => {
     const [adjustments, setAdjustments] = useState<any[]>([]);
@@ -30,6 +33,12 @@ const Adjustment: React.FC = () => {
         quantity: 0,
         notes: ''
     });
+    const { checkLowStock } = useInventory();
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadData();
@@ -69,11 +78,13 @@ const Adjustment: React.FC = () => {
                 ...formData,
                 transaction_type: 'Adjustment'
             });
+            checkLowStock();
             handleCloseDialog();
             loadData();
-        } catch (error) {
+            showSnackbar('Adjustment recorded successfully');
+        } catch (error: any) {
             console.error('Error creating adjustment:', error);
-            alert('Error creating adjustment. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error creating adjustment', 'error');
         }
     };
 
@@ -115,7 +126,7 @@ const Adjustment: React.FC = () => {
                                 <TableRow key={adj.id} hover>
                                     <TableCell>{new Date(adj.created_at).toLocaleDateString()}</TableCell>
                                     <TableCell>{adj.product?.name || 'N/A'}</TableCell>
-                                    <TableCell>{adj.quantity}</TableCell>
+                                    <TableCell>{Number(adj.quantity).toFixed(2)}</TableCell>
                                     <TableCell>{adj.notes || '-'}</TableCell>
                                 </TableRow>
                             ))
@@ -173,6 +184,16 @@ const Adjustment: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

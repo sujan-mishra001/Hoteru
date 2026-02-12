@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
+import 'package:dautari_adda/core/services/sync_service.dart';
 import 'pos_models.dart';
 
 class MenuService {
@@ -19,81 +20,21 @@ class MenuService {
     return endpoint;
   }
 
-  // Fetch menu once from the Ratala backend and map to our structure
+  // Fetch menu efficiently using SyncService (cached or single batch call)
   Future<List<MenuCategory>> getMenu() async {
-    await _loadBranchId();
     try {
-      // 1. Fetch Categories
-      final catResponse = await _apiService.get(_buildUrl('/menu/categories'));
-      // 2. Fetch Groups (Sub-categories)
-      final groupResponse = await _apiService.get(_buildUrl('/menu/groups'));
-      // 3. Fetch Items
-      final itemResponse = await _apiService.get(_buildUrl('/menu/items'));
-
-      if (catResponse.statusCode == 200 && groupResponse.statusCode == 200 && itemResponse.statusCode == 200) {
-        final List categoriesJson = jsonDecode(catResponse.body);
-        final List groupsJson = jsonDecode(groupResponse.body);
-        final List itemsJson = jsonDecode(itemResponse.body);
-
-        // Map items and groups to categories
-        List<MenuCategory> menu = categoriesJson.map((cat) {
-          final catId = cat['id'];
-          final catType = cat['type'] ?? 'KOT';
-          
-          // Get groups belonging to this category
-          final List categoryGroups = groupsJson.where((g) => g['category_id'] == catId).toList();
-          
-          // Get items belonging to this category but NOT in any group
-          final List topLevelItems = itemsJson.where((i) => i['category_id'] == catId && i['group_id'] == null).toList();
-          
-          // Create nested sub-categories from groups
-          final List<MenuCategory> subCategories = categoryGroups.map((group) {
-            final groupId = group['id'];
-            final List groupItems = itemsJson.where((i) => i['group_id'] == groupId).toList();
-            
-            return MenuCategory(
-              id: groupId,
-              name: group['name'],
-              type: catType,
-              items: groupItems.map((i) => MenuItem(
-                id: i['id'],
-                name: i['name'],
-                price: (i['price'] as num?)?.toDouble() ?? 0.0,
-                description: i['description'],
-                image: i['image_url'],
-                available: i['is_available'] ?? true,
-                categoryId: catId,
-                groupId: groupId,
-                kotBot: i['kot_bot'] ?? 'KOT',
-                inventoryTracking: i['inventory_tracking'] ?? false,
-              )).toList(),
-            );
-          }).toList();
-
-          return MenuCategory(
-            id: catId,
-            name: cat['name'],
-            type: catType,
-            subCategories: subCategories,
-            items: topLevelItems.map((i) => MenuItem(
-              id: i['id'],
-              name: i['name'],
-              price: (i['price'] as num?)?.toDouble() ?? 0.0,
-              description: i['description'],
-              image: i['image_url'],
-              available: i['is_available'] ?? true,
-              categoryId: catId,
-              kotBot: i['kot_bot'] ?? 'KOT',
-              inventoryTracking: i['inventory_tracking'] ?? false,
-            )).toList(),
-          );
-        }).toList();
-
-        return menu;
+      final syncService = SyncService();
+      
+      // If cache is valid, use it immediately
+      if (syncService.isCacheValid && syncService.categories.isNotEmpty) {
+        return syncService.categories;
       }
-      return [];
+
+      // Otherwise, trigger a sync
+      await syncService.syncPOSData();
+      return syncService.categories;
     } catch (e) {
-      print("Error fetching menu: $e");
+      print("Error fetching menu via SyncService: $e");
       return [];
     }
   }

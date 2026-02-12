@@ -36,11 +36,20 @@ class _MenuScreenState extends State<MenuScreen> {
   }
 
   Future<void> _loadMenu() async {
+    // 1. Initial Load immediately
+    final menu = await _menuService.getMenu();
+    if (mounted) {
+      setState(() {
+        _fullMenu = menu;
+        _isLoading = false;
+      });
+    }
+
+    // 2. Poll for updates
     _menuService.getMenuStream().listen((data) {
       if (mounted) {
         setState(() {
           _fullMenu = data;
-          _isLoading = false;
         });
       }
     });
@@ -282,6 +291,37 @@ class _MenuScreenState extends State<MenuScreen> {
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: 0,
+          onTap: (index) {
+             Navigator.pop(context, index);
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.grey[400],
+          unselectedItemColor: Colors.grey[400],
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          elevation: 0,
+          items: const [
+             BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
+             BottomNavigationBarItem(icon: Icon(Icons.kitchen_rounded), label: 'KOT/BOT'),
+             BottomNavigationBarItem(icon: Icon(Icons.payments_rounded), label: 'Cashier'),
+             BottomNavigationBarItem(icon: Icon(Icons.analytics_rounded), label: 'Reports'),
+          ],
+        ),
+      ),
     );
   }
 

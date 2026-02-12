@@ -20,10 +20,12 @@ import {
     Avatar,
     InputAdornment,
     MenuItem,
-    CircularProgress
+    CircularProgress,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
-import { menuAPI } from '../../services/api';
+import { menuAPI, inventoryAPI, API_BASE_URL } from '../../services/api';
 
 const MenuManagement: React.FC = () => {
     const [tab, setTab] = useState(0);
@@ -33,11 +35,17 @@ const MenuManagement: React.FC = () => {
     const [menuItems, setMenuItems] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
     const [groups, setGroups] = useState<any[]>([]);
+    const [boms, setBoms] = useState<any[]>([]);
 
     // UI states
     const [openAddItem, setOpenAddItem] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingItem, setEditingItem] = useState<any>(null);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     // Form states
     const [itemForm, setItemForm] = useState({
@@ -45,12 +53,17 @@ const MenuManagement: React.FC = () => {
         price: '',
         category_id: '',
         group_id: '',
+        bom_id: '',
         description: '',
-        is_active: true
+        is_active: true,
+        image: ''
     });
 
-    const [categoryForm, setCategoryForm] = useState({ name: '', description: '', is_active: true });
-    const [groupForm, setGroupForm] = useState({ name: '', description: '', is_active: true });
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string>('');
+
+    const [categoryForm, setCategoryForm] = useState({ name: '', type: 'KOT', is_active: true });
+    const [groupForm, setGroupForm] = useState({ name: '', category_id: '', is_active: true });
 
     useEffect(() => {
         loadData();
@@ -59,14 +72,16 @@ const MenuManagement: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [itemsRes, catRes, groupsRes] = await Promise.all([
+            const [itemsRes, catRes, groupsRes, bomsRes] = await Promise.all([
                 menuAPI.getItems(),
                 menuAPI.getCategories(),
-                menuAPI.getGroups()
+                menuAPI.getGroups(),
+                inventoryAPI.getBOMs()
             ]);
             setMenuItems(itemsRes.data || []);
             setCategories(catRes.data || []);
             setGroups(groupsRes.data || []);
+            setBoms(bomsRes.data || []);
         } catch (error) {
             console.error('Error loading menu data:', error);
         } finally {
@@ -83,26 +98,38 @@ const MenuManagement: React.FC = () => {
                     price: item.price,
                     category_id: item.category_id || '',
                     group_id: item.group_id || '',
+                    bom_id: item.bom_id || '',
                     description: item.description || '',
-                    is_active: !!item.is_active
+                    is_active: !!item.is_active,
+                    image: item.image || ''
                 });
             } else {
-                setItemForm({ name: '', price: '', category_id: '', group_id: '', description: '', is_active: true });
+                setItemForm({ name: '', price: '', category_id: '', group_id: '', bom_id: '', description: '', is_active: true, image: '' });
             }
         } else if (tab === 1) { // Categories
             if (item) {
-                setCategoryForm({ name: item.name, description: item.description || '', is_active: !!item.is_active });
+                setCategoryForm({ name: item.name, type: item.type || 'KOT', is_active: !!item.is_active });
             } else {
-                setCategoryForm({ name: '', description: '', is_active: true });
+                setCategoryForm({ name: '', type: 'KOT', is_active: true });
             }
         } else { // Groups
             if (item) {
-                setGroupForm({ name: item.name, description: item.description || '', is_active: !!item.is_active });
+                setGroupForm({ name: item.name, category_id: item.category_id || '', is_active: !!item.is_active });
             } else {
-                setGroupForm({ name: '', description: '', is_active: true });
+                setGroupForm({ name: '', category_id: '', is_active: true });
             }
         }
+        setSelectedFile(null);
+        setPreviewUrl(item?.image ? (item.image.startsWith('http') ? item.image : `${API_BASE_URL}${item.image}`) : '');
         setOpenAddItem(true);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+        }
     };
 
     const handleSave = async () => {
@@ -113,35 +140,45 @@ const MenuManagement: React.FC = () => {
                     price: parseFloat(itemForm.price as any),
                     category_id: Number(itemForm.category_id),
                     group_id: itemForm.group_id ? Number(itemForm.group_id) : null,
+                    bom_id: itemForm.bom_id ? Number(itemForm.bom_id) : null,
                     description: itemForm.description,
                     is_active: itemForm.is_active
                 };
-                if (editingItem) await menuAPI.updateItem(editingItem.id, payload);
-                else await menuAPI.createItem(payload);
+                let savedItem;
+                if (editingItem) savedItem = await menuAPI.updateItem(editingItem.id, payload);
+                else savedItem = await menuAPI.createItem(payload);
+
+                // If image selected, upload it
+                const itemData = savedItem.data;
+                if (selectedFile && itemData?.id) {
+                    const itemId = itemData.id;
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    await menuAPI.uploadItemImage(itemId, formData);
+                }
             } else if (tab === 1) { // Categories
                 const payload = {
                     name: categoryForm.name,
-                    description: categoryForm.description,
-                    is_active: categoryForm.is_active,
-                    type: 'KOT' // Default type if not in form
+                    type: categoryForm.type,
+                    is_active: categoryForm.is_active
                 };
                 if (editingItem) await menuAPI.updateCategory(editingItem.id, payload);
                 else await menuAPI.createCategory(payload);
             } else { // Groups
                 const payload = {
                     name: groupForm.name,
-                    description: groupForm.description,
-                    is_active: groupForm.is_active,
-                    category_id: Number(categories[0]?.id) // Defaulting to first category if not specified
+                    category_id: Number(groupForm.category_id),
+                    is_active: groupForm.is_active
                 };
                 if (editingItem) await menuAPI.updateGroup(editingItem.id, payload);
                 else await menuAPI.createGroup(payload);
             }
             setOpenAddItem(false);
             loadData();
+            showSnackbar(`${tab === 0 ? 'Item' : tab === 1 ? 'Category' : 'Group'} ${editingItem ? 'updated' : 'created'} successfully`);
         } catch (error: any) {
             console.error('Error saving:', error);
-            alert(error.response?.data?.detail || 'Failed to save');
+            showSnackbar(error.response?.data?.detail || 'Failed to save', 'error');
         }
     };
 
@@ -152,8 +189,10 @@ const MenuManagement: React.FC = () => {
             else if (tab === 1) await menuAPI.deleteCategory(id);
             else await menuAPI.deleteGroup(id);
             loadData();
-        } catch (error) {
+            showSnackbar(`${tab === 0 ? 'Item' : tab === 1 ? 'Category' : 'Group'} deleted successfully`);
+        } catch (error: any) {
             console.error('Error deleting:', error);
+            showSnackbar('Failed to delete item', 'error');
         }
     };
 
@@ -205,6 +244,8 @@ const MenuManagement: React.FC = () => {
                                     {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>IMAGE</TableCell>}
                                     <TableCell sx={{ fontWeight: 700 }}>NAME</TableCell>
                                     {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>CATEGORY</TableCell>}
+                                    {tab === 1 && <TableCell sx={{ fontWeight: 700 }}>TYPE (KOT/BOT)</TableCell>}
+                                    {tab === 2 && <TableCell sx={{ fontWeight: 700 }}>CATEGORY</TableCell>}
                                     {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>PRICE</TableCell>}
                                     <TableCell sx={{ fontWeight: 700 }}>STATUS</TableCell>
                                     <TableCell sx={{ fontWeight: 700 }}>ACTIONS</TableCell>
@@ -220,11 +261,13 @@ const MenuManagement: React.FC = () => {
                                         <TableRow key={item.id} hover>
                                             {tab === 0 && (
                                                 <TableCell>
-                                                    <Avatar src={item.image_url} variant="rounded" sx={{ width: 40, height: 40, bgcolor: '#f1f5f9', color: '#64748b' }}>{item.name.charAt(0)}</Avatar>
+                                                    <Avatar src={item.image ? (item.image.startsWith('http') ? item.image : `${API_BASE_URL}${item.image}`) : ''} variant="rounded" sx={{ width: 40, height: 40, bgcolor: '#f1f5f9', color: '#64748b' }}>{item.name.charAt(0)}</Avatar>
                                                 </TableCell>
                                             )}
                                             <TableCell sx={{ fontWeight: 600 }}>{item.name}</TableCell>
-                                            {tab === 0 && <TableCell>{item.category?.name || '-'}</TableCell>}
+                                            {tab === 0 && <TableCell>{categories.find(c => c.id === item.category_id)?.name || '-'}</TableCell>}
+                                            {tab === 1 && <TableCell>{item.type || 'KOT'}</TableCell>}
+                                            {tab === 2 && <TableCell>{categories.find(c => c.id === item.category_id)?.name || '-'}</TableCell>}
                                             {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>NPRs. {item.price}</TableCell>}
                                             <TableCell>
                                                 <Box sx={{
@@ -258,15 +301,83 @@ const MenuManagement: React.FC = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                         {tab === 0 ? (
                             <>
+                                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        id="item-image-upload"
+                                        hidden
+                                        onChange={handleFileChange}
+                                    />
+                                    <label htmlFor="item-image-upload">
+                                        <Box sx={{ position: 'relative', cursor: 'pointer' }}>
+                                            <Avatar
+                                                src={previewUrl}
+                                                variant="rounded"
+                                                sx={{
+                                                    width: 100,
+                                                    height: 100,
+                                                    border: '2px dashed #cbd5e1',
+                                                    '&:hover': { opacity: 0.8, borderColor: '#FFC107' }
+                                                }}
+                                            >
+                                                <Plus size={32} color="#94a3b8" />
+                                            </Avatar>
+                                            <Box sx={{
+                                                position: 'absolute',
+                                                bottom: -8,
+                                                left: '50%',
+                                                transform: 'translateX(-50%)',
+                                                bgcolor: '#FFC107',
+                                                color: 'white',
+                                                px: 1,
+                                                borderRadius: '10px',
+                                                fontSize: '0.65rem',
+                                                fontWeight: 800,
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                UPLOAD IMAGE
+                                            </Box>
+                                        </Box>
+                                    </label>
+                                </Box>
                                 <TextField label="Item Name" fullWidth required value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} />
                                 <Box sx={{ display: 'flex', gap: 2 }}>
-                                    <TextField select label="Category" fullWidth value={itemForm.category_id} onChange={(e) => setItemForm({ ...itemForm, category_id: e.target.value })}>
+                                    <TextField
+                                        select
+                                        label="Category"
+                                        sx={{ flex: 1 }}
+                                        value={itemForm.category_id}
+                                        onChange={(e) => setItemForm({ ...itemForm, category_id: e.target.value, group_id: '' })}
+                                    >
                                         {categories.map(cat => <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>)}
                                     </TextField>
-                                    <TextField select label="Group" fullWidth value={itemForm.group_id} onChange={(e) => setItemForm({ ...itemForm, group_id: e.target.value })}>
-                                        {groups.map(grp => <MenuItem key={grp.id} value={grp.id}>{grp.name}</MenuItem>)}
+                                    <TextField
+                                        select
+                                        label="Group"
+                                        sx={{ flex: 1 }}
+                                        value={itemForm.group_id}
+                                        onChange={(e) => setItemForm({ ...itemForm, group_id: e.target.value })}
+                                        disabled={!itemForm.category_id}
+                                    >
+                                        <MenuItem value=""><em>No Group</em></MenuItem>
+                                        {groups
+                                            .filter(grp => grp.category_id === Number(itemForm.category_id))
+                                            .map(grp => <MenuItem key={grp.id} value={grp.id}>{grp.name}</MenuItem>)
+                                        }
                                     </TextField>
                                 </Box>
+                                <TextField
+                                    select
+                                    label="Link Recipe (BOM)"
+                                    fullWidth
+                                    value={itemForm.bom_id}
+                                    onChange={(e) => setItemForm({ ...itemForm, bom_id: e.target.value })}
+                                    helperText="Select a recipe from your BOM list to enable production tracking for this item."
+                                >
+                                    <MenuItem value=""><em>No Recipe</em></MenuItem>
+                                    {boms.map(bom => <MenuItem key={bom.id} value={bom.id}>{bom.name} ({bom.output_quantity} units/batch)</MenuItem>)}
+                                </TextField>
                                 <TextField label="Price" type="number" fullWidth required value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} InputProps={{ startAdornment: <InputAdornment position="start">NPRs.</InputAdornment> }} />
                                 <TextField label="Description" fullWidth multiline rows={3} value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} />
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -274,13 +385,27 @@ const MenuManagement: React.FC = () => {
                                     <label htmlFor="is_active_item" style={{ cursor: 'pointer', fontWeight: 600 }}>Active Status</label>
                                 </Box>
                             </>
+                        ) : tab === 1 ? (
+                            <>
+                                <TextField label="Category Name" fullWidth required value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} />
+                                <TextField select label="Type (KOT/BOT)" fullWidth required value={categoryForm.type} onChange={(e) => setCategoryForm({ ...categoryForm, type: e.target.value })}>
+                                    <MenuItem value="KOT">KOT (Kitchen Order Ticket)</MenuItem>
+                                    <MenuItem value="BOT">BOT (Bar Order Ticket)</MenuItem>
+                                </TextField>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <input type="checkbox" id="is_active_cat" checked={categoryForm.is_active} onChange={(e) => setCategoryForm({ ...categoryForm, is_active: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#FFC107', cursor: 'pointer' }} />
+                                    <label htmlFor="is_active_cat" style={{ cursor: 'pointer', fontWeight: 600 }}>Active Status</label>
+                                </Box>
+                            </>
                         ) : (
                             <>
-                                <TextField label="Name" fullWidth required value={tab === 1 ? categoryForm.name : groupForm.name} onChange={(e) => tab === 1 ? setCategoryForm({ ...categoryForm, name: e.target.value }) : setGroupForm({ ...groupForm, name: e.target.value })} />
-                                <TextField label="Description" fullWidth multiline rows={3} value={tab === 1 ? categoryForm.description : groupForm.description} onChange={(e) => tab === 1 ? setCategoryForm({ ...categoryForm, description: e.target.value }) : setGroupForm({ ...groupForm, description: e.target.value })} />
+                                <TextField label="Group Name" fullWidth required value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} />
+                                <TextField select label="Category" fullWidth required value={groupForm.category_id} onChange={(e) => setGroupForm({ ...groupForm, category_id: e.target.value })}>
+                                    {categories.map(cat => <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>)}
+                                </TextField>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <input type="checkbox" id="is_active_toggle" checked={tab === 1 ? categoryForm.is_active : groupForm.is_active} onChange={(e) => tab === 1 ? setCategoryForm({ ...categoryForm, is_active: e.target.checked }) : setGroupForm({ ...groupForm, is_active: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#FFC107', cursor: 'pointer' }} />
-                                    <label htmlFor="is_active_toggle" style={{ cursor: 'pointer', fontWeight: 600 }}>Active Status</label>
+                                    <input type="checkbox" id="is_active_grp" checked={groupForm.is_active} onChange={(e) => setGroupForm({ ...groupForm, is_active: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#FFC107', cursor: 'pointer' }} />
+                                    <label htmlFor="is_active_grp" style={{ cursor: 'pointer', fontWeight: 600 }}>Active Status</label>
                                 </Box>
                             </>
                         )}
@@ -290,6 +415,16 @@ const MenuManagement: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

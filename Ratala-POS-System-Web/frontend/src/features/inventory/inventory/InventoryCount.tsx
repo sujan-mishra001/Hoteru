@@ -18,10 +18,13 @@ import {
     MenuItem,
     Chip,
     Card,
-    CardContent
+    CardContent,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { X, ClipboardCheck, History, AlertCircle, CheckCircle2, TrendingDown, TrendingUp, Package } from 'lucide-react';
 import { inventoryAPI } from '../../../services/api';
+import { useInventory } from '../../../app/providers/InventoryProvider';
 
 const InventoryCount: React.FC = () => {
     const [counts, setCounts] = useState<any[]>([]);
@@ -34,6 +37,12 @@ const InventoryCount: React.FC = () => {
         notes: ''
     });
     const [selectedProduct, setSelectedProduct] = useState<any>(null);
+    const { checkLowStock } = useInventory();
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+    const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+        setSnackbar({ open: true, message, severity });
+    };
 
     useEffect(() => {
         loadData();
@@ -77,11 +86,13 @@ const InventoryCount: React.FC = () => {
     const handleSubmit = async () => {
         try {
             await inventoryAPI.createCount(formData);
+            checkLowStock();
             handleCloseDialog();
             loadData();
-        } catch (error) {
+            showSnackbar('Inventory count recorded and stock reconciled');
+        } catch (error: any) {
             console.error('Error creating count:', error);
-            alert('Error creating count. Please try again.');
+            showSnackbar(error.response?.data?.detail || 'Error creating count', 'error');
         }
     };
 
@@ -151,15 +162,15 @@ const InventoryCount: React.FC = () => {
                                                     {count.notes}
                                                 </Typography>
                                             </TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 500 }}>{count.product?.current_stock || 0}</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 500 }}>{Number(count.product?.current_stock || 0).toFixed(2)}</TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 700 }}>
                                                 {/* In our API, note stores the physical count in the string */}
                                                 {/* For a cleaner UI, we could have added a column, but derived it's OK */}
-                                                {(count.product?.current_stock || 0) + difference}
+                                                {Number((count.product?.current_stock || 0) + difference).toFixed(2)}
                                             </TableCell>
                                             <TableCell align="right">
                                                 <Chip
-                                                    label={difference === 0 ? 'Exact Match' : `${difference > 0 ? '+' : ''}${difference}`}
+                                                    label={difference === 0 ? 'Exact Match' : `${difference > 0 ? '+' : ''}${Number(difference).toFixed(2)}`}
                                                     size="small"
                                                     icon={difference > 0 ? <TrendingUp size={14} /> : difference < 0 ? <TrendingDown size={14} /> : <CheckCircle2 size={14} />}
                                                     sx={{
@@ -291,6 +302,16 @@ const InventoryCount: React.FC = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: '12px', fontWeight: 600 }}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

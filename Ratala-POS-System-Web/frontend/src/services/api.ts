@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { sessionManager } from '../utils/sessionManager';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_PREFIX = '/api/v1'; // Backend API prefix
 
 const api = axios.create({
@@ -78,6 +78,9 @@ export const menuAPI = {
   getItem: (id: number) => api.get(`/menu/items/${id}`),
   createItem: (data: any) => api.post('/menu/items', data),
   updateItem: (id: number, data: any) => api.put(`/menu/items/${id}`, data),
+  uploadItemImage: (id: number, formData: FormData) => api.post(`/menu/items/${id}/image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   deleteItem: (id: number) => api.delete(`/menu/items/${id}`),
   getCategories: () => api.get('/menu/categories'),
   createCategory: (data: any) => api.post('/menu/categories', data),
@@ -87,6 +90,9 @@ export const menuAPI = {
   createGroup: (data: any) => api.post('/menu/groups', data),
   updateGroup: (id: number, data: any) => api.put(`/menu/groups/${id}`, data),
   deleteGroup: (id: number) => api.delete(`/menu/groups/${id}`),
+  bulkUpdateItems: (updates: any[]) => api.put('/menu/items/bulk-update', updates),
+  getPublicItems: (branch_id?: number) => api.get('/menu/public-items', { params: { branch_id } }),
+  getPublicCategories: (branch_id?: number) => api.get('/menu/public-categories', { params: { branch_id } }),
 };
 
 // Inventory API
@@ -109,6 +115,7 @@ export const inventoryAPI = {
   getBOMs: () => api.get('/inventory/boms'),
   createBOM: (data: any) => api.post('/inventory/boms', data),
   updateBOM: (id: number, data: any) => api.put(`/inventory/boms/${id}`, data),
+  deleteBOM: (id: number) => api.delete(`/inventory/boms/${id}`),
   getProductions: () => api.get('/inventory/productions'),
   createProduction: (data: any) => api.post('/inventory/productions', data),
 };
@@ -132,11 +139,12 @@ export const purchaseAPI = {
 
 // Orders API
 export const ordersAPI = {
-  getAll: () => api.get('/orders'),
+  getAll: (params?: any) => api.get('/orders', { params }),
   getById: (id: number) => api.get(`/orders/${id}`),
   create: (data: any) => api.post('/orders', data),
   update: (id: number, data: any) => api.put(`/orders/${id}`, data),
   delete: (id: number) => api.delete(`/orders/${id}`),
+  changeTable: (orderId: number, newTableId: number) => api.post(`/orders/${orderId}/change-table`, { new_table_id: newTableId }),
 };
 
 // Floors API
@@ -159,6 +167,8 @@ export const tablesAPI = {
   updateStatus: (id: number, status: string) => api.put(`/tables/${id}/status`, { status }),
   delete: (id: number) => api.delete(`/tables/${id}`),
   reorder: (id: number, newOrder: number) => api.put(`/tables/${id}/reorder`, { new_order: newOrder }),
+  merge: (sourceId: number, targetId: number) => api.post(`/tables/${sourceId}/merge`, { target_table_id: targetId }),
+  unmerge: (id: number) => api.post(`/tables/${id}/unmerge`),
 };
 
 // KOT API
@@ -191,6 +201,7 @@ export const reportsAPI = {
   exportPDF: (type: string, params: any) => api.get(`/reports/export/pdf/${type}`, { params, responseType: 'blob' }),
   exportExcel: (type: string, params: any) => api.get(`/reports/export/excel/${type}`, { params, responseType: 'blob' }),
   exportAllExcel: () => api.get('/reports/export/all/excel', { responseType: 'blob' }),
+  exportMasterExcel: (startDate: string, endDate: string) => api.get('/reports/export/master/excel', { params: { start_date: startDate, end_date: endDate }, responseType: 'blob' }),
   exportShiftReport: (sessionId: number) => api.get(`/reports/export/shift/${sessionId}`, { responseType: 'blob' }),
 };
 
@@ -206,6 +217,7 @@ export const usersAPI = {
 // Settings API
 export const settingsAPI = {
   getCompanySettings: () => api.get('/settings/company'),
+  getPublicCompanySettings: (branch_id?: number) => api.get('/settings/public-company', { params: { branch_id } }),
   updateCompanySettings: (data: any) => api.put('/settings/company', data),
   getPaymentModes: () => api.get('/settings/payment-modes'),
   createPaymentMode: (data: any) => api.post('/settings/payment-modes', data),
@@ -219,6 +231,9 @@ export const settingsAPI = {
   createDiscountRule: (data: any) => api.post('/settings/discount-rules', data),
   updateDiscountRule: (id: number, data: any) => api.put(`/settings/discount-rules/${id}`, data),
   deleteDiscountRule: (id: number) => api.delete(`/settings/discount-rules/${id}`),
+  updateCompanyLogo: (formData: FormData) => api.post('/settings/company/logo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   // QR Codes
   get: (endpoint: string) => api.get(endpoint),
   post: (endpoint: string, data: any, config?: any) => api.post(endpoint, data, config),

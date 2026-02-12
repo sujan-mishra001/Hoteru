@@ -16,6 +16,7 @@ import {
     Divider,
     CircularProgress,
     Dialog,
+    DialogTitle,
     DialogContent,
     DialogActions
 } from '@mui/material';
@@ -30,10 +31,14 @@ import {
     ShoppingBasket,
     UserCircle,
     Printer,
-    Download
+    Download,
+    Armchair,
+    ShoppingBag,
+    Bike,
+    ArrowRightLeft
 } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { menuAPI, tablesAPI, ordersAPI, kotAPI, customersAPI, settingsAPI } from '../../services/api';
+import { menuAPI, tablesAPI, ordersAPI, kotAPI, customersAPI, settingsAPI, API_BASE_URL } from '../../services/api';
 import { useReactToPrint } from 'react-to-print';
 import { useBranch } from '../../app/providers/BranchProvider';
 import BillView from './billing/BillView';
@@ -82,7 +87,7 @@ const OrderTaking: React.FC = () => {
     const { currentBranch } = useBranch();
     const { showAlert } = useNotification();
     const { logActivity } = useActivity();
-    const { customOrderType, deliveryPartnerId } = location.state || {};
+    const { customOrderType, deliveryPartnerId, orderId, preSelectedCustomer } = location.state || {};
 
     const [loading, setLoading] = useState(true);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -98,12 +103,15 @@ const OrderTaking: React.FC = () => {
     const [existingOrder, setExistingOrder] = useState<any>(null);
 
     const [customers, setCustomers] = useState<any[]>([]);
-    const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+    const [selectedCustomer, setSelectedCustomer] = useState<any>(preSelectedCustomer || null);
     const [customerSearch, setCustomerSearch] = useState('');
     const [orderType, setOrderType] = useState<string>(customOrderType || (tableInfo?.is_hold_table === 'Yes' ? 'Takeaway' : 'Table'));
     const [deliveryCharge, setDeliveryCharge] = useState<number>(0);
+    const [discountPercent, setDiscountPercent] = useState<number>(0);
 
     const [billDialogOpen, setBillDialogOpen] = useState(false);
+    const [changeTableDialogOpen, setChangeTableDialogOpen] = useState(false);
+    const [allTables, setAllTables] = useState<any[]>([]);
     const [companySettings, setCompanySettings] = useState<any>(null);
     const billRef = useRef<HTMLDivElement>(null);
 
@@ -170,31 +178,69 @@ const OrderTaking: React.FC = () => {
                 setTable(currentTable);
             }
 
-            // Check for active order (Pending or Draft) for this table
-            if (currentTable) {
+            // Find active order (Pending or Draft) 
+            let activeOrder = null;
+            if (orderId) {
+                const orderRes = await ordersAPI.getById(orderId);
+                activeOrder = orderRes.data;
+            } else if (currentTable) {
                 const ordersRes = await ordersAPI.getAll();
-                const activeOrder = ordersRes.data.find((o: any) =>
+                activeOrder = ordersRes.data.find((o: any) =>
                     o.table_id === currentTable.id &&
                     (o.status === 'Pending' || o.status === 'Draft' || o.status === 'In Progress')
                 );
+            }
 
-                if (activeOrder) {
-                    setExistingOrder(activeOrder);
-                    const mappedItems = activeOrder.items.map((item: any) => ({
-                        id: item.id,
-                        name: item.menu_item?.name || 'Unknown',
-                        price: item.price,
-                        quantity: item.quantity,
-                        item_id: item.menu_item_id
-                    }));
-                    setOrderItems(mappedItems);
-                    if (activeOrder.customer) {
-                        setSelectedCustomer(activeOrder.customer);
-                    }
+            if (activeOrder) {
+                setExistingOrder(activeOrder);
+                const mappedItems = activeOrder.items.map((item: any) => ({
+                    id: item.id,
+                    name: item.menu_item?.name || 'Unknown',
+                    price: item.price,
+                    quantity: item.quantity,
+                    item_id: item.menu_item_id
+                }));
+                setOrderItems(mappedItems);
+                if (activeOrder.customer) {
+                    setSelectedCustomer(activeOrder.customer);
+                }
+                if (activeOrder.order_type) {
+                    setOrderType(activeOrder.order_type);
+                }
+                if (activeOrder.discount > 0 && activeOrder.gross_amount > 0) {
+                    setDiscountPercent(Math.round((activeOrder.discount * 100) / activeOrder.gross_amount));
+                }
+                if (activeOrder.delivery_charge) {
+                    setDeliveryCharge(activeOrder.delivery_charge);
                 }
             }
         } catch (error) {
             console.error("Error loading menu data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadTables = async () => {
+        try {
+            const res = await tablesAPI.getAll();
+            setAllTables(res.data || []);
+        } catch (error) {
+            console.error("Error loading tables:", error);
+        }
+    };
+
+    const handleChangeTable = async (newTable: any) => {
+        if (!existingOrder || !newTable) return;
+        try {
+            setLoading(true);
+            await ordersAPI.changeTable(existingOrder.id, newTable.id);
+            setTable(newTable);
+            setChangeTableDialogOpen(false);
+            showAlert(`Moved order to Table ${newTable.table_id}`, "success");
+            logActivity('Table Changed', `Order ${existingOrder.order_number} moved from Table ${table?.table_id} to Table ${newTable.table_id}`, 'order');
+        } catch (error: any) {
+            showAlert(error.response?.data?.detail || "Error changing table", "error");
         } finally {
             setLoading(false);
         }
@@ -210,8 +256,15 @@ const OrderTaking: React.FC = () => {
 
     const filteredItems = allItems.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // If user is searching, filter globally across all items
+        if (searchTerm.trim() !== '') {
+            return matchesSearch;
+        }
+
+        // Otherwise, filter by selected category/group
         const matchesGroup = selectedGroupId ? item.group_id === selectedGroupId : item.category_id === selectedCategoryId;
-        return matchesSearch && matchesGroup;
+        return matchesGroup;
     });
 
     const addToOrder = (item: MenuItem) => {
@@ -253,8 +306,10 @@ const OrderTaking: React.FC = () => {
                 order_type: orderType,
                 status: 'Draft',
                 gross_amount: total,
-                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)) + deliveryCharge,
-                discount: 0,
+                service_charge_amount: Math.round((total - (Math.round(total * discountPercent / 100))) * (companySettings?.service_charge_rate || 0) / 100 * 100) / 100,
+                tax_amount: Math.round(((total - (Math.round(total * discountPercent / 100))) + ((total - (Math.round(total * discountPercent / 100))) * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100 * 100) / 100,
+                net_amount: Math.round((total - (Math.round(total * discountPercent / 100))) * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100) + deliveryCharge),
+                discount: Math.round(total * discountPercent / 100),
                 delivery_charge: deliveryCharge,
                 items: orderItems.map(item => ({
                     menu_item_id: item.item_id,
@@ -300,8 +355,10 @@ const OrderTaking: React.FC = () => {
                 order_type: orderType,
                 status: 'Pending',
                 gross_amount: total,
-                net_amount: Math.round(total * (1 + (companySettings?.service_charge_rate || 5) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)) + deliveryCharge,
-                discount: 0,
+                service_charge_amount: Math.round((total - (Math.round(total * discountPercent / 100))) * (companySettings?.service_charge_rate || 0) / 100 * 100) / 100,
+                tax_amount: Math.round(((total - (Math.round(total * discountPercent / 100))) + ((total - (Math.round(total * discountPercent / 100))) * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100 * 100) / 100,
+                net_amount: Math.round((total - (Math.round(total * discountPercent / 100))) * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100) + deliveryCharge),
+                discount: Math.round(total * discountPercent / 100),
                 delivery_charge: deliveryCharge,
                 items: orderItems.map(item => ({
                     menu_item_id: item.item_id,
@@ -409,12 +466,34 @@ const OrderTaking: React.FC = () => {
                     </IconButton>
                     <Box>
                         <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
-                            {table?.is_hold_table ? table.hold_table_name : `Table ${table?.table_id || tableId}`}
+                            {table ? (table.is_hold_table === 'Yes' ? table.hold_table_name : `Table ${table.table_id}`) : (orderType || 'New Order')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                             Order Taking
                         </Typography>
                     </Box>
+
+                    {existingOrder && orderType === 'Table' && (
+                        <Button
+                            variant="outlined"
+                            startIcon={<ArrowRightLeft size={18} />}
+                            onClick={() => {
+                                loadTables();
+                                setChangeTableDialogOpen(true);
+                            }}
+                            sx={{
+                                ml: 3,
+                                borderRadius: '12px',
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                borderColor: '#e2e8f0',
+                                color: '#64748b',
+                                '&:hover': { borderColor: '#FFC107', color: '#FFC107', bgcolor: 'transparent' }
+                            }}
+                        >
+                            Change Table
+                        </Button>
+                    )}
 
                     <TextField
                         size="small"
@@ -531,6 +610,20 @@ const OrderTaking: React.FC = () => {
 
                     {/* Items Grid */}
                     <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto' }}>
+                        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle1" fontWeight={800} color="#1e293b">
+                                {searchTerm ? `Search Results for "${searchTerm}"` : (groups.find(g => g.id === selectedGroupId)?.name || categories.find(c => c.id === selectedCategoryId)?.name || 'Menu Items')}
+                            </Typography>
+                            {searchTerm && (
+                                <Button
+                                    size="small"
+                                    onClick={() => setSearchTerm('')}
+                                    sx={{ textTransform: 'none', color: '#64748b', fontWeight: 600 }}
+                                >
+                                    Clear Search
+                                </Button>
+                            )}
+                        </Box>
                         {filteredItems.length > 0 ? (
                             <Grid container spacing={2}>
                                 {filteredItems.map(item => (
@@ -565,17 +658,30 @@ const OrderTaking: React.FC = () => {
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     mb: 1.5,
-                                                    fontSize: '40px'
+                                                    overflow: 'hidden'
                                                 }}>
-                                                    {item.image || '🍽️'}
+                                                    {item.image ? (
+                                                        <Box
+                                                            component="img"
+                                                            src={item.image.startsWith('http') ? item.image : `${API_BASE_URL}${item.image}`}
+                                                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                    ) : (
+                                                        <Typography sx={{ fontSize: '40px' }}>🍽️</Typography>
+                                                    )}
                                                 </Box>
-                                                <Typography fontWeight={700} fontSize="14px" sx={{ mb: 0.5, lineHeight: 1.3 }}>
+                                                <Typography fontWeight={700} fontSize="14px" sx={{ mb: 0.2, lineHeight: 1.3 }}>
                                                     {item.name}
                                                 </Typography>
+                                                {searchTerm && (
+                                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, display: 'block', mb: 0.5, fontSize: '11px' }}>
+                                                        In {categories.find(c => c.id === item.category_id)?.name || 'General'}
+                                                    </Typography>
+                                                )}
                                             </Box>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                                                 <Typography fontWeight={800} color="#FFC107" fontSize="16px">
-                                                    NPRs. {item.price}
+                                                    NPRs. {Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </Typography>
                                                 <Box sx={{ bgcolor: '#fff7ed', p: 0.5, borderRadius: '8px' }}>
                                                     <Plus size={16} color="#FFC107" />
@@ -605,7 +711,7 @@ const OrderTaking: React.FC = () => {
                 flexDirection: 'column',
                 boxShadow: '-4px 0 15px rgba(0,0,0,0.02)'
             }}>
-                <Box sx={{ p: 3, borderBottom: '1px solid #f1f5f9' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Typography variant="h6" fontWeight={800} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             Current Order <Chip label={orderItems.length} size="small" sx={{ bgcolor: '#FFC107', color: 'white', fontWeight: 800, height: 20 }} />
@@ -720,57 +826,48 @@ const OrderTaking: React.FC = () => {
 
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button
-                                variant={orderType === 'Table' ? "contained" : "outlined"}
-                                size="small"
-                                onClick={() => setOrderType('Table')}
+                            <Chip
+                                label="Dine In"
+                                icon={<Armchair size={16} />}
                                 sx={{
-                                    bgcolor: orderType === 'Table' ? '#FFC107' : 'transparent',
-                                    color: orderType === 'Table' ? 'white' : '#64748b',
+                                    height: 32,
+                                    bgcolor: orderType === 'Table' ? '#fff7ed' : '#f8fafc',
+                                    color: orderType === 'Table' ? '#FFC107' : '#94a3b8',
+                                    fontWeight: 800,
+                                    border: '1px solid',
                                     borderColor: orderType === 'Table' ? '#FFC107' : '#e2e8f0',
-                                    boxShadow: 'none',
-                                    borderRadius: '20px',
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    '&:hover': { bgcolor: orderType === 'Table' ? '#e67e00' : '#f8fafc', borderColor: '#FFC107', boxShadow: 'none' }
+                                    borderRadius: '8px',
+                                    '& .MuiChip-icon': { color: 'inherit' }
                                 }}
-                            >
-                                Dine In
-                            </Button>
-                            <Button
-                                variant={orderType === 'Takeaway' ? "contained" : "outlined"}
-                                size="small"
-                                onClick={() => setOrderType('Takeaway')}
+                            />
+                            <Chip
+                                label="Takeaway"
+                                icon={<ShoppingBag size={16} />}
                                 sx={{
-                                    bgcolor: orderType === 'Takeaway' ? '#FFC107' : 'transparent',
-                                    color: orderType === 'Takeaway' ? 'white' : '#64748b',
+                                    height: 32,
+                                    bgcolor: orderType === 'Takeaway' ? '#fff7ed' : '#f8fafc',
+                                    color: orderType === 'Takeaway' ? '#FFC107' : '#94a3b8',
+                                    fontWeight: 800,
+                                    border: '1px solid',
                                     borderColor: orderType === 'Takeaway' ? '#FFC107' : '#e2e8f0',
-                                    boxShadow: 'none',
-                                    borderRadius: '20px',
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    '&:hover': { bgcolor: orderType === 'Takeaway' ? '#e67e00' : '#f8fafc', borderColor: '#FFC107', boxShadow: 'none' }
+                                    borderRadius: '8px',
+                                    '& .MuiChip-icon': { color: 'inherit' }
                                 }}
-                            >
-                                Takeaway
-                            </Button>
-                            <Button
-                                variant={orderType === 'Delivery' ? "contained" : "outlined"}
-                                size="small"
-                                onClick={() => setOrderType('Delivery')}
+                            />
+                            <Chip
+                                label="Delivery"
+                                icon={<Bike size={16} />}
                                 sx={{
-                                    bgcolor: orderType === 'Delivery' ? '#FFC107' : 'transparent',
-                                    color: orderType === 'Delivery' ? 'white' : '#64748b',
+                                    height: 32,
+                                    bgcolor: orderType === 'Delivery' ? '#fff7ed' : '#f8fafc',
+                                    color: orderType === 'Delivery' ? '#FFC107' : '#94a3b8',
+                                    fontWeight: 800,
+                                    border: '1px solid',
                                     borderColor: orderType === 'Delivery' ? '#FFC107' : '#e2e8f0',
-                                    boxShadow: 'none',
-                                    borderRadius: '20px',
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    '&:hover': { bgcolor: orderType === 'Delivery' ? '#e67e00' : '#f8fafc', borderColor: '#FFC107', boxShadow: 'none' }
+                                    borderRadius: '8px',
+                                    '& .MuiChip-icon': { color: 'inherit' }
                                 }}
-                            >
-                                Delivery
-                            </Button>
+                            />
                         </Box>
 
                         {orderType === 'Delivery' && (
@@ -790,14 +887,14 @@ const OrderTaking: React.FC = () => {
                     </Box>
                 </Box>
 
-                <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
+                <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto', minHeight: 0 }}>
                     {orderItems.length > 0 ? (
                         orderItems.map((item) => (
                             <Paper
                                 key={item.item_id}
                                 elevation={0}
                                 sx={{
-                                    p: 2,
+                                    p: 1,
                                     mb: 1.5,
                                     borderRadius: '16px',
                                     border: '1px solid #f1f5f9',
@@ -808,10 +905,10 @@ const OrderTaking: React.FC = () => {
                             >
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                     <Typography fontWeight={700} fontSize="14px">{item.name}</Typography>
-                                    <Typography fontWeight={800} color="#1e293b">NPRs. {item.price * item.quantity}</Typography>
+                                    <Typography fontWeight={800} color="#1e293b">NPRs. {Number(item.price * item.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                 </Box>
                                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                                    NPRs. {item.price} / item
+                                    NPRs. {Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / item
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'white', borderRadius: '10px', p: 0.5, border: '1px solid #e2e8f0' }}>
@@ -823,7 +920,7 @@ const OrderTaking: React.FC = () => {
                                             <Minus size={16} />
                                         </IconButton>
                                         <Typography sx={{ width: 30, textAlign: 'center', fontWeight: 800, fontSize: '14px' }}>
-                                            {item.quantity}
+                                            {Number(item.quantity).toFixed(2)}
                                         </Typography>
                                         <IconButton
                                             size="small"
@@ -851,31 +948,58 @@ const OrderTaking: React.FC = () => {
                     )}
                 </Box>
 
-                <Box sx={{ p: 3, bgcolor: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography color="text.secondary" fontWeight={500}>Subtotal</Typography>
-                        <Typography fontWeight={700}>NPRs. {total}</Typography>
+                <Box sx={{ p: 2, bgcolor: '#f8fafc', borderTop: '1px solid #f1f5f9', mt: 'auto' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography color="text.secondary" fontWeight={500} fontSize="13px">Subtotal</Typography>
+                        <Typography fontWeight={700} fontSize="13px">NPRs. {Number(total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography color="text.secondary" fontWeight={500}>Service Charge ({companySettings?.service_charge_rate || 0}%)</Typography>
-                        <Typography fontWeight={700}>NPRs. {Math.round(total * (companySettings?.service_charge_rate || 0) / 100)}</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, alignItems: 'center' }}>
+                        <Typography color="text.secondary" fontWeight={500} fontSize="13px">Discount (%)</Typography>
+                        <TextField
+                            size="small"
+                            type="number"
+                            value={discountPercent}
+                            onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                            sx={{
+                                width: '70px',
+                                '& .MuiInputBase-input': {
+                                    py: 0.3,
+                                    px: 1,
+                                    textAlign: 'right',
+                                    fontWeight: 700,
+                                    fontSize: '12px'
+                                },
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '6px',
+                                    bgcolor: 'white'
+                                }
+                            }}
+                        />
                     </Box>
-                    {companySettings?.tax_rate > 0 && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography color="text.secondary" fontWeight={500}>VAT ({companySettings?.tax_rate || 0}%)</Typography>
-                            <Typography fontWeight={700}>NPRs. {Math.round((total + (total * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100)}</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography color="text.secondary" fontWeight={500} fontSize="13px">Discount Amt</Typography>
+                        <Typography fontWeight={700} fontSize="13px">NPRs. {Number(total * discountPercent / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography color="text.secondary" fontWeight={500} fontSize="13px">Service Charge ({companySettings?.service_charge_rate || 0}%)</Typography>
+                        <Typography fontWeight={700} fontSize="13px">NPRs. {Number((total - (total * discountPercent / 100)) * (companySettings?.service_charge_rate || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                    </Box>
+                    {(companySettings?.tax_rate > 0 || (total - (Math.round(total * discountPercent / 100)) + ((total - (Math.round(total * discountPercent / 100))) * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100 > 0) && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography color="text.secondary" fontWeight={500} fontSize="13px">VAT ({companySettings?.tax_rate || 0}%)</Typography>
+                            <Typography fontWeight={700} fontSize="13px">NPRs. {Number(((total - (total * discountPercent / 100)) + ((total - (total * discountPercent / 100)) * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                         </Box>
                     )}
                     {orderType === 'Delivery' && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography color="text.secondary" fontWeight={500}>Delivery Charge</Typography>
-                            <Typography fontWeight={700}>NPRs. {deliveryCharge}</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography color="text.secondary" fontWeight={500} fontSize="13px">Delivery Charge</Typography>
+                            <Typography fontWeight={700} fontSize="13px">NPRs. {Number(deliveryCharge).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                         </Box>
                     )}
-                    <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                        <Typography variant="h6" fontWeight={800}>Total Payable</Typography>
-                        <Typography variant="h6" fontWeight={800} color="#FFC107">NPRs. {Math.round(total * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100)) + deliveryCharge}</Typography>
+                    <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Typography variant="subtitle1" fontWeight={800} fontSize="18px">Total Payable</Typography>
+                        <Typography variant="subtitle1" fontWeight={800} color="#FFC107" fontSize="18px">NPRs. {Number((total - (total * discountPercent / 100)) * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100) + deliveryCharge).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                     </Box>
 
                     <Button
@@ -885,14 +1009,14 @@ const OrderTaking: React.FC = () => {
                         onClick={handlePlaceOrder}
                         sx={{
                             bgcolor: '#FFC107',
-                            mb: 1.5,
-                            py: 1.8,
+                            mb: 1,
+                            py: 1.5,
                             fontWeight: 800,
                             fontSize: '16px',
-                            borderRadius: '16px',
-                            boxShadow: '0 8px 20px rgba(255,140,0,0.2)',
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 12px rgba(255,140,0,0.2)',
                             textTransform: 'none',
-                            '&:hover': { bgcolor: '#e67e00', boxShadow: '0 10px 25px rgba(255,140,0,0.3)' }
+                            '&:hover': { bgcolor: '#e67e00' }
                         }}
                     >
                         Place Order
@@ -996,6 +1120,67 @@ const OrderTaking: React.FC = () => {
                         sx={{ borderRadius: '10px', bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, textTransform: 'none', fontWeight: 700 }}
                     >
                         Print Bill
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Change Table Dialog */}
+            <Dialog
+                open={changeTableDialogOpen}
+                onClose={() => setChangeTableDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: '20px' } }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, px: 3, pt: 3 }}>
+                    Move Order to Another Table
+                </DialogTitle>
+                <DialogContent sx={{ px: 3, pb: 3 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Select an available table to move this order.
+                    </Typography>
+                    <Grid container spacing={2}>
+                        {allTables
+                            .filter(t => t.id !== table?.id && t.is_active && t.is_hold_table !== 'Yes')
+                            .map(t => (
+                                <Grid key={t.id} size={{ xs: 6, sm: 4, md: 3 }}>
+                                    <Paper
+                                        elevation={0}
+                                        onClick={() => handleChangeTable(t)}
+                                        sx={{
+                                            p: 2,
+                                            textAlign: 'center',
+                                            cursor: 'pointer',
+                                            border: '1.5px solid #f1f5f9',
+                                            borderRadius: '16px',
+                                            bgcolor: t.status === 'Available' ? 'white' : '#f8fafc',
+                                            opacity: t.status === 'Available' ? 1 : 0.6,
+                                            transition: t.status === 'Available' ? 'all 0.2s' : 'none',
+                                            '&:hover': t.status === 'Available' ? {
+                                                borderColor: '#FFC107',
+                                                bgcolor: '#fff7ed',
+                                                transform: 'translateY(-2px)'
+                                            } : {}
+                                        }}
+                                    >
+                                        <Typography variant="h6" fontWeight={800} color={t.status === 'Available' ? '#1e293b' : '#94a3b8'}>
+                                            {t.table_id}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{
+                                            fontWeight: 800,
+                                            color: t.status === 'Available' ? '#10b981' : '#ef4444'
+                                        }}>
+                                            {t.status}
+                                        </Typography>
+                                    </Paper>
+                                </Grid>
+                            ))
+                        }
+                    </Grid>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 3 }}>
+                    <Button onClick={() => setChangeTableDialogOpen(false)} sx={{ fontWeight: 700, color: '#64748b' }}>
+                        Cancel
                     </Button>
                 </DialogActions>
             </Dialog>

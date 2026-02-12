@@ -24,6 +24,7 @@ class _BillScreenState extends State<BillScreen> {
   final TableService _tableService = TableService();
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
+  bool _isPaymentReceived = false;
   Map<String, dynamic>? _activeOrder;
   List<CartItem> _displayItems = [];
   List<dynamic> _qrCodes = [];
@@ -134,7 +135,65 @@ class _BillScreenState extends State<BillScreen> {
           _buildPaymentSection(grandTotal),
         ],
       ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: 0,
+          onTap: (index) {
+             Navigator.pop(context, index);
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.grey[400],
+          unselectedItemColor: Colors.grey[400],
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          elevation: 0,
+          items: const [
+             BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
+             BottomNavigationBarItem(icon: Icon(Icons.kitchen_rounded), label: 'KOT/BOT'),
+             BottomNavigationBarItem(icon: Icon(Icons.payments_rounded), label: 'Cashier'),
+             BottomNavigationBarItem(icon: Icon(Icons.analytics_rounded), label: 'Reports'),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _handleBillExport() async {
+    try {
+      // Assuming activeOrder has an ID or using table number
+      final orderId = _activeOrder?['id'] ?? widget.orderId;
+      if (orderId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Order ID not found for export.")));
+        return;
+      }
+      
+      // Call backend to print/export bill
+      // Implementation assumes backend handles the actual file generation or printing trigger
+      // If we need to download a file, we'd use download logic here similar to reports
+      
+      // For now, simulating backend trigger
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Exporting Bill...")));
+      
+      // In a real scenario, this might look like:
+      // await _apiService.post('/pos/print-bill/$orderId', {});
+      
+      // After export, user can choose to leave
+      // Navigator.popUntil(context, (route) => route.isFirst); 
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e"), backgroundColor: Colors.red));
+    }
   }
 
   Widget _buildSectionTitle(String title) {
@@ -169,6 +228,67 @@ class _BillScreenState extends State<BillScreen> {
   }
 
   Widget _buildPaymentSection(double total) {
+    if (_isPaymentReceived) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 32),
+                    SizedBox(height: 8),
+                    Text("Payment Received", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _handleBillExport,
+                  icon: const Icon(Icons.print),
+                  label: const Text("Export / Print Bill"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text("Back to Home"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -305,16 +425,22 @@ class _BillScreenState extends State<BillScreen> {
 
     if (confirmed == true) {
       setState(() => _isLoading = true);
+      
+      // Process payment in backend and clear table
       final success = await _tableService.addBill(widget.tableNumber, _displayItems, method);
+      
+      setState(() => _isLoading = false);
+
       if (success) {
+        setState(() {
+          _isPaymentReceived = true;
+        });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Order Completed & Table Vacated!"), backgroundColor: Colors.green));
-          Navigator.popUntil(context, (route) => route.isFirst);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Recorded Successfully!"), backgroundColor: Colors.green));
         }
       } else {
         if (mounted) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error completing order."), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error recording payment."), backgroundColor: Colors.red));
         }
       }
     }
