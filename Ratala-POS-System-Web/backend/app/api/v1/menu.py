@@ -255,8 +255,10 @@ async def upload_menu_item_image(
         raise HTTPException(status_code=404, detail="Menu item not found or access denied")
         
     # Create directory if it doesn't exist
-    upload_dir = "uploads/menu_items"
-    os.makedirs(upload_dir, exist_ok=True)
+    from pathlib import Path
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+    upload_dir = BASE_DIR / "uploads" / "menu_items"
+    upload_dir.mkdir(parents=True, exist_ok=True)
     
     # Validate file type
     if not file.content_type.startswith("image/"):
@@ -265,7 +267,7 @@ async def upload_menu_item_image(
     # Generate unique filename
     extension = os.path.splitext(file.filename)[1]
     filename = f"{uuid.uuid4()}{extension}"
-    file_path = os.path.join(upload_dir, filename)
+    file_path = upload_dir / filename
     
     # Save file
     try:

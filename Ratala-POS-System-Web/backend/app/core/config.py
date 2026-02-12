@@ -34,12 +34,17 @@ class Settings:
     _cors_origins = os.getenv("CORS_ORIGINS", "")
     _origins_list = [origin.strip() for origin in _cors_origins.split(",") if origin.strip()]
     
-    # Always include FRONTEND_URL and some defaults if empty
-    if not _origins_list:
-        _origins_list = ["http://localhost:5173", "http://localhost:3000", FRONTEND_URL]
-    elif "*" in _origins_list:
-        # If credentials are allowed, origins cannot be "*"
-        _origins_list = ["*"]
+    # If credentials are allowed, we CANNOT use ["*"]
+    # We must provide an explicit list of origins
+    if not _origins_list or "*" in _origins_list:
+        # Default fallback origins if none provided or if "*" was used (which is incompatible with credentials)
+        _origins_list = [
+            "http://localhost:5173",
+            "http://localhost:3000",
+            FRONTEND_URL
+        ]
+        # Remove duplicates
+        _origins_list = list(set(_origins_list))
     
     CORS_ORIGINS: list = _origins_list
     

@@ -34,9 +34,12 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
 # Mount static files for uploads
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+UPLOAD_DIR = BASE_DIR / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+print(f"✓ Static files mounted at: {UPLOAD_DIR}")
 
 
 # Initialize database on startup
