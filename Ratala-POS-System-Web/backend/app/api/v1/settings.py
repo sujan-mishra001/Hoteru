@@ -38,11 +38,11 @@ async def get_public_company_settings(
     
     # Merge data: branch info takes priority if it exists
     return {
-        "company_name": (branch.name if branch else settings.company_name) if settings else (branch.name if branch else "RATALA"),
-        "phone": (branch.phone if branch else settings.phone) if (branch and branch.phone) or settings else "",
-        "address": (branch.address if branch else settings.address) if (branch and branch.address) or settings else "",
+        "company_name": (branch.name if branch else (settings.company_name if settings and settings.company_name else "")),
+        "phone": (branch.phone if branch and branch.phone else (settings.phone if settings else "")),
+        "address": (branch.address if branch and branch.address else (settings.address if settings else "")),
         "logo_url": settings.logo_url if settings else None,
-        "slogan": (branch.slogan if branch and branch.slogan else (settings.slogan if settings else "Savor the authentic taste of tradition" if hasattr(settings, 'slogan') else "Savor the authentic taste of tradition")),
+        "slogan": (branch.slogan if branch and branch.slogan else getattr(settings, 'slogan', "Savor the authentic taste of tradition") if settings else "Savor the authentic taste of tradition"),
         "facebook_url": branch.facebook_url if branch else None,
         "instagram_url": branch.instagram_url if branch else None
     }
