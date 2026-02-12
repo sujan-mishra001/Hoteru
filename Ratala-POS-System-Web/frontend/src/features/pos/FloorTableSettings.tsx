@@ -26,8 +26,7 @@ import {
     Alert,
     Snackbar,
     Tabs,
-    Tab,
-    Divider
+    Tab
 } from '@mui/material';
 import {
     Plus,
@@ -36,9 +35,7 @@ import {
     Building2,
     LayoutGrid,
     ArrowUp,
-    ArrowDown,
-    Check,
-    X
+    ArrowDown
 } from 'lucide-react';
 import { floorsAPI, tablesAPI } from '../../services/api';
 
@@ -68,7 +65,6 @@ const FloorTableSettings: React.FC = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [floors, setFloors] = useState<Floor[]>([]);
     const [tables, setTables] = useState<TableData[]>([]);
-    const [loading, setLoading] = useState(true);
 
     // Floor Dialog
     const [floorDialogOpen, setFloorDialogOpen] = useState(false);
@@ -112,9 +108,7 @@ const FloorTableSettings: React.FC = () => {
     }, []);
 
     const loadData = useCallback(async () => {
-        setLoading(true);
         await Promise.all([loadFloors(), loadTables()]);
-        setLoading(false);
     }, [loadFloors, loadTables]);
 
     useEffect(() => {

@@ -99,6 +99,7 @@ const Settings: React.FC = () => {
     const [profileForm, setProfileForm] = useState({ full_name: '', email: '', username: '', password: '' });
     const [qrSrc, setQrSrc] = useState<string>('');
     const [logoUploading, setLogoUploading] = useState(false);
+    const [profileUploading, setProfileUploading] = useState(false);
     const [currentBranchSettings, setCurrentBranchSettings] = useState<any>(null);
     const [branchSaving, setBranchSaving] = useState(false);
     const [notification, setNotification] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({

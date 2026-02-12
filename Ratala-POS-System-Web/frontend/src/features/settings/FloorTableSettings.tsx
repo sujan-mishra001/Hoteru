@@ -28,7 +28,6 @@ const FloorTableSettings: React.FC = () => {
     const { showAlert, showConfirm } = useNotification();
     const [floors, setFloors] = useState<any[]>([]);
     const [tables, setTables] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
     // Dialog states
     const [openFloorDialog, setOpenFloorDialog] = useState(false);
@@ -47,8 +46,6 @@ const FloorTableSettings: React.FC = () => {
             setTables(tRes.data || []);
         } catch (err) {
             console.error(err);
-        } finally {
-            setLoading(false);
         }
     };
 

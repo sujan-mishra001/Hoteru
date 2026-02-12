@@ -14,7 +14,6 @@ import {
     useTheme,
     useMediaQuery,
     Paper,
-    Divider,
     Snackbar,
     Alert
 } from '@mui/material';
