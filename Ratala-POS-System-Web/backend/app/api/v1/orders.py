@@ -109,6 +109,28 @@ async def create_order(
     if active_session:
         order_data['pos_session_id'] = active_session.id
     
+    # Handle customer lookup/creation by name if customer_id is missing
+    customer_name = order_data.pop('customer_name', None)
+    if not order_data.get('customer_id') and customer_name:
+        branch_id = current_user.current_branch_id
+        # Try to find existing customer by name in this branch
+        customer = db.query(Customer).filter(
+            Customer.name == customer_name,
+            Customer.branch_id == branch_id
+        ).first()
+
+        if not customer:
+            # Create a basic customer profile
+            customer = Customer(
+                name=customer_name,
+                branch_id=branch_id,
+                customer_type="Regular"
+            )
+            db.add(customer)
+            db.flush()
+
+        order_data['customer_id'] = customer.id
+
     # Calculate accurate amounts based on business rules
     # 1. Gross - sum of items
     gross = sum(item.get('price', 0) * item.get('quantity', 0) for item in items_data)

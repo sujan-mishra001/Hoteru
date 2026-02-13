@@ -119,18 +119,35 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Printer Management', style: TextStyle(fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFFFFC107),
-          elevation: 0,
-          bottom: const TabBar(
-            labelColor: Colors.black87,
-            unselectedLabelColor: Colors.black54,
-            indicatorColor: Colors.black87,
-            tabs: [
-              Tab(text: 'My Printers'),
-              Tab(text: 'Discover'),
-            ],
+        backgroundColor: const Color(0xFFF5F5F5),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(120),
+          child: AppBar(
+            title: const Text(
+              'Printer Management',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+            backgroundColor: const Color(0xFFFFC107),
+            elevation: 0,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+            ),
+            centerTitle: true,
+            bottom: const TabBar(
+              labelColor: Colors.black,
+              unselectedLabelColor: Colors.black54,
+              indicatorColor: Colors.black,
+              indicatorWeight: 3,
+              labelStyle: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
+              tabs: [
+                Tab(text: 'My Printers'),
+                Tab(text: 'Discover'),
+              ],
+            ),
           ),
         ),
         body: TabBarView(
@@ -149,7 +166,7 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
   }
 
   Widget _buildMyPrintersList() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)));
     if (_backendPrinters.isEmpty) {
       return Center(
         child: Column(
@@ -174,10 +191,21 @@ class _PrinterManagementScreenState extends State<PrinterManagementScreen> {
       itemCount: _backendPrinters.length,
       itemBuilder: (context, index) {
         final p = _backendPrinters[index];
-        return Card(
+        return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             leading: CircleAvatar(
               backgroundColor: const Color(0xFFFFC107).withOpacity(0.1),
               child: const Icon(Icons.print_rounded, color: Color(0xFFFFC107)),

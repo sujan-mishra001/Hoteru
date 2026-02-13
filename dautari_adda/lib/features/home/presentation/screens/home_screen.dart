@@ -1767,16 +1767,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                  const PopupMenuItem<String>(
-                    value: 'merge',
-                    child: Row(
-                      children: [
-                        Icon(Icons.merge_type, color: Colors.blue, size: 20),
-                        SizedBox(width: 8),
-                        Text('Merge with...'),
-                      ],
+                  if (table.mergeGroupId == null)
+                    const PopupMenuItem<String>(
+                      value: 'merge',
+                      child: Row(
+                        children: [
+                          Icon(Icons.merge_type, color: Colors.blue, size: 20),
+                          SizedBox(width: 8),
+                          Text('Merge with...'),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

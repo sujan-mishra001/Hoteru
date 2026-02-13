@@ -40,23 +40,39 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('User Management'),
-        backgroundColor: const Color(0xFFFFC107),
-        actions: [
-          if (_isAdmin)
-            IconButton(
-              icon: const Icon(Icons.person_add),
-              onPressed: () => _showAddUserDialog(),
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(75),
+        child: AppBar(
+          title: const Text(
+            'User Management',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
           ),
-        ],
+          backgroundColor: const Color(0xFFFFC107),
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+          ),
+          centerTitle: true,
+          actions: [
+            if (_isAdmin)
+              IconButton(
+                icon: const Icon(Icons.person_add, color: Colors.black),
+                onPressed: () => _showAddUserDialog(),
+              ),
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.black),
+              onPressed: _loadData,
+            ),
+          ],
+        ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
           : _users.isEmpty
               ? Center(
                   child: Column(
@@ -85,9 +101,19 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   }
 
   Widget _buildUserCard(dynamic user) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: const Color(0xFFFFC107),

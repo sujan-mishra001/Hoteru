@@ -30,9 +30,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Branch Management'),
+        toolbarHeight: 75,
+        title: const Text('Branch Management', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFFFFC107),
+        elevation: 0,
         actions: [
           if (_isAdmin)
             IconButton(
@@ -75,9 +78,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   }
 
   Widget _buildBranchCard(dynamic branch) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
       child: Column(
         children: [
           ListTile(
