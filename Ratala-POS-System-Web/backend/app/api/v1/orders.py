@@ -236,7 +236,7 @@ async def create_order(
             if new_order.status in ['Paid', 'Completed']:
                 target_status = "Available"
             
-            if table.merge_group_id:
+            if table.merge_group_id and str(table.merge_group_id).strip():
                 # Update all tables in merge group
                 db.query(Table).filter(
                     Table.merge_group_id == table.merge_group_id,
@@ -338,7 +338,7 @@ async def update_order(
             if order.table_id and order.order_type in ['Table', 'Dine-in']:
                 table = db.query(Table).filter(Table.id == order.table_id).first()
                 if table:
-                    if table.merge_group_id:
+                    if table.merge_group_id and str(table.merge_group_id).strip():
                         # Update all tables in merge group
                         db.query(Table).filter(
                             Table.merge_group_id == table.merge_group_id,
@@ -373,7 +373,7 @@ async def update_order(
             if order.table_id and order.order_type in ['Table', 'Dine-in']:
                 table = db.query(Table).filter(Table.id == order.table_id).first()
                 if table:
-                    if table.merge_group_id:
+                    if table.merge_group_id and str(table.merge_group_id).strip():
                         db.query(Table).filter(
                             Table.merge_group_id == table.merge_group_id,
                             Table.branch_id == order.branch_id
@@ -383,7 +383,7 @@ async def update_order(
         elif new_status == 'BillRequested' and order.table_id and order.order_type in ['Table', 'Dine-in']:
             table = db.query(Table).filter(Table.id == order.table_id).first()
             if table:
-                if table.merge_group_id:
+                if table.merge_group_id and str(table.merge_group_id).strip():
                     db.query(Table).filter(
                         Table.merge_group_id == table.merge_group_id,
                         Table.branch_id == order.branch_id
@@ -393,7 +393,7 @@ async def update_order(
         elif new_status in ['Pending', 'In Progress'] and order.table_id and order.order_type in ['Table', 'Dine-in']:
             table = db.query(Table).filter(Table.id == order.table_id).first()
             if table:
-                if table.merge_group_id:
+                if table.merge_group_id and str(table.merge_group_id).strip():
                     db.query(Table).filter(
                         Table.merge_group_id == table.merge_group_id,
                         Table.branch_id == order.branch_id
@@ -428,7 +428,7 @@ async def delete_order(
     if order.table_id and order.order_type in ['Table', 'Dine-in']:
         table = db.query(Table).filter(Table.id == order.table_id).first()
         if table:
-            if table.merge_group_id:
+            if table.merge_group_id and str(table.merge_group_id).strip():
                 db.query(Table).filter(
                     Table.merge_group_id == table.merge_group_id,
                     Table.branch_id == order.branch_id
@@ -487,7 +487,7 @@ async def change_order_table(
     if old_table_id and order.order_type in ['Table', 'Dine-in']:
         old_table = db.query(Table).filter(Table.id == old_table_id).first()
         if old_table:
-            if old_table.merge_group_id:
+            if old_table.merge_group_id and str(old_table.merge_group_id).strip():
                 # Make all tables in the old group available
                 db.query(Table).filter(
                     Table.merge_group_id == old_table.merge_group_id,

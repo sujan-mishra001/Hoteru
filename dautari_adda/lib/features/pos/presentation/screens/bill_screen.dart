@@ -446,7 +446,7 @@ class _BillScreenState extends State<BillScreen> {
       final acc = widget.accumulatedOrders;
       final success = acc != null && acc.length > 1
           ? await _tableService.addBillForMerged(acc, _displayItems, method)
-          : await _tableService.addBill(widget.tableNumber, _displayItems, method);
+          : await _tableService.addBill(widget.tableNumber, _displayItems, method, orderType: widget.orderType);
 
       setState(() => _isLoading = false);
 

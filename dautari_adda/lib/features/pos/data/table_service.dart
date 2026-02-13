@@ -542,7 +542,7 @@ class TableService extends ChangeNotifier {
       final subtotal = items.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
       
       // Get active order
-      Map<String, dynamic>? activeOrder = await getActiveOrderForTable(tableId);
+      Map<String, dynamic>? activeOrder = await getActiveOrderForTable(tableId, orderType: orderType);
 
       // Get branch ID if missing
       if (_currentBranchId == null) {
@@ -632,11 +632,13 @@ class TableService extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>?> getActiveOrderForTable(int tableId) async {
+  Future<Map<String, dynamic>?> getActiveOrderForTable(int tableId, {String? orderType}) async {
     try {
       // Fetch all orders and find active one for this table
       String ordersUrl = '/orders?status=Pending,Draft,In Progress,BillRequested';
       if (_currentBranchId != null) ordersUrl += '&branch_id=$_currentBranchId';
+      if (orderType != null) ordersUrl += '&order_type=${Uri.encodeComponent(orderType)}';
+
       final response = await _apiService.get(ordersUrl);
       
       if (response.statusCode == 200) {
@@ -645,7 +647,15 @@ class TableService extends ChangeNotifier {
           (o) {
             final oTableId = o['table_id'];
             final matchesTable = tableId == 0 ? (oTableId == null) : (oTableId == tableId);
-            return matchesTable && 
+
+            // If tableId is 0, we must also match orderType to avoid mixing Takeaway/Delivery
+            bool matchesType = true;
+            if (tableId == 0 && orderType != null) {
+              final oType = o['order_type']?.toString();
+              matchesType = oType == orderType;
+            }
+
+            return matchesTable && matchesType &&
                  (o['status'] == 'Pending' || o['status'] == 'Draft' || o['status'] == 'In Progress' || o['status'] == 'BillRequested');
           },
           orElse: () => null,
@@ -666,7 +676,7 @@ class TableService extends ChangeNotifier {
     }
   }
 
-  Future<bool> addBill(int tableId, List<CartItem> items, String paymentMethod) async {
+  Future<bool> addBill(int tableId, List<CartItem> items, String paymentMethod, {String? orderType}) async {
     try {
       // Re-calculate consistently
       final subtotal = items.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
@@ -677,7 +687,7 @@ class TableService extends ChangeNotifier {
       final total = subtotal - discountAmount + sc + tax;
 
       // Fetch fresh active order for this table
-      Map<String, dynamic>? backendOrder = await getActiveOrderForTable(tableId);
+      Map<String, dynamic>? backendOrder = await getActiveOrderForTable(tableId, orderType: orderType);
       
       dynamic response;
       if (backendOrder != null) {

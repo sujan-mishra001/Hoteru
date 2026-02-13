@@ -42,7 +42,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     if (!mounted) return;
     setState(() => _isFetching = true);
     try {
-      final orders = await _orderService.getOrders(status: 'Pending,Draft,InProgress,BillRequested');
+      final orders = await _orderService.getOrders();
       if (!mounted) return;
       setState(() {
         _backendOrders = orders;
