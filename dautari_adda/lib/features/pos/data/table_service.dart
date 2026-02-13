@@ -834,4 +834,58 @@ class TableService extends ChangeNotifier {
     await fetchTables();
     return _tables;
   }
+
+  // Get order by ID (for takeaway and delivery orders)
+  Future<Map<String, dynamic>?> getOrderById(int orderId) async {
+    try {
+      final response = await _apiService.get('/orders/$orderId');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error fetching order by ID: $e");
+      return null;
+    }
+  }
+
+  // Process payment for takeaway orders (no table status change)
+  Future<bool> processTakeawayPayment(int orderId, String paymentMethod) async {
+    try {
+      final response = await _apiService.patch('/orders/$orderId', {
+        'status': 'Paid',
+        'payment_type': paymentMethod,
+      });
+      
+      if (response.statusCode == 200) {
+        // Refresh orders list
+        await _loadState();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error processing takeaway payment: $e");
+      return false;
+    }
+  }
+
+  // Process payment for delivery orders (no table status change)
+  Future<bool> processDeliveryPayment(int orderId, String paymentMethod) async {
+    try {
+      final response = await _apiService.patch('/orders/$orderId', {
+        'status': 'Paid',
+        'payment_type': paymentMethod,
+      });
+      
+      if (response.statusCode == 200) {
+        // Refresh orders list
+        await _loadState();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error processing delivery payment: $e");
+      return false;
+    }
+  }
 }

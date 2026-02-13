@@ -125,13 +125,6 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
                                   ),
                                 ),
                               ),
-            if (hasDraft) ...[
-              _buildSectionTitle("Order Type"),
-              const SizedBox(height: 12),
-              _isOrderTypeInformational
-                  ? _buildOrderTypeInfo()
-                  : _buildOrderTypeSelector(),
-            ],
                           ],
                         ),
                       ),
@@ -145,16 +138,18 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
   }
 
   String get _displayName {
-    // Priority: backend order customer > widget customerName > orderType > tableName
+    final orderTypeLower = (_activeOrder?['order_type'] ?? widget.orderType ?? 'Table').toString().toLowerCase();
     final backendCustomerName = _activeOrder?['customer']?['name']?.toString();
     final customerName = backendCustomerName ?? widget.customerName;
     
-    if (widget.orderType != null && customerName != null && customerName.isNotEmpty) {
-      return '${widget.orderType} • $customerName';
+    // Show appropriate label based on order type
+    if (orderTypeLower == 'takeaway') {
+      return customerName != null && customerName.isNotEmpty ? 'Takeaway • $customerName' : 'Takeaway';
     }
-    if (widget.orderType != null) {
-      return widget.orderType!;
+    if (orderTypeLower == 'delivery' || orderTypeLower == 'delivery partner') {
+      return customerName != null && customerName.isNotEmpty ? 'Delivery • $customerName' : 'Delivery';
     }
+    // Table/Dine-in: show table name
     return widget.tableName;
   }
   
@@ -163,6 +158,26 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
   }
 
   Widget _buildHeader(bool isOccupied) {
+    // Determine order type from active order or widget
+    final orderType = (_activeOrder?['order_type'] ?? widget.orderType ?? 'Table').toString();
+    final orderTypeLower = orderType.toLowerCase();
+    
+    // Select appropriate icon and label
+    IconData iconData;
+    String statusLabel;
+    
+    if (orderTypeLower == 'takeaway') {
+      iconData = Icons.shopping_bag_rounded;
+      statusLabel = isOccupied ? "Takeaway Order" : "Takeaway Draft";
+    } else if (orderTypeLower == 'delivery' || orderTypeLower == 'delivery partner') {
+      iconData = Icons.delivery_dining_rounded;
+      statusLabel = isOccupied ? "Delivery Order" : "Delivery Draft";
+    } else {
+      // Table/Dine-in
+      iconData = Icons.table_restaurant_rounded;
+      statusLabel = isOccupied ? "Occupied" : "Draft Order";
+    }
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -178,16 +193,14 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle),
-              child: Icon(
-                _orderType == 'Takeaway' ? Icons.shopping_bag_rounded : (_orderType == 'Delivery' || _orderType == 'Delivery Partner' ? Icons.delivery_dining_rounded : Icons.table_restaurant_rounded),
-              ),
+              child: Icon(iconData),
             ),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(_displayName, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18)),
-                Text(isOccupied ? "Occupied" : "Draft Order", style: TextStyle(color: isOccupied ? Colors.red : Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+                Text(statusLabel, style: TextStyle(color: isOccupied ? Colors.red : Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
               ],
             ),
           ],
@@ -218,63 +231,6 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
           const SizedBox(width: 12),
           Text("Rs ${price * qty}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildOrderTypeInfo() {
-    final label = _orderType == 'Table' ? 'Dine-in' : _orderType;
-    final icon = _orderType == 'Table' ? Icons.restaurant : (_orderType == 'Takeaway' ? Icons.shopping_bag : Icons.delivery_dining);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFC107).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFC107).withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFFFFC107), size: 24),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          if (_customerName != null && _customerName!.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Text(' • $_customerName', style: TextStyle(color: Colors.grey[700], fontSize: 14)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrderTypeSelector() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildTypeBtn("Dine-in", Icons.restaurant),
-        _buildTypeBtn("Takeaway", Icons.shopping_bag),
-        _buildTypeBtn("Delivery", Icons.delivery_dining),
-      ],
-    );
-  }
-
-  Widget _buildTypeBtn(String type, IconData icon) {
-    final isSelected = _orderType == (type == "Dine-in" ? "Table" : type);
-    final actualType = type == "Dine-in" ? "Table" : type;
-    return GestureDetector(
-      onTap: () => setState(() => _orderType = actualType),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFC107).withOpacity(0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? const Color(0xFFFFC107) : Colors.transparent),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: isSelected ? Colors.black87 : Colors.grey, size: 20),
-            Text(type, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isSelected ? Colors.black87 : Colors.grey)),
-          ],
-        ),
       ),
     );
   }

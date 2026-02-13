@@ -4,8 +4,9 @@ import 'package:dautari_adda/features/pos/presentation/widgets/horizontal_swipe_
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/pos/data/table_service.dart';
-import 'package:dautari_adda/features/pos/data/table_service.dart';
-import 'order_overview_screen.dart'; // Changed from bill_screen.dart
+import 'order_overview_screen.dart';
+import 'takeaway_order_screen.dart';
+import 'delivery_order_screen.dart';
 
 enum OrderStatus { dineIn, takeaway, delivery, drafts }
 
@@ -212,9 +213,10 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
 
       if (selectedStatus == OrderStatus.drafts) return isDraft;
       
-      if (selectedStatus == OrderStatus.dineIn) return (orderTypeLower == 'table' || orderType == 'Dine-In') && !isDraft;
-      if (selectedStatus == OrderStatus.takeaway) return orderTypeLower == 'takeaway';
-      if (selectedStatus == OrderStatus.delivery) return orderTypeLower.contains('delivery');
+      // Strict type matching - ensure complete isolation between order types
+      if (selectedStatus == OrderStatus.dineIn) return (orderTypeLower == 'table' || orderTypeLower == 'dine-in') && !isDraft;
+      if (selectedStatus == OrderStatus.takeaway) return orderTypeLower == 'takeaway' && !orderTypeLower.contains('delivery');
+      if (selectedStatus == OrderStatus.delivery) return orderTypeLower == 'delivery' || orderTypeLower == 'delivery partner';
       
       return true;
     }).toList();
@@ -355,6 +357,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
       child: InkWell(
         onTap: () async {
           if (tableId != 0) {
+            // Dine-in order - use OrderOverviewScreen with table
             final result = await Navigator.push(
               context, 
               MaterialPageRoute(builder: (context) => OrderOverviewScreen(
@@ -366,22 +369,55 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
             if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
             _fetchOrders();
           } else if (backendOrder != null) {
-            final orderType = backendOrder['order_type']?.toString();
-            final customerName = backendOrder['customer']?['name']?.toString();
+            final orderType = (backendOrder['order_type'] ?? '').toString().toLowerCase();
+            final customerName = backendOrder['customer']?['name']?.toString() ?? '';
+            final orderId = backendOrder['id'];
             final deliveryPartnerId = backendOrder['delivery_partner_id'];
-            final result = await Navigator.push(
-              context, 
-              MaterialPageRoute(builder: (context) => OrderOverviewScreen(
-                tableId: backendOrder['table_id'] ?? 0, 
-                tableName: tableName,
-                navigationItems: widget.navigationItems,
-                orderType: orderType,
-                customerName: customerName,
-                deliveryPartnerId: deliveryPartnerId,
-              ))
-            );
-            if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
-            _fetchOrders();
+            final deliveryPartner = backendOrder['delivery_partner'];
+            final partnerName = deliveryPartner?['name']?.toString();
+            
+            if (orderType == 'takeaway') {
+              // Takeaway order - use TakeawayOrderScreen
+              final result = await Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (context) => TakeawayOrderScreen(
+                  orderId: orderId,
+                  customerName: customerName,
+                  navigationItems: widget.navigationItems,
+                ))
+              );
+              if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+              _fetchOrders();
+            } else if (orderType == 'delivery' || orderType.contains('delivery')) {
+              // Delivery order - use DeliveryOrderScreen
+              final result = await Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (context) => DeliveryOrderScreen(
+                  orderId: orderId,
+                  customerName: customerName,
+                  deliveryPartnerName: partnerName,
+                  deliveryPartnerId: deliveryPartnerId,
+                  navigationItems: widget.navigationItems,
+                ))
+              );
+              if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+              _fetchOrders();
+            } else {
+              // Fallback to OrderOverviewScreen for other types
+              final result = await Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (context) => OrderOverviewScreen(
+                  tableId: backendOrder['table_id'] ?? 0, 
+                  tableName: tableName,
+                  navigationItems: widget.navigationItems,
+                  orderType: backendOrder['order_type'],
+                  customerName: customerName,
+                  deliveryPartnerId: deliveryPartnerId,
+                ))
+              );
+              if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+              _fetchOrders();
+            }
           }
         },
         borderRadius: BorderRadius.circular(20),
