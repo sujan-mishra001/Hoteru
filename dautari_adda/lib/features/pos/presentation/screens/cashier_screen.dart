@@ -4,6 +4,7 @@ import 'package:dautari_adda/features/pos/presentation/screens/bill_screen.dart'
 import 'package:dautari_adda/features/pos/data/order_service.dart';
 import 'package:dautari_adda/features/pos/data/table_service.dart';
 import 'package:dautari_adda/features/pos/data/session_service.dart';
+import 'package:dautari_adda/features/analytics/data/reports_service.dart';
 import 'package:dautari_adda/features/pos/data/pos_models.dart';
 import 'package:intl/intl.dart';
 
@@ -20,6 +21,7 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
   final OrderService _orderService = OrderService();
   final TableService _tableService = TableService();
   final SessionService _sessionService = SessionService();
+  final ReportsService _reportsService = ReportsService();
   late TabController _tabController;
 
   List<Map<String, dynamic>> _orders = [];
@@ -41,11 +43,18 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
 
   Future<void> _loadSalesSummary() async {
     try {
+      // Fetch opening cash from session
       final session = await _sessionService.getActiveSession();
       if (session != null) {
         _todayOpening = (session['opening_cash'] as num?)?.toDouble() ?? 0;
-        _todaySales = (session['total_sales'] as num?)?.toDouble() ?? 0;
       }
+
+      // Fetch today's sales from reports
+      final dashboard = await _reportsService.getDashboardSummary();
+      if (dashboard != null) {
+        _todaySales = (dashboard['sales_24h'] as num?)?.toDouble() ?? 0;
+      }
+
       final yesterday = DateTime.now().subtract(const Duration(days: 1));
       final yesterdayData = await _sessionService.getSalesForDate(yesterday);
       if (yesterdayData != null) {
@@ -372,6 +381,8 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
       return false;
     }).toList();
 
+    final totalAmount = filtered.fold<double>(0, (sum, order) => sum + (order['total_amount'] ?? 0));
+
     if (filtered.isEmpty) {
       return Center(
         child: Column(
@@ -392,13 +403,36 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: filtered.length,
-      itemBuilder: (context, index) {
-        final order = filtered[index];
-        return _buildOrderCard(order);
-      },
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          color: Colors.blueGrey.shade50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Total Pending (${filtered.length})",
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.blueGrey),
+              ),
+              Text(
+                "NPR ${NumberFormat('#,##0').format(totalAmount)}",
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: filtered.length,
+            itemBuilder: (context, index) {
+              final order = filtered[index];
+              return _buildOrderCard(order);
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -412,8 +446,9 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
         ? DateTime.parse(order['created_at'])
         : DateTime.now();
     final tableName = order['display_name'] ?? order['table']?['table_id'] ?? 'Unknown';
+    final orderTypeStr = (order['order_type'] ?? '').toString().toLowerCase();
     final customer = order['customer'];
-    final customerName = customer?['name'] ?? 'Walk-in';
+    final customerName = customer?['name'] ?? (orderTypeStr.contains('delivery') ? '' : 'Walk-in');
     final deliveryPartner = order['delivery_partner'];
     final partnerName = deliveryPartner?['name'];
 
@@ -512,14 +547,17 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
                             ],
                           ),
                         const SizedBox(height: 4),
+                        if (customerName.isNotEmpty || partnerName != null)
                         Row(
                           children: [
-                            const Icon(Icons.person, size: 14, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Text(
-                              customerName,
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
+                            if (customerName.isNotEmpty) ...[
+                              const Icon(Icons.person, size: 14, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(
+                                customerName,
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
                             if (partnerName != null) ...[
                               const SizedBox(width: 8),
                               const Icon(Icons.delivery_dining, size: 14, color: Colors.blue),

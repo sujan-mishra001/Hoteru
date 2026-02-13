@@ -86,10 +86,13 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
       body: ListenableBuilder(
         listenable: tableService,
         builder: (context, _) {
-          final activeTableIds = tableService.activeTableIds;
-          final pendingTakeaway = _backendOrders.where((o) => (o['order_type'] ?? '').toString().toLowerCase() == 'takeaway').length;
-          final pendingDelivery = _backendOrders.where((o) => (o['order_type'] ?? '').toString().toLowerCase().contains('delivery')).length;
-          final totalAttention = activeTableIds.length + pendingTakeaway + pendingDelivery;
+          // Count active KOTs (not Served or Cancelled)
+          int totalActiveKOTs = 0;
+          for (var order in _backendOrders) {
+            final kots = order['kots'] as List? ?? [];
+            totalActiveKOTs += kots.where((k) => k['status'] != 'Served' && k['status'] != 'Cancelled').length;
+          }
+
           return Column(
             children: [
               Container(
@@ -109,7 +112,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                                   style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
                                 ),
                                 Text(
-                                  "$totalAttention orders require attention",
+                                  "$totalActiveKOTs active KOTs require attention",
                                   style: GoogleFonts.poppins(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
                                 ),
                               ],
@@ -450,6 +453,12 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                           Text(
                             "Customer: ${backendOrder['customer']['name']}",
                             style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        if (backendOrder != null && backendOrder['delivery_partner'] != null)
+                          Text(
+                            "Partner: ${backendOrder['delivery_partner']['name']}",
+                            style: GoogleFonts.poppins(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
                           ),
                         Text(

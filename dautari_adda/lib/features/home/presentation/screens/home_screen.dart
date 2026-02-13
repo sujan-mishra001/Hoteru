@@ -967,7 +967,7 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (_selectedFloorId == kMergeSectionId) {
             tables = _tableService.tables.where((t) => t.mergeGroupId != null).toList();
           } else {
-            tables = _tableService.tables.where((t) => t.floorId == _selectedFloorId && t.isHoldTable != 'Yes').toList();
+            tables = _tableService.tables.where((t) => t.floorId == _selectedFloorId && t.isHoldTable != 'Yes' && t.mergeGroupId == null).toList();
           }
           
           if (floors.isEmpty && _selectedFloorId != null && _selectedFloorId != kHoldSectionId && _selectedFloorId != kMergeSectionId) {
@@ -1597,11 +1597,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (totalAmount > 0) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'NPR ${totalAmount.toStringAsFixed(0)}',
+                      'Total: NPR ${totalAmount.toStringAsFixed(0)}',
                       style: GoogleFonts.poppins(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFFFFC107),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],

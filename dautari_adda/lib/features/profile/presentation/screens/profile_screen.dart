@@ -36,6 +36,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _userProfile;
+  String? _branchName;
   bool _isLoading = true;
   bool _isUploading = false;
 
@@ -50,8 +51,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) {
       setState(() {
         _userProfile = profile;
-        _isLoading = false;
       });
+
+      // Fetch branch name
+      if (profile != null && profile['current_branch_id'] != null) {
+        try {
+          final branches = await AuthService().getUserBranches();
+          final currentBranch = branches.firstWhere(
+            (b) => b['id'] == profile['current_branch_id'],
+            orElse: () => null,
+          );
+          if (currentBranch != null) {
+            setState(() => _branchName = currentBranch['name']);
+          }
+        } catch (e) {
+          debugPrint("Error fetching branch name: $e");
+        }
+      }
+
+      setState(() => _isLoading = false);
     }
   }
 
@@ -330,6 +348,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Theme.of(context).textTheme.bodySmall?.color,
               ),
             ),
+            if (_branchName != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.location_on, size: 14, color: Color(0xFFFFC107)),
+                  const SizedBox(width: 4),
+                  Text(
+                    _branchName!,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ],
 
             const SizedBox(height: 32),
 
@@ -347,7 +383,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildMenuItem(
                     icon: Icons.location_city_rounded,
                     title: 'Branches',
-                    subtitle: 'Manage your restaurant branches',
+                    subtitle: _branchName != null ? 'Current: $_branchName' : 'Manage your restaurant branches',
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BranchManagementScreen())),
                   ),
                   const SizedBox(height: 12),

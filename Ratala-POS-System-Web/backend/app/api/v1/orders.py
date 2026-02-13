@@ -506,7 +506,7 @@ async def change_order_table(
     
     # 3. Update New table status
     if order.order_type in ['Table', 'Dine-in']:
-        if new_table.merge_group_id:
+        if new_table.merge_group_id and str(new_table.merge_group_id).strip():
             # Update all tables in new merge group
             db.query(Table).filter(
                 Table.merge_group_id == new_table.merge_group_id,
