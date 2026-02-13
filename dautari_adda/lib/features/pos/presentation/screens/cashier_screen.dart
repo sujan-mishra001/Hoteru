@@ -54,6 +54,7 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
       final dashboard = await _reportsService.getDashboardSummary();
       if (dashboard != null) {
         _todaySales = (dashboard['sales_24h'] as num?)?.toDouble() ?? 0;
+        _todayOpening = (dashboard['opening_cash'] as num?)?.toDouble() ?? _todayOpening;
       }
 
       final yesterday = DateTime.now().subtract(const Duration(days: 1));

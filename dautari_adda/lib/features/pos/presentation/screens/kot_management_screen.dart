@@ -56,35 +56,53 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        toolbarHeight: 75,
-        title: const Text('KOT/BOT Management', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFC107),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadKots,
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(75),
+        child: AppBar(
+          title: const Text(
+            'KOT/BOT Management',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
           ),
-        ],
-
+          backgroundColor: const Color(0xFFFFC107),
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+              onPressed: _loadKots,
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
           Container(
-            color: Colors.grey[50], // Match scaffold background
+            color: const Color(0xFFF5F5F5),
             child: Column(
               children: [
                 // KOT / BOT Switcher
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Container(
-                    height: 45,
+                    height: 50,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
@@ -100,10 +118,11 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
                 ),
                 TabBar(
                   controller: _tabController,
-                  labelColor: Colors.black87,
+                  labelColor: Colors.black,
                   unselectedLabelColor: Colors.black54,
-                  indicatorColor: Colors.black87,
+                  indicatorColor: Colors.black,
                   indicatorWeight: 3,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
                   tabs: const [
                     Tab(text: 'Pending'),
                     Tab(text: 'Completed'),
@@ -147,15 +166,8 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
       child: Container(
         margin: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            )
-          ] : null,
+          color: isSelected ? const Color(0xFFFFC107) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -229,7 +241,7 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

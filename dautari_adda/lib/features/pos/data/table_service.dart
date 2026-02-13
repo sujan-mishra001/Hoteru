@@ -537,7 +537,7 @@ class TableService extends ChangeNotifier {
     return double.parse((subtotal - roundedDiscount + roundedSc + roundedTax).toStringAsFixed(2));
   }
 
-  Future<bool> confirmOrder(int tableId, List<CartItem> items, {String orderType = 'Table', int? deliveryPartnerId}) async {
+  Future<bool> confirmOrder(int tableId, List<CartItem> items, {String orderType = 'Table', int? deliveryPartnerId, String? customerName}) async {
     try {
       final subtotal = items.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
       
@@ -586,6 +586,7 @@ class TableService extends ChangeNotifier {
           'status': 'Pending',
           'branch_id': _currentBranchId,
           if (deliveryPartnerId != null) 'delivery_partner_id': deliveryPartnerId,
+          if (customerName != null && customerName.isNotEmpty) 'customer_name': customerName,
           'gross_amount': subtotal,
           'net_amount': total,
           'discount': roundedDiscount, 

@@ -322,6 +322,7 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
       localCart,
       orderType: _orderType,
       deliveryPartnerId: widget.deliveryPartnerId,
+      customerName: widget.customerName,
     );
     if (success) {
       if (mounted) {

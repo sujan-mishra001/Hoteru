@@ -43,17 +43,31 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 75,
-        title: const Text('Floors & Tables', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFC107),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(75),
+        child: AppBar(
+          title: const Text(
+            'Floors & Tables',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+          backgroundColor: const Color(0xFFFFC107),
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+          ),
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.black),
+        ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -61,7 +75,7 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Floors', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text('Floors', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
                       IconButton(
                         icon: const Icon(Icons.add_circle, color: Colors.blue),
                         onPressed: _showAddFloorDialog,
@@ -96,15 +110,23 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
                   ),
                   const SizedBox(height: 8),
                   _tables.isEmpty
-                      ? const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('No tables added')))
+                      ? Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text('No tables added', textAlign: TextAlign.center),
+                        )
                       : GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 4,
                             childAspectRatio: 1,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
                           ),
                           itemCount: _tables.length,
                           itemBuilder: (context, index) {
@@ -126,9 +148,16 @@ class _FloorsTablesManagementScreenState extends State<FloorsTablesManagementScr
                               onLongPress: () => _showTableOptions(table),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: statusColor.withOpacity(0.2),
-                                  border: Border.all(color: statusColor),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                  border: Border.all(color: statusColor.withOpacity(0.3), width: 2),
                                 ),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,

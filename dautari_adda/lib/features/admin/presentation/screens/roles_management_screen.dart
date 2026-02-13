@@ -29,17 +29,31 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Roles & Permissions', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFC107),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadRoles,
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(75),
+        child: AppBar(
+          title: const Text(
+            'Roles & Permissions',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
           ),
-        ],
+          backgroundColor: const Color(0xFFFFC107),
+          elevation: 0,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+              onPressed: _loadRoles,
+            ),
+          ],
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))

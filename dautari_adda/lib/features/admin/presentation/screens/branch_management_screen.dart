@@ -30,9 +30,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Branch Management'),
+        toolbarHeight: 75,
+        title: const Text('Branch Management', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFFFFC107),
+        elevation: 0,
         actions: [
           if (_isAdmin)
             IconButton(
