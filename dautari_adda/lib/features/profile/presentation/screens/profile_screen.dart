@@ -5,7 +5,9 @@ import 'package:dautari_adda/features/auth/presentation/screens/login_screen.dar
 import 'package:dautari_adda/features/auth/data/auth_service.dart';
 import 'package:dautari_adda/core/theme/theme_provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
+import 'dart:convert';
 
 // Management Screens
 // Management Screens
@@ -36,14 +38,42 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _userProfile;
+  Map<String, dynamic>? _companyData;
   String? _branchName;
   bool _isLoading = true;
+  bool _isCompanyLoading = true;
   bool _isUploading = false;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _loadCompanyData();
+  }
+
+  Future<void> _loadCompanyData() async {
+    try {
+      final response = await _apiService.get('/settings/company');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _companyData = Map<String, dynamic>.from(data);
+            _isCompanyLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isCompanyLoading = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading company data: $e');
+      if (mounted) {
+        setState(() => _isCompanyLoading = false);
+      }
+    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -487,41 +517,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     subtitle: 'General application preferences',
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())),
                   ),
-                  const SizedBox(height: 12),
-                  _buildMenuItem(
-                    icon: Icons.print_rounded,
-                    title: 'Printer Management',
-                    subtitle: 'Configure POS printers and devices',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrinterManagementScreen())),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildMenuItem(
-                    icon: Icons.info_outline_rounded,
-                    title: 'About App',
-                    subtitle: 'Version: 1.0.0 (Dautari Adda POS)',
-                    onTap: () {
-                      showAboutDialog(
-                        context: context,
-                        applicationName: 'Dautari Adda',
-                        applicationVersion: '1.0.0',
-                        applicationIcon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFC107).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.restaurant,
-                            size: 40,
-                            color: Color(0xFFFFC107),
-                          ),
-                        ),
-                        children: [
-                          const Text("Professional POS & Restaurant Management System."),
-                        ],
-                      );
-                    },
-                  ),
                   const SizedBox(height: 32),
                   _buildMenuItem(
                     icon: Icons.logout_rounded,
@@ -537,6 +532,107 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCompanyInfoCard() {
+    final companyName = _companyData?['company_name'] ?? 'Not configured';
+    final companyEmail = _companyData?['email'] ?? '-';
+    final companyPhone = _companyData?['phone'] ?? '-';
+    final companyAddress = _companyData?['address'] ?? '-';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFFFFC107).withOpacity(0.15),
+            const Color(0xFFFFD54F).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFFC107).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.business, color: Color(0xFFFFC107), size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Company Profile',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      companyName,
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit, size: 20, color: Color(0xFFFFC107)),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CompanyDataScreen()),
+                ).then((_) => _loadCompanyData()),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(color: const Color(0xFFFFC107).withOpacity(0.2), height: 1),
+          const SizedBox(height: 16),
+          _buildCompanyDetailRow(Icons.email, companyEmail),
+          const SizedBox(height: 8),
+          _buildCompanyDetailRow(Icons.phone, companyPhone),
+          const SizedBox(height: 8),
+          _buildCompanyDetailRow(Icons.location_on, companyAddress),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanyDetailRow(IconData icon, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[500]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[700],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 

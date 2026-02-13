@@ -31,6 +31,7 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
   double _todayOpening = 0;
   double _todaySales = 0;
   double _yesterdaySales = 0;
+  int _yesterdayOrders = 0;
 
   @override
   void initState() {
@@ -57,12 +58,18 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
       }
 
       final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayFormatted = DateFormat('yyyy-MM-dd').format(yesterday);
       final yesterdayData = await _sessionService.getSalesForDate(yesterday);
+      
       if (yesterdayData != null) {
         _yesterdaySales = (yesterdayData['sales_24h'] as num?)?.toDouble() ?? 0;
+        _yesterdayOrders = (yesterdayData['orders_24h'] as num?)?.toInt() ?? 0;
       }
+      
       if (mounted) setState(() {});
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error loading sales summary: $e');
+    }
   }
 
   @override
@@ -150,12 +157,7 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
         } else if (keyStr.startsWith('delivery')) {
           final deliveryPartner = firstOrder['delivery_partner'];
           final partnerName = deliveryPartner?['name']?.toString() ?? 'Self Delivery';
-          final customerName = firstOrder['customer']?['name']?.toString();
-          if (customerName != null && customerName.isNotEmpty) {
-            displayName = 'Delivery ($partnerName) • $customerName';
-          } else {
-            displayName = 'Delivery ($partnerName)';
-          }
+          displayName = 'Delivery ($partnerName)';
         } else if (mergeGroupToTables.containsKey(key)) {
           final mgTables = mergeGroupToTables[key]!;
           final names = mgTables.map((t) => t.tableId).toList();
@@ -228,6 +230,9 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
     // If this is an accumulated order with multiple orders, navigate with all orders
     final List<Map<String, dynamic>> ordersToPay = order['orders'] ?? [order];
     final tableId = order['table_id'] as int? ?? 0;
+    final orderType = order['order_type'];
+    final customer = order['customer'];
+    final customerName = customer?['name'] as String?;
     
     final result = await Navigator.push(
       context,
@@ -238,6 +243,8 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
           navigationItems: widget.navigationItems,
           accumulatedOrders: ordersToPay,
           tableDisplayName: order['display_name'] as String?,
+          orderType: orderType,
+          customerName: customerName,
         ),
       ),
     );
@@ -296,7 +303,8 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(12),
+                    height: 85, // Reduced height to fix overflow
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFC107).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
@@ -304,12 +312,14 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Today\'s Sale', style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500)),
-                        Text('NPR ${NumberFormat('#,##0').format(_todaySales)}', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        const SizedBox(height: 6),
-                        Text('Opening', style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
-                        Text('NPR ${NumberFormat('#,##0').format(_todayOpening)}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                        Text('Today\'s Sale', style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 2),
+                        Text('NPR ${NumberFormat('#,##0').format(_todaySales)}', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        const SizedBox(height: 4),
+                        Text('Opening', style: GoogleFonts.poppins(fontSize: 10, color: Colors.black54)),
+                        Text('NPR ${NumberFormat('#,##0').format(_todayOpening)}', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -317,7 +327,8 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
                 const SizedBox(width: 12),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(12),
+                    height: 85, // Reduced height to fix overflow
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
@@ -325,9 +336,14 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Yesterday\'s Sale', style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500)),
-                        Text('NPR ${NumberFormat('#,##0').format(_yesterdaySales)}', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        Text('Yesterday\'s Sale', style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 2),
+                        Text('NPR ${NumberFormat('#,##0').format(_yesterdaySales)}', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        const SizedBox(height: 4),
+                        Text('Total Orders', style: GoogleFonts.poppins(fontSize: 10, color: Colors.black54)),
+                        Text('$_yesterdayOrders orders', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
