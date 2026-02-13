@@ -92,7 +92,7 @@ class _TakeawayBillScreenState extends State<TakeawayBillScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          "Takeaway • ${widget.customerName.isNotEmpty ? widget.customerName : 'Bill'}",
+          "Takeaway • ${(_order?['customer']?['name'] ?? widget.customerName).isNotEmpty ? (_order?['customer']?['name'] ?? widget.customerName) : 'Bill'}",
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: const Color(0xFFFFC107),

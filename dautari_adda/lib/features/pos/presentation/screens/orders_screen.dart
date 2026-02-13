@@ -443,9 +443,15 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          tableId != 0 ? tableName : "Order #${backendOrder?['order_number']?.split('-').last ?? 'N/A'}", 
+                          tableName,
                           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)
                         ),
+                        if (backendOrder != null && backendOrder['customer'] != null)
+                          Text(
+                            "Customer: ${backendOrder['customer']['name']}",
+                            style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         Text(
                           backendOrder != null ? "Order #${backendOrder['order_number']}" : "Local Draft", 
                           style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
