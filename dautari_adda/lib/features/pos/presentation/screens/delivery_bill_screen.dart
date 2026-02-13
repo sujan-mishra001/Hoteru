@@ -90,7 +90,6 @@ class _DeliveryBillScreenState extends State<DeliveryBillScreen> {
 
     final partnerName = _order?['delivery_partner']?['name'] ?? widget.deliveryPartnerName ?? 'Self Delivery';
     final customerName = _order?['customer']?['name'] ?? widget.customerName;
-    String title = customerName.isNotEmpty ? "Delivery ($partnerName) • $customerName" : "Delivery ($partnerName)";
 
     return Scaffold(
       backgroundColor: Colors.grey[50],

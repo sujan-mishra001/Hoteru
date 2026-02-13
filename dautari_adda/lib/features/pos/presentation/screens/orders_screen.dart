@@ -452,12 +452,6 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                             style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
                           ),
-                        if (backendOrder != null && backendOrder['delivery_partner'] != null)
-                          Text(
-                            "Partner: ${backendOrder['delivery_partner']['name']}",
-                            style: GoogleFonts.poppins(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w500),
-                            overflow: TextOverflow.ellipsis,
-                          ),
                         Text(
                           backendOrder != null ? "Order #${backendOrder['order_number']}" : "Local Draft", 
                           style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),

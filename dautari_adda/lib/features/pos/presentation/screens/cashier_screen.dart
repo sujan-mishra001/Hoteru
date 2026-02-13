@@ -372,8 +372,6 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
       return false;
     }).toList();
 
-    final totalAmount = filtered.fold<double>(0, (sum, order) => sum + (order['total_amount'] ?? 0));
-
     if (filtered.isEmpty) {
       return Center(
         child: Column(
@@ -394,36 +392,13 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
       );
     }
 
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          color: Colors.blueGrey.shade50,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Total Pending (${filtered.length})",
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.blueGrey),
-              ),
-              Text(
-                "NPR ${NumberFormat('#,##0').format(totalAmount)}",
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: filtered.length,
-            itemBuilder: (context, index) {
-              final order = filtered[index];
-              return _buildOrderCard(order);
-            },
-          ),
-        ),
-      ],
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final order = filtered[index];
+        return _buildOrderCard(order);
+      },
     );
   }
 
