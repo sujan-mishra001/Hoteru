@@ -66,6 +66,37 @@ class NotificationService {
     );
   }
 
+  /// Shows a notification when an order or KOT is created (one-time, auto-dismissible).
+  Future<void> showOrderKOTCreatedNotification(String title, String body) async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool enabled = prefs.getBool('notifications_enabled') ?? true;
+    if (!enabled) return;
+
+    final bool playSound = prefs.getBool('sound_enabled') ?? true;
+    final bool enableVibration = prefs.getBool('vibration_enabled') ?? true;
+
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'order_kot_channel',
+      'Order & KOT Notifications',
+      channelDescription: 'Notifications when orders or KOTs are created',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      playSound: playSound,
+      enableVibration: enableVibration,
+      ongoing: false,
+      autoCancel: true,
+    );
+
+    final NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+
+    // Use unique ID so each notification appears separately
+    final int id = DateTime.now().millisecondsSinceEpoch % 100000;
+    await flutterLocalNotificationsPlugin.show(id, title, body, details);
+  }
+
   Future<void> cancelNotification(int notificationId) async {
     await flutterLocalNotificationsPlugin.cancel(notificationId);
   }

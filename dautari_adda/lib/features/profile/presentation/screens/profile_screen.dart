@@ -10,6 +10,7 @@ import 'dart:io';
 // Management Screens
 // Management Screens
 import 'package:dautari_adda/features/admin/presentation/screens/branch_management_screen.dart';
+import 'package:dautari_adda/features/admin/presentation/screens/company_data_screen.dart';
 import 'package:dautari_adda/features/admin/presentation/screens/users_management_screen.dart';
 import 'package:dautari_adda/features/customers/presentation/screens/customers_management_screen.dart';
 import 'package:dautari_adda/features/admin/presentation/screens/roles_management_screen.dart';
@@ -351,6 +352,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildMenuItem(
+                    icon: Icons.business_rounded,
+                    title: 'Company Data',
+                    subtitle: 'View company profile and settings',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CompanyDataScreen())),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
                     icon: Icons.restaurant_menu_rounded,
                     title: 'Menu Management',
                     subtitle: 'Manage categories and items',
@@ -405,10 +413,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildMenuItem(
-                    icon: Icons.soup_kitchen_rounded,
-                    title: 'Kitchen (KOT)',
-                    subtitle: 'Monitor kitchen & bar tickets',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KotManagementScreen())),
+                    icon: Icons.analytics_rounded,
+                    title: 'Reports & Analytics',
+                    subtitle: 'View reports and analytics',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen())),
                   ),
                   const SizedBox(height: 12),
                   _buildMenuItem(
@@ -430,13 +438,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Staff Sessions',
                     subtitle: 'Manage duty shifts and sessions',
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SessionControlScreen())),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildMenuItem(
-                    icon: Icons.bar_chart_rounded,
-                    title: 'Reports & Analytics',
-                    subtitle: 'View sales and performance data',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen())),
                   ),
                   const SizedBox(height: 32),
                   const Text(

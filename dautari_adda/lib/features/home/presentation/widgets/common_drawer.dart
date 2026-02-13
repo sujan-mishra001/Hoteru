@@ -19,6 +19,7 @@ import 'package:dautari_adda/features/analytics/presentation/screens/food_cost_s
 import 'package:dautari_adda/features/pos/presentation/screens/kot_management_screen.dart';
 
 import '../screens/home_screen.dart';
+import '../screens/main_navigation_screen.dart';
 import '../screens/communications_screen.dart';
 
 class CommonDrawer extends StatelessWidget {
@@ -73,7 +74,7 @@ class CommonDrawer extends StatelessWidget {
               Navigator.pop(context); // Close drawer
               Navigator.pushAndRemoveUntil(
                 context, 
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
+                MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
                 (route) => false
               );
             },
@@ -117,14 +118,6 @@ class CommonDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (context) => const KotManagementScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.analytics),
-            title: const Text("Reports & Analytics"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsScreen()));
             },
           ),
           ListTile(

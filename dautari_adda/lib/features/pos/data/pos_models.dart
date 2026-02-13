@@ -119,6 +119,8 @@ class PosTable {
   final int displayOrder;
   final String isHoldTable;
   final String? holdTableName;
+  /// merge_group_id from backend - can be int (bulk merge) or String (pairwise merge)
+  final dynamic mergeGroupId;
   final int? branchId;
 
   PosTable({
@@ -135,6 +137,7 @@ class PosTable {
     this.displayOrder = 0,
     this.isHoldTable = 'No',
     this.holdTableName,
+    this.mergeGroupId,
     this.branchId,
   });
 
@@ -153,6 +156,7 @@ class PosTable {
       displayOrder: json['display_order'] ?? 0,
       isHoldTable: json['is_hold_table'] ?? 'No',
       holdTableName: json['hold_table_name'],
+      mergeGroupId: json['merge_group_id'],
       branchId: json['branch_id']?.toInt(),
     );
   }

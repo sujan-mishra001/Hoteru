@@ -599,9 +599,11 @@ class _SessionControlScreenState extends State<SessionControlScreen> {
   }
 
   void _showCloseSessionDialog(dynamic session) {
-    // Default closing cash to opening cash + total sales could be a nice UX touch if we had sales data locally
-    // but better to let them count.
-    final closingCashController = TextEditingController();
+    final openingCash = (session['opening_cash'] as num?)?.toDouble() ?? 0.0;
+    final totalSales = (session['total_sales'] as num?)?.toDouble() ?? 0.0;
+    final defaultClosing = openingCash + totalSales;
+    
+    final closingCashController = TextEditingController(text: defaultClosing.toStringAsFixed(2));
     final notesController = TextEditingController();
 
     showDialog(
@@ -614,6 +616,28 @@ class _SessionControlScreenState extends State<SessionControlScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Session summary
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Opening Balance: Rs ${openingCash.toStringAsFixed(2)}", 
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500)),
+                    Text("Total Sales: Rs ${totalSales.toStringAsFixed(2)}", 
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500)),
+                    const Divider(),
+                    Text("Expected Closing: Rs ${defaultClosing.toStringAsFixed(2)}", 
+                      style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue[800])),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -676,7 +700,7 @@ class _SessionControlScreenState extends State<SessionControlScreen> {
               try {
                 await _sessionService.closeSession(
                   sessionId: session['id'],
-                  closingCash: double.parse(closingCashController.text.isEmpty ? '0' : closingCashController.text),
+                  closingCash: double.parse(closingCashController.text.isEmpty ? defaultClosing.toString() : closingCashController.text),
                   notes: notesController.text,
                 );
                 // ignore: use_build_context_synchronously

@@ -11,7 +11,7 @@ from app.services.printing_service import PrintingService
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
-from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession, CompanySettings
+from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession, CompanySettings, MenuItem
 
 from app.schemas import OrderResponse
 from app.services.inventory_service import InventoryService
@@ -45,7 +45,9 @@ async def get_orders(
     if order_type:
         query = query.filter(Order.order_type == order_type)
     if status:
-        query = query.filter(Order.status == status)
+        # Handle comma-separated status values
+        status_list = [s.strip() for s in status.split(',')]
+        query = query.filter(Order.status.in_(status_list))
     if customer_id:
         query = query.filter(Order.customer_id == customer_id)
     
@@ -134,6 +136,10 @@ async def create_order(
     if current_user.current_branch_id:
         order_data['branch_id'] = current_user.current_branch_id
     
+    # Remove fields not in Order model but potentially in input
+    order_data.pop('tax', None)
+    order_data.pop('service_charge', None)
+    
     new_order = Order(**order_data)
     db.add(new_order)
     db.flush() # Get ID before adding items
@@ -149,6 +155,77 @@ async def create_order(
             notes=item.get('notes', '')
         )
         db.add(order_item)
+    
+    # --- Generate KOT/BOT logic ---
+    item_ids = [item['menu_item_id'] for item in items_data]
+    menu_items = db.query(MenuItem).filter(MenuItem.id.in_(item_ids)).all()
+    # Map item ID -> MenuItem object
+    menu_items_map = {m.id: m for m in menu_items}
+    
+    kot_items = []
+    bot_items = []
+    
+    for item in items_data:
+        m_item = menu_items_map.get(item['menu_item_id'])
+        if m_item:
+            if m_item.kot_bot == 'BOT':
+                bot_items.append(item)
+            else:
+                kot_items.append(item)
+
+    # Create KOT
+    if kot_items:
+        kot_count = db.query(KOT).filter(
+            func.date(KOT.created_at) == datetime.now().date(),
+            KOT.kot_type == 'KOT'
+        ).count()
+        new_kot_num = f"KOT-{datetime.now().strftime('%Y%m%d')}-{kot_count + 1:04d}"
+        
+        kot = KOT(
+            kot_number=new_kot_num,
+            order_id=new_order.id,
+            kot_type='KOT',
+            status='Pending',
+            created_by=current_user.id
+        )
+        db.add(kot)
+        db.flush()
+        
+        for item in kot_items:
+            k_item = KOTItem(
+                kot_id=kot.id,
+                menu_item_id=item['menu_item_id'],
+                quantity=item['quantity'],
+                notes=item.get('notes', '')
+            )
+            db.add(k_item)
+            
+    # Create BOT
+    if bot_items:
+        bot_count = db.query(KOT).filter(
+            func.date(KOT.created_at) == datetime.now().date(),
+            KOT.kot_type == 'BOT'
+        ).count()
+        new_bot_num = f"BOT-{datetime.now().strftime('%Y%m%d')}-{bot_count + 1:04d}"
+        
+        bot = KOT(
+            kot_number=new_bot_num,
+            order_id=new_order.id,
+            kot_type='BOT',
+            status='Pending',
+            created_by=current_user.id
+        )
+        db.add(bot)
+        db.flush()
+        
+        for item in bot_items:
+            b_item = KOTItem(
+                kot_id=bot.id,
+                menu_item_id=item['menu_item_id'],
+                quantity=item['quantity'],
+                notes=item.get('notes', '')
+            )
+            db.add(b_item)
     
     # Update table status to Occupied if table order
     if new_order.table_id:
@@ -439,3 +516,140 @@ async def change_order_table(
         
     db.commit()
     return {"message": "Table changed successfully", "new_table_id": new_table_id}
+
+
+@router.post("/{order_id}/items", response_model=OrderResponse)
+async def add_order_items(
+    order_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Add items to an existing order and generate KOTs"""
+    order = db.query(Order).options(
+        joinedload(Order.items)
+    ).filter(Order.id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+        
+    items_data = payload.get('items', [])
+    if not items_data:
+        raise HTTPException(status_code=400, detail="No items provided")
+    
+    # 1. Add Items
+    for item in items_data:
+        order_item = OrderItem(
+            order_id=order.id,
+            menu_item_id=item['menu_item_id'],
+            quantity=item['quantity'],
+            price=item.get('price', 0),
+            subtotal=item.get('subtotal', item.get('price', 0) * item['quantity']),
+            notes=item.get('notes', '')
+        )
+        db.add(order_item)
+        
+    # 2. Recalculate Totals
+    # Get current items + new items for calculation (simplified: just sum existing + new payload)
+    # Actually, safest is to commit items, then recalc from DB? 
+    # Or just add to running constants.
+    
+    current_gross = order.gross_amount or 0
+    new_items_gross = sum(item.get('price', 0) * item.get('quantity', 0) for item in items_data)
+    total_gross = current_gross + new_items_gross
+    
+    settings = db.query(CompanySettings).first()
+    sc_rate = settings.service_charge_rate if settings else 10.0
+    tax_rate = settings.tax_rate if settings else 13.0
+    
+    sc_amount = round(total_gross * (sc_rate / 100), 2)
+    tax_amount = round((total_gross + sc_amount) * (tax_rate / 100), 2)
+    
+    order.gross_amount = total_gross
+    order.service_charge_amount = sc_amount
+    order.tax_amount = tax_amount
+    order.net_amount = round(total_gross - (order.discount or 0) + sc_amount + tax_amount + (order.delivery_charge or 0), 2)
+    order.total_amount = order.net_amount
+    
+    # 3. Generate KOT/BOT (Copy logic from create_order)
+    item_ids = [item['menu_item_id'] for item in items_data]
+    menu_items = db.query(MenuItem).filter(MenuItem.id.in_(item_ids)).all()
+    menu_items_map = {m.id: m for m in menu_items}
+    
+    kot_items = []
+    bot_items = []
+    
+    for item in items_data:
+        m_item = menu_items_map.get(item['menu_item_id'])
+        if m_item:
+            if m_item.kot_bot == 'BOT':
+                bot_items.append(item)
+            else:
+                kot_items.append(item)
+
+    # Create KOT
+    if kot_items:
+        kot_count = db.query(KOT).filter(
+            func.date(KOT.created_at) == datetime.now().date(),
+            KOT.kot_type == 'KOT'
+        ).count()
+        new_kot_num = f"KOT-{datetime.now().strftime('%Y%m%d')}-{kot_count + 1:04d}"
+        
+        kot = KOT(
+            kot_number=new_kot_num,
+            order_id=order.id,
+            kot_type='KOT',
+            status='Pending',
+            created_by=current_user.id
+        )
+        db.add(kot)
+        db.flush()
+        
+        for item in kot_items:
+            k_item = KOTItem(
+                kot_id=kot.id,
+                menu_item_id=item['menu_item_id'],
+                quantity=item['quantity'],
+                notes=item.get('notes', '')
+            )
+            db.add(k_item)
+            
+    # Create BOT
+    if bot_items:
+        bot_count = db.query(KOT).filter(
+            func.date(KOT.created_at) == datetime.now().date(),
+            KOT.kot_type == 'BOT'
+        ).count()
+        new_bot_num = f"BOT-{datetime.now().strftime('%Y%m%d')}-{bot_count + 1:04d}"
+        
+        bot = KOT(
+            kot_number=new_bot_num,
+            order_id=order.id,
+            kot_type='BOT',
+            status='Pending',
+            created_by=current_user.id
+        )
+        db.add(bot)
+        db.flush()
+        
+        for item in bot_items:
+            b_item = KOTItem(
+                kot_id=bot.id,
+                menu_item_id=item['menu_item_id'],
+                quantity=item['quantity'],
+                notes=item.get('notes', '')
+            )
+            db.add(b_item)
+            
+    db.commit()
+    db.refresh(order)
+    
+    # Return updated order
+    updated_order = db.query(Order).options(
+        joinedload(Order.table),
+        joinedload(Order.customer),
+        joinedload(Order.items).joinedload(OrderItem.menu_item),
+        joinedload(Order.kots).joinedload(KOT.items).joinedload(KOTItem.menu_item)
+    ).filter(Order.id == order.id).first()
+    
+    return updated_order

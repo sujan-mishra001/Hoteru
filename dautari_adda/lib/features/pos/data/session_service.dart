@@ -70,7 +70,7 @@ class SessionService {
     String? notes,
   }) async {
     try {
-      final response = await _apiService.patch('/sessions/$sessionId', {
+      final response = await _apiService.put('/sessions/$sessionId', {
         if (closingCash != null) 'closing_cash': closingCash,
         if (totalSales != null) 'total_sales': totalSales,
         if (notes != null) 'notes': notes,
@@ -105,6 +105,20 @@ class SessionService {
   Future<Map<String, dynamic>?> getTodaySummary() async {
     try {
       final response = await _apiService.get('/reports/dashboard-summary');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Get sales summary for a specific date (e.g. yesterday)
+  Future<Map<String, dynamic>?> getSalesForDate(DateTime date) async {
+    try {
+      final d = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final response = await _apiService.get('/reports/dashboard-summary?start_date=$d&end_date=$d');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }

@@ -46,7 +46,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl$endpoint'),
       headers: await _getHeaders(),
-    );
+    ).timeout(const Duration(seconds: 30));
     print('API_DEBUG: GET $endpoint -> ${response.statusCode}');
     return response;
   }
@@ -58,7 +58,7 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: await _getHeaders(),
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 30));
     print('API_DEBUG: POST $endpoint -> ${response.statusCode}');
     return response;
   }
@@ -71,7 +71,7 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: body,
-    );
+    ).timeout(const Duration(seconds: 30));
     print('API_DEBUG: POST FORM $endpoint -> ${response.statusCode}');
     print('API_DEBUG: Response: ${response.body}');
     return response;
@@ -82,7 +82,7 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: await _getHeaders(),
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 30));
     return response;
   }
 
@@ -91,7 +91,7 @@ class ApiService {
       Uri.parse('$baseUrl$endpoint'),
       headers: await _getHeaders(),
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 30));
     return response;
   }
 
@@ -99,7 +99,7 @@ class ApiService {
     final response = await http.delete(
       Uri.parse('$baseUrl$endpoint'),
       headers: await _getHeaders(),
-    );
+    ).timeout(const Duration(seconds: 30));
     return response;
   }
 
@@ -125,7 +125,7 @@ class ApiService {
       request.files.add(await http.MultipartFile.fromPath(entry.key, file.path));
     }
     
-    final streamedResponse = await request.send();
+    final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
     final response = await http.Response.fromStream(streamedResponse);
     print('API_DEBUG: POST MULTIPART $endpoint -> ${response.statusCode}');
     if (response.statusCode >= 400) {
@@ -156,7 +156,7 @@ class ApiService {
       request.files.add(await http.MultipartFile.fromPath(entry.key, file.path));
     }
     
-    final streamedResponse = await request.send();
+    final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
     final response = await http.Response.fromStream(streamedResponse);
     print('API_DEBUG: PUT MULTIPART $endpoint -> ${response.statusCode}');
     if (response.statusCode >= 400) {

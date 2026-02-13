@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:dautari_adda/core/services/notification_service.dart';
 import 'package:dautari_adda/features/pos/data/table_service.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/menu_screen.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/bill_screen.dart';
@@ -8,12 +9,18 @@ class OrderOverviewScreen extends StatefulWidget {
   final int tableId;
   final String tableName;
   final List<Map<String, dynamic>>? navigationItems;
+  final String? orderType;
+  final String? customerName;
+  final int? deliveryPartnerId;
 
   const OrderOverviewScreen({
     super.key,
     required this.tableId,
     required this.tableName,
     this.navigationItems,
+    this.orderType,
+    this.customerName,
+    this.deliveryPartnerId,
   });
 
   @override
@@ -27,9 +34,14 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
   List<dynamic> _orderedItems = [];
   String _orderType = 'Table';
 
+  bool get _isOrderTypeInformational => widget.orderType != null;
+
   @override
   void initState() {
     super.initState();
+    if (widget.orderType != null) {
+      _orderType = widget.orderType!;
+    }
     _loadActiveOrder();
   }
 
@@ -40,7 +52,7 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
       setState(() {
         _activeOrder = order;
         _orderedItems = order != null ? (order['items'] as List? ?? []) : [];
-        if (order != null && order['order_type'] != null) {
+        if (widget.orderType == null && order != null && order['order_type'] != null) {
           _orderType = order['order_type'];
         }
         _isLoading = false;
@@ -113,11 +125,13 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
                                   ),
                                 ),
                               ),
-                            if (hasDraft) ...[
-                              _buildSectionTitle("Order Type"),
-                              const SizedBox(height: 12),
-                              _buildOrderTypeSelector(),
-                            ],
+            if (hasDraft) ...[
+              _buildSectionTitle("Order Type"),
+              const SizedBox(height: 12),
+              _isOrderTypeInformational
+                  ? _buildOrderTypeInfo()
+                  : _buildOrderTypeSelector(),
+            ],
                           ],
                         ),
                       ),
@@ -125,42 +139,28 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
                     _buildBottomActions(hasDraft, isOccupied),
                   ],
                 ),
+        );
+      },
+    );
+  }
 
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
-            ],
-          ),
-          child: BottomNavigationBar(
-            currentIndex: 0, 
-            onTap: (index) {
-               Navigator.pop(context, index);
-            },
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            selectedItemColor: Colors.grey[400],
-            unselectedItemColor: Colors.grey[400],
-            selectedFontSize: 11,
-            unselectedFontSize: 11,
-            elevation: 0,
-            items: const [
-               BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-               BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
-               BottomNavigationBarItem(icon: Icon(Icons.kitchen_rounded), label: 'KOT/BOT'),
-               BottomNavigationBarItem(icon: Icon(Icons.payments_rounded), label: 'Cashier'),
-               BottomNavigationBarItem(icon: Icon(Icons.analytics_rounded), label: 'Reports'),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
+  String get _displayName {
+    // Priority: backend order customer > widget customerName > orderType > tableName
+    final backendCustomerName = _activeOrder?['customer']?['name']?.toString();
+    final customerName = backendCustomerName ?? widget.customerName;
+    
+    if (widget.orderType != null && customerName != null && customerName.isNotEmpty) {
+      return '${widget.orderType} • $customerName';
+    }
+    if (widget.orderType != null) {
+      return widget.orderType!;
+    }
+    return widget.tableName;
+  }
+  
+  String? get _customerName {
+    return _activeOrder?['customer']?['name']?.toString() ?? widget.customerName;
+  }
 
   Widget _buildHeader(bool isOccupied) {
     return Container(
@@ -175,12 +175,18 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
         child: Row(
           children: [
-            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle), child: const Icon(Icons.table_restaurant_rounded)),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle),
+              child: Icon(
+                _orderType == 'Takeaway' ? Icons.shopping_bag_rounded : (_orderType == 'Delivery' || _orderType == 'Delivery Partner' ? Icons.delivery_dining_rounded : Icons.table_restaurant_rounded),
+              ),
+            ),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.tableName, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(_displayName, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18)),
                 Text(isOccupied ? "Occupied" : "Draft Order", style: TextStyle(color: isOccupied ? Colors.red : Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
               ],
             ),
@@ -211,6 +217,30 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
           Text("x$qty", style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 12),
           Text("Rs ${price * qty}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderTypeInfo() {
+    final label = _orderType == 'Table' ? 'Dine-in' : _orderType;
+    final icon = _orderType == 'Table' ? Icons.restaurant : (_orderType == 'Takeaway' ? Icons.shopping_bag : Icons.delivery_dining);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFC107).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFC107).withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFFFFC107), size: 24),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          if (_customerName != null && _customerName!.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(' • $_customerName', style: TextStyle(color: Colors.grey[700], fontSize: 14)),
+          ],
         ],
       ),
     );
@@ -313,6 +343,9 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
         builder: (context) => MenuScreen(
           tableNumber: widget.tableId,
           navigationItems: widget.navigationItems,
+          orderType: widget.orderType,
+          customerName: widget.customerName,
+          deliveryPartnerId: widget.deliveryPartnerId,
         ),
       ),
     );
@@ -323,16 +356,27 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
     if (localCart.isEmpty) return;
 
     setState(() => _isLoading = true);
-    final success = await _tableService.confirmOrder(widget.tableId, localCart, orderType: _orderType);
+    final success = await _tableService.confirmOrder(
+      widget.tableId,
+      localCart,
+      orderType: _orderType,
+      deliveryPartnerId: widget.deliveryPartnerId,
+    );
     if (success) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("KOT Generated & Sent to Kitchen!"), backgroundColor: Colors.green));
+        await NotificationService().showOrderKOTCreatedNotification(
+          'KOT Generated',
+          'Order sent to kitchen for $_displayName',
+        );
         _loadActiveOrder(); // Refresh to move draft to ordered
       }
     } else {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to place order."), backgroundColor: Colors.red));
+        await NotificationService().showOrderKOTCreatedNotification(
+          'Order Failed',
+          'Failed to place order for $_displayName',
+        );
       }
     }
   }
@@ -344,6 +388,8 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
         builder: (context) => BillScreen(
           tableNumber: widget.tableId,
           navigationItems: widget.navigationItems,
+          orderType: widget.orderType,
+          customerName: _customerName,
         ),
       ),
     );

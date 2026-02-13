@@ -7,7 +7,7 @@ import 'package:dautari_adda/features/pos/data/table_service.dart';
 import 'package:dautari_adda/features/pos/data/table_service.dart';
 import 'order_overview_screen.dart'; // Changed from bill_screen.dart
 
-enum OrderStatus { all, dineIn, takeaway, delivery, drafts }
+enum OrderStatus { dineIn, takeaway, delivery, drafts }
 
 class OrdersScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? navigationItems;
@@ -27,7 +27,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _fetchOrders();
   }
 
@@ -41,7 +41,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     if (!mounted) return;
     setState(() => _isFetching = true);
     try {
-      final orders = await _orderService.getAllOrders();
+      final orders = await _orderService.getOrders(status: 'Pending,Draft,InProgress,BillRequested');
       if (!mounted) return;
       setState(() {
         _backendOrders = orders;
@@ -86,6 +86,9 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
         listenable: tableService,
         builder: (context, _) {
           final activeTableIds = tableService.activeTableIds;
+          final pendingTakeaway = _backendOrders.where((o) => (o['order_type'] ?? '').toString().toLowerCase() == 'takeaway').length;
+          final pendingDelivery = _backendOrders.where((o) => (o['order_type'] ?? '').toString().toLowerCase().contains('delivery')).length;
+          final totalAttention = activeTableIds.length + pendingTakeaway + pendingDelivery;
           return Column(
             children: [
               Container(
@@ -105,7 +108,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                                   style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
                                 ),
                                 Text(
-                                  "${activeTableIds.length} tables require attention",
+                                  "$totalAttention orders require attention",
                                   style: GoogleFonts.poppins(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
                                 ),
                               ],
@@ -121,7 +124,8 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                     ),
                     TabBar(
                       controller: _tabController,
-                      isScrollable: true,
+                      isScrollable: false,
+                      tabAlignment: TabAlignment.fill,
                       labelColor: Colors.black87,
                       unselectedLabelColor: Colors.black54,
                       indicatorColor: Colors.black87,
@@ -129,7 +133,6 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                       labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12),
                       unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
                       tabs: const [
-                        Tab(text: 'All'),
                         Tab(text: 'Dine-in'),
                         Tab(text: 'Takeaway'),
                         Tab(text: 'Delivery'),
@@ -158,7 +161,6 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                         controller: _tabController,
                         physics: const ClampingScrollPhysics(), // Important for Android to allow boundary hit
                         children: [
-                          _buildOrdersList(tableService, OrderStatus.all),
                           _buildOrdersList(tableService, OrderStatus.dineIn),
                           _buildOrdersList(tableService, OrderStatus.takeaway),
                           _buildOrdersList(tableService, OrderStatus.delivery),
@@ -204,18 +206,15 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     }
 
     final filteredItems = allActiveItems.where((item) {
-      final orderType = item['order_type'] as String;
+      final orderType = (item['order_type'] as String? ?? '').toString();
+      final orderTypeLower = orderType.toLowerCase();
       final isDraft = item['type'] == 'draft';
-      // final status = item['status'] as String; // Not directly used for filtering here, but for display
 
-      if (selectedStatus == OrderStatus.all) return true;
       if (selectedStatus == OrderStatus.drafts) return isDraft;
       
-      // For specific types, show all regardless of status (Paid or Pending)
-      if (selectedStatus == OrderStatus.dineIn) return orderType == 'Table' && !isDraft;
-      if (selectedStatus == OrderStatus.takeaway) return orderType == 'Takeaway';
-      if (selectedStatus == OrderStatus.delivery) 
-        return orderType.contains('Delivery');
+      if (selectedStatus == OrderStatus.dineIn) return (orderTypeLower == 'table' || orderType == 'Dine-In') && !isDraft;
+      if (selectedStatus == OrderStatus.takeaway) return orderTypeLower == 'takeaway';
+      if (selectedStatus == OrderStatus.delivery) return orderTypeLower.contains('delivery');
       
       return true;
     }).toList();
@@ -248,10 +247,29 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                     } else {
                       final order = item['data'];
                       final tableId = order['table_id'] as int?;
+                      String displayName;
+                      final orderType = (order['order_type'] ?? '').toString().toLowerCase();
+                      if (tableId != null && tableId > 0) {
+                        displayName = tableService.getTableName(tableId);
+                      } else if (orderType == 'takeaway') {
+                        final customerName = order['customer']?['name']?.toString();
+                        displayName = customerName != null && customerName.isNotEmpty ? 'Takeaway • $customerName' : 'Takeaway';
+                      } else if (orderType.contains('delivery')) {
+                        final deliveryPartner = order['delivery_partner'];
+                        final partnerName = deliveryPartner?['name']?.toString() ?? 'Self Delivery';
+                        final customerName = order['customer']?['name']?.toString();
+                        if (customerName != null && customerName.isNotEmpty) {
+                          displayName = 'Delivery ($partnerName) • $customerName';
+                        } else {
+                          displayName = 'Delivery ($partnerName)';
+                        }
+                      } else {
+                        displayName = order['order_type'] ?? 'Order';
+                      }
                       return _buildModernOrderCard(
                         context,
                         tableId ?? 0,
-                        tableId != null ? tableService.getTableName(tableId) : (order['order_type'] ?? 'Order'),
+                        displayName,
                         [], // Backend order items handled in card if needed, but display total
                         (order['total_amount'] as num?)?.toDouble() ?? 0.0,
                         true,
@@ -348,18 +366,22 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
             if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
             _fetchOrders();
           } else if (backendOrder != null) {
-            if (backendOrder['table_id'] != null) {
-              final result = await Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => OrderOverviewScreen(
-                  tableId: backendOrder['table_id'], 
-                  tableName: "Table ${backendOrder['table_id']}",
-                  navigationItems: widget.navigationItems,
-                ))
-              );
-              if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
-              _fetchOrders();
-            } 
+            final orderType = backendOrder['order_type']?.toString();
+            final customerName = backendOrder['customer']?['name']?.toString();
+            final deliveryPartnerId = backendOrder['delivery_partner_id'];
+            final result = await Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (context) => OrderOverviewScreen(
+                tableId: backendOrder['table_id'] ?? 0, 
+                tableName: tableName,
+                navigationItems: widget.navigationItems,
+                orderType: orderType,
+                customerName: customerName,
+                deliveryPartnerId: deliveryPartnerId,
+              ))
+            );
+            if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
+            _fetchOrders();
           }
         },
         borderRadius: BorderRadius.circular(20),
@@ -666,9 +688,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
           ),
           const SizedBox(height: 24),
           Text(
-            selectedStatus == OrderStatus.all 
-              ? "No orders found in this branch" 
-              : "No ${selectedStatus.name} orders",
+            "No ${selectedStatus.name} orders",
             style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[700]),
           ),
           const SizedBox(height: 8),

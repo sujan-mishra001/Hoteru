@@ -9,12 +9,18 @@ class MenuScreen extends StatefulWidget {
   final int tableNumber;
   final List<Map<String, dynamic>>? navigationItems;
   final bool isOrderingMode;
+  final String? orderType;
+  final String? customerName;
+  final int? deliveryPartnerId;
 
   const MenuScreen({
     super.key,
     required this.tableNumber,
     this.navigationItems,
     this.isOrderingMode = true,
+    this.orderType,
+    this.customerName,
+    this.deliveryPartnerId,
   });
 
   @override
@@ -271,57 +277,44 @@ class _MenuScreenState extends State<MenuScreen> {
           final cartItems = _tableService.getCart(widget.tableNumber);
           if (cartItems.isEmpty) return const SizedBox.shrink();
 
-          return FloatingActionButton.extended(
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OrderOverviewScreen(
-                    tableId: widget.tableNumber,
-                    tableName: _tableService.getTableName(widget.tableNumber),
-                    navigationItems: widget.navigationItems,
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                String tableName = _tableService.getTableName(widget.tableNumber);
+                if (widget.orderType != null && widget.customerName != null && widget.customerName!.isNotEmpty) {
+                  tableName = '${widget.orderType} • ${widget.customerName}';
+                } else if (widget.orderType != null) {
+                  tableName = widget.orderType!;
+                }
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OrderOverviewScreen(
+                      tableId: widget.tableNumber,
+                      tableName: tableName,
+                      navigationItems: widget.navigationItems,
+                      orderType: widget.orderType,
+                      customerName: widget.customerName,
+                      deliveryPartnerId: widget.deliveryPartnerId,
+                    ),
                   ),
-                ),
-              );
-            },
-            backgroundColor: const Color(0xFFFFC107),
-            icon: const Icon(Icons.shopping_cart_checkout, color: Colors.black87),
-            label: Text("Review Order (${cartItems.length})", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+                );
+              },
+              icon: const Icon(Icons.shopping_cart_checkout, color: Colors.black87),
+              label: Text("Review Order (${cartItems.length})", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC107),
+                foregroundColor: Colors.black87,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           );
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: 0,
-          onTap: (index) {
-             Navigator.pop(context, index);
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.grey[400],
-          unselectedItemColor: Colors.grey[400],
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          elevation: 0,
-          items: const [
-             BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
-             BottomNavigationBarItem(icon: Icon(Icons.kitchen_rounded), label: 'KOT/BOT'),
-             BottomNavigationBarItem(icon: Icon(Icons.payments_rounded), label: 'Cashier'),
-             BottomNavigationBarItem(icon: Icon(Icons.analytics_rounded), label: 'Reports'),
-          ],
-        ),
-      ),
     );
   }
 

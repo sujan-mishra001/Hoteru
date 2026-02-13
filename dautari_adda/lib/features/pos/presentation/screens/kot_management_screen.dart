@@ -6,7 +6,8 @@ import 'package:intl/intl.dart';
 
 class KotManagementScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? navigationItems;
-  const KotManagementScreen({super.key, this.navigationItems});
+  final Function(int)? onTabChange;
+  const KotManagementScreen({super.key, this.navigationItems, this.onTabChange});
 
   @override
   State<KotManagementScreen> createState() => _KotManagementScreenState();
@@ -204,11 +205,22 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
     );
   }
 
+  String _getOrderSourceLabel(dynamic kot) {
+    final order = kot['order'];
+    if (order == null) return 'N/A';
+    final orderType = (order['order_type'] ?? '').toString().toLowerCase();
+    if (orderType.contains('takeaway')) return 'Takeaway';
+    if (orderType.contains('delivery')) return 'Delivery';
+    final tableId = order['table']?['table_id'];
+    if (tableId != null && tableId.toString().isNotEmpty) return 'Table $tableId';
+    return 'N/A';
+  }
+
   Widget _buildKotCard(dynamic kot) {
     final items = kot['items'] as List? ?? [];
     final timestamp = DateTime.tryParse(kot['created_at'] ?? '') ?? DateTime.now();
     final isPending = kot['status'] == 'Pending';
-    final table = kot['order']?['table']?['table_id'] ?? 'N/A';
+    final sourceLabel = _getOrderSourceLabel(kot);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -239,7 +251,7 @@ class _KotManagementScreenState extends State<KotManagementScreen> with SingleTi
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     Text(
-                      "${kot['kot_type']} • Table $table",
+                      "${kot['kot_type']} • $sourceLabel",
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ],

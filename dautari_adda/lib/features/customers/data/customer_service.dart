@@ -4,15 +4,21 @@ import 'package:dautari_adda/core/api/api_service.dart';
 class CustomerService {
   final ApiService _apiService = ApiService();
 
-  // Get all customers
+  // Get all customers, optionally search by name or phone
   Future<List<dynamic>> getCustomers({
     int skip = 0,
     int limit = 100,
     String? search,
   }) async {
     try {
-      String endpoint = '/customers?skip=$skip&limit=$limit';
-      if (search != null) endpoint += '&search=$search';
+      String endpoint = '/customers';
+      final params = <String>[];
+      if (skip > 0) params.add('skip=$skip');
+      if (limit != 100) params.add('limit=$limit');
+      if (search != null && search.trim().isNotEmpty) {
+        params.add('search=${Uri.encodeComponent(search.trim())}');
+      }
+      if (params.isNotEmpty) endpoint += '?${params.join('&')}';
       
       final response = await _apiService.get(endpoint);
       if (response.statusCode == 200) {

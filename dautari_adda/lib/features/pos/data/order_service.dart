@@ -13,23 +13,31 @@ class OrderService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final branchId = prefs.getInt('selectedBranchId');
+      print('ORDER_SERVICE_DEBUG: Branch ID from prefs: $branchId'); // Debug log
       
       String endpoint = '/orders';
       final params = <String>[];
       if (orderType != null) params.add('order_type=$orderType');
-      if (status != null) params.add('status=$status');
+      if (status != null) params.add('status=${Uri.encodeComponent(status)}');
       if (branchId != null) params.add('branch_id=$branchId');
       
       if (params.isNotEmpty) {
         endpoint += '?${params.join('&')}';
       }
       
+      print('Fetching orders from: $endpoint'); // Debug log
+      
       final response = await _apiService.get(endpoint);
+      print('Orders response status: ${response.statusCode}'); // Debug log
+      
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        print('Orders count: ${data.length}'); // Debug log
+        return data;
       }
       return [];
     } catch (e) {
+      print('Error fetching orders: $e'); // Debug log
       return [];
     }
   }
@@ -63,7 +71,7 @@ class OrderService {
   }) async {
     try {
       final response = await _apiService.post('/orders', {
-        'table_id': tableId,
+        if (tableId != 0) 'table_id': tableId,
         'items': items,
         'order_type': orderType,
         'notes': notes,
@@ -126,25 +134,19 @@ class OrderService {
     }
   }
 
-  // Generate KOT for order
+  // Generate KOT for order - backend auto-creates KOTs when order is created/items added
   Future<Map<String, dynamic>?> generateKOT(int orderId) async {
-    try {
-      final response = await _apiService.post('/kots/generate/$orderId', {});
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return jsonDecode(response.body);
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+    final kots = await getKOTs(orderId);
+    return kots.isNotEmpty ? kots.first as Map<String, dynamic> : null;
   }
 
-  // Get KOTs for order
+  // Get KOTs for order - fetches all KOTs and filters by order_id (backend has no order filter)
   Future<List<dynamic>> getKOTs(int orderId) async {
     try {
-      final response = await _apiService.get('/kots/order/$orderId');
+      final response = await _apiService.get('/kots');
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final List allKots = jsonDecode(response.body);
+        return allKots.where((k) => k['order_id'] == orderId).toList();
       }
       return [];
     } catch (e) {

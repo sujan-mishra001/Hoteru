@@ -164,6 +164,78 @@ async def get_tables_with_stats(
     return result
 
 
+@router.post("/merge")
+async def merge_tables_bulk(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Merge multiple tables"""
+    branch_id = current_user.current_branch_id
+    primary_table_id = payload.get("primary_table_id")
+    table_ids = payload.get("table_ids", [])
+    
+    if not primary_table_id or not table_ids:
+        raise HTTPException(status_code=400, detail="primary_table_id and table_ids are required")
+    
+    # Simple integer merge group ID generation
+    # Find max existing merge_group_id (assuming it can be cast to int, or is int)
+    # To be safe against string values, we will use a timestamp-based int
+    import time
+    merge_group_id = int(time.time())
+    
+    # Check if primary table already has a group
+    primary = db.query(Table).filter(Table.id == primary_table_id, Table.branch_id == branch_id).first()
+    if not primary:
+        raise HTTPException(status_code=404, detail="Primary table not found")
+        
+    if primary.merge_group_id:
+        # Try to use existing group ID if it looks like an int, else generate new?
+        # If we use mixed types it might be messy.
+        # Let's trust proper ID usage.
+        # If existing logic uses strings, we might have an issue.
+        # For now, let's just overwrite with our new int ID or use existing if compatible.
+        try:
+             # Check if we can parse it to match our frontend expectation
+             int(primary.merge_group_id)
+             merge_group_id = primary.merge_group_id
+        except:
+             # If existing is string, and our frontend expects int, we might need to change frontend model to String/dynamic
+             # Or force new ID.
+             pass
+
+    # Update all participating tables
+    all_ids = [primary_table_id] + table_ids
+    for tid in all_ids:
+        t = db.query(Table).filter(Table.id == tid, Table.branch_id == branch_id).first()
+        if t:
+            t.merge_group_id = merge_group_id
+            t.merged_to_id = primary_table_id if tid != primary_table_id else None
+            t.status = "Occupied"
+            
+    db.commit()
+    return {"message": "Merged", "merge_group_id": merge_group_id}
+
+
+@router.post("/unmerge")
+async def unmerge_tables_bulk(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Unmerge tables by Group ID"""
+    branch_id = current_user.current_branch_id
+    merge_group_id = payload.get("merge_group_id")
+    
+    tables = db.query(Table).filter(Table.merge_group_id == merge_group_id, Table.branch_id == branch_id).all()
+    for t in tables:
+        t.merge_group_id = None
+        t.merged_to_id = None
+        
+    db.commit()
+    return {"message": "Unmerged"}
+
+
 @router.post("/{table_id}/merge")
 async def merge_tables(
     table_id: int,
@@ -321,41 +393,57 @@ async def get_table(
 async def create_table(
     table_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(check_admin_role)
+    current_user = Depends(get_current_user)  # Allow managers too
 ):
-    """Create a new table in the user's current branch (Admin only)"""
+    """Create a new table in the user's current branch"""
     branch_id = current_user.current_branch_id
     
-    # Check if table_id already exists in the branch (or globally if branch_id is None)
+    # Check if table_id already exists in the branch
     query = db.query(Table).filter(Table.table_id == table_data.get('table_id'))
     query = apply_branch_filter_table(db, query, branch_id)
     existing = query.first()
     if existing:
         raise HTTPException(status_code=400, detail="Table ID already exists in this branch")
     
-    # Set floor name from floor_id if provided
-    if 'floor_id' in table_data and table_data['floor_id']:
-        floor_query = db.query(Floor).filter(Floor.id == table_data['floor_id'])
-        floor_query = apply_branch_filter_floor(db, floor_query, branch_id)
-        floor = floor_query.first()
-        if floor:
-            table_data['floor'] = floor.name
+    # 1. Handle Display Order
+    floor_id = table_data.get('floor_id')
+    max_order_query = db.query(Table).filter(Table.floor_id == floor_id)
+    max_order_query = apply_branch_filter_table(db, max_order_query, branch_id)
+    max_order = max_order_query.order_by(Table.display_order.desc()).first()
     
-    # Get max display_order for this floor, filtered by branch
-    query = db.query(Table).filter(Table.floor_id == table_data.get('floor_id'))
-    query = apply_branch_filter_table(db, query, branch_id)
-    max_order = query.order_by(Table.display_order.desc()).first()
     table_data['display_order'] = (max_order.display_order + 1) if max_order else 0
     
-    # Set branch_id for the new table
-    if branch_id is not None:
+    # 2. Set Floor Name if missing but ID provided
+    if floor_id and 'floor' not in table_data:
+        floor_obj = db.query(Floor).filter(Floor.id == floor_id).first()
+        if floor_obj:
+            table_data['floor'] = floor_obj.name
+            
+    # 3. Explicitly set branch_id
+    if branch_id:
         table_data['branch_id'] = branch_id
-    
-    new_table = Table(**table_data)
-    db.add(new_table)
-    db.commit()
-    db.refresh(new_table)
-    return new_table
+
+    # 4. Create and add
+    try:
+        new_table = Table(
+            table_id=table_data.get('table_id'),
+            floor_id=table_data.get('floor_id'),
+            floor=table_data.get('floor'),
+            table_type=table_data.get('table_type', 'Regular'),
+            capacity=table_data.get('capacity', 4),
+            branch_id=table_data.get('branch_id'),
+            display_order=table_data.get('display_order', 0),
+            status="Available",
+            is_active=True
+        )
+        db.add(new_table)
+        db.commit()
+        db.refresh(new_table)
+        return new_table
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating table: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create table: {str(e)}")
 
 
 @router.put("/{table_id}")

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/bill_screen.dart';
 import 'package:dautari_adda/features/pos/data/order_service.dart';
+import 'package:dautari_adda/features/pos/data/table_service.dart';
+import 'package:dautari_adda/features/pos/data/session_service.dart';
+import 'package:dautari_adda/features/pos/data/pos_models.dart';
 import 'package:intl/intl.dart';
 
 class CashierScreen extends StatefulWidget {
@@ -14,17 +18,39 @@ class CashierScreen extends StatefulWidget {
 
 class _CashierScreenState extends State<CashierScreen> {
   final OrderService _orderService = OrderService();
-  
+  final TableService _tableService = TableService();
+  final SessionService _sessionService = SessionService();
+
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _filteredOrders = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
+  double _todayOpening = 0;
+  double _todaySales = 0;
+  double _yesterdaySales = 0;
 
   @override
   void initState() {
     super.initState();
     _loadOrders();
+    _loadSalesSummary();
     _searchController.addListener(_filterOrders);
+  }
+
+  Future<void> _loadSalesSummary() async {
+    try {
+      final session = await _sessionService.getActiveSession();
+      if (session != null) {
+        _todayOpening = (session['opening_cash'] as num?)?.toDouble() ?? 0;
+        _todaySales = (session['total_sales'] as num?)?.toDouble() ?? 0;
+      }
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayData = await _sessionService.getSalesForDate(yesterday);
+      if (yesterdayData != null) {
+        _yesterdaySales = (yesterdayData['sales_24h'] as num?)?.toDouble() ?? 0;
+      }
+      if (mounted) setState(() {});
+    } catch (_) {}
   }
 
   @override
@@ -36,18 +62,112 @@ class _CashierScreenState extends State<CashierScreen> {
   Future<void> _loadOrders() async {
     setState(() => _isLoading = true);
     try {
-      // Fetch orders that need payment
+      // Fetch tables for merge_group_id mapping (needed for merged table grouping)
+      await _tableService.fetchTables();
+      final tables = _tableService.tables;
+
+      // Build table id -> merge_group_id map
+      final Map<int, dynamic> tableIdToMergeGroup = {};
+      final Map<dynamic, List<PosTable>> mergeGroupToTables = {};
+      for (final t in tables) {
+        if (t.mergeGroupId != null) {
+          tableIdToMergeGroup[t.id] = t.mergeGroupId;
+          mergeGroupToTables.putIfAbsent(t.mergeGroupId, () => []).add(t);
+        }
+      }
+
+      // Fetch orders that need payment (exclude Paid and Completed orders)
       final orders = await _orderService.getOrders(
-        status: 'Pending,Draft,InProgress,BillRequested,Completed'
+        status: 'Pending,Draft,InProgress,BillRequested'
       );
-      
-      final cashierOrders = orders;
-      
+
+      // Group orders by table or merge_group; accumulate amounts
+      final Map<Object, List<Map<String, dynamic>>> ordersByKey = {};
+      final Map<Object, double> totalsByKey = {};
+
+      for (var order in orders) {
+        final tableId = order['table_id'] as int? ?? 0;
+        final orderType = (order['order_type'] ?? '').toString().toLowerCase();
+        final amt = (order['total_amount'] ?? order['net_amount'] ?? 0.0) as num;
+        final amount = amt is int ? amt.toDouble() : (amt as double);
+
+        Object key;
+        if (tableId <= 0) {
+          // Separate takeaway and delivery by order_type and customer
+          final customerId = order['customer_id'];
+          if (orderType == 'takeaway') {
+            // Group takeaway orders by customer_id, or order_id if no customer
+            key = customerId != null ? 'takeaway_customer_$customerId' : 'takeaway_order_${order['id']}';
+          } else if (orderType.contains('delivery')) {
+            // Group delivery orders by customer_id and delivery_partner_id
+            final deliveryPartnerId = order['delivery_partner_id'];
+            if (customerId != null) {
+              key = deliveryPartnerId != null 
+                  ? 'delivery_customer_${customerId}_partner_$deliveryPartnerId'
+                  : 'delivery_customer_$customerId';
+            } else {
+              key = deliveryPartnerId != null ? 'delivery_partner_$deliveryPartnerId' : 'delivery_order_${order['id']}';
+            }
+          } else {
+            key = 'other_$tableId';
+          }
+        } else {
+          // Table orders - group by merge_group_id or table_id
+          final mgId = tableIdToMergeGroup[tableId];
+          key = mgId ?? tableId;
+        }
+
+        ordersByKey.putIfAbsent(key, () => []).add(order);
+        totalsByKey[key] = (totalsByKey[key] ?? 0.0) + amount;
+      }
+
+      // Convert to list with accumulated data
+      final List<Map<String, dynamic>> accumulatedOrders = [];
+      ordersByKey.forEach((key, tableOrders) {
+        if (tableOrders.isEmpty) return;
+        final firstOrder = tableOrders.first;
+        final tableId = firstOrder['table_id'] as int? ?? 0;
+
+        String displayName;
+        final orderTypeStr = (firstOrder['order_type'] ?? '').toString().toLowerCase();
+        final keyStr = key.toString();
+        if (keyStr.startsWith('takeaway')) {
+          final customerName = firstOrder['customer']?['name']?.toString();
+          displayName = customerName != null && customerName.isNotEmpty ? 'Takeaway • $customerName' : 'Takeaway';
+        } else if (keyStr.startsWith('delivery')) {
+          final deliveryPartner = firstOrder['delivery_partner'];
+          final partnerName = deliveryPartner?['name']?.toString() ?? 'Self Delivery';
+          final customerName = firstOrder['customer']?['name']?.toString();
+          if (customerName != null && customerName.isNotEmpty) {
+            displayName = 'Delivery ($partnerName) • $customerName';
+          } else {
+            displayName = 'Delivery ($partnerName)';
+          }
+        } else if (mergeGroupToTables.containsKey(key)) {
+          final mgTables = mergeGroupToTables[key]!;
+          final names = mgTables.map((t) => t.tableId).toList();
+          displayName = 'Merged: ${names.join(', ')}';
+        } else {
+          final t = tables.where((tbl) => tbl.id == tableId).firstOrNull;
+          displayName = tableId > 0 ? (t?.tableId ?? 'Table $tableId') : 'Unknown';
+        }
+
+        accumulatedOrders.add({
+          ...firstOrder,
+          'table_id': tableId,
+          'total_amount': totalsByKey[key],
+          'order_count': tableOrders.length,
+          'orders': tableOrders,
+          'display_name': displayName,
+        });
+      });
+
       setState(() {
-        _orders = cashierOrders.cast<Map<String, dynamic>>();
-        _filteredOrders = _orders;
+        _orders = accumulatedOrders;
+        _filteredOrders = accumulatedOrders;
         _isLoading = false;
       });
+      _loadSalesSummary();
     } catch (e) {
       print('Error loading orders: $e');
       setState(() => _isLoading = false);
@@ -79,26 +199,32 @@ class _CashierScreenState extends State<CashierScreen> {
   }
 
   String _getOrderType(String? type) {
-    switch (type) {
-      case 'dine_in':
-        return 'Dine In';
-      case 'takeaway':
-        return 'Takeaway';
-      case 'delivery':
-        return 'Delivery';
-      default:
-        return 'Unknown';
+    if (type == null) return 'Unknown';
+    final typeLower = type.toLowerCase();
+    if (typeLower == 'table' || typeLower == 'dine_in' || typeLower == 'dine-in') {
+      return 'Dine In';
+    } else if (typeLower == 'takeaway') {
+      return 'Takeaway';
+    } else if (typeLower.contains('delivery')) {
+      return 'Delivery';
     }
+    return type;
   }
 
   void _navigateToPayment(Map<String, dynamic> order) async {
+    // If this is an accumulated order with multiple orders, navigate with all orders
+    final List<Map<String, dynamic>> ordersToPay = order['orders'] ?? [order];
+    final tableId = order['table_id'] as int? ?? 0;
+    
     final result = await Navigator.push(
-      context, 
+      context,
       MaterialPageRoute(
         builder: (context) => BillScreen(
-          tableNumber: order['table_id'] ?? 0,
+          tableNumber: tableId,
           orderId: order['id'],
           navigationItems: widget.navigationItems,
+          accumulatedOrders: ordersToPay,
+          tableDisplayName: order['display_name'] as String?,
         ),
       ),
     );
@@ -111,18 +237,69 @@ class _CashierScreenState extends State<CashierScreen> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 75,
-        title: const Text('Cashier'),
+        title: Text(
+          'Cashier',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+        ),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        actionsIconTheme: const IconThemeData(color: Colors.black54),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadOrders,
           ),
         ],
       ),
       body: Column(
         children: [
+          // Today's & Yesterday's summary boxes
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFC107).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFFC107).withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Today\'s Sale', style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500)),
+                        Text('NPR ${NumberFormat('#,##0').format(_todaySales)}', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        const SizedBox(height: 6),
+                        Text('Opening', style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
+                        Text('NPR ${NumberFormat('#,##0').format(_todayOpening)}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Yesterday\'s Sale', style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500)),
+                        Text('NPR ${NumberFormat('#,##0').format(_yesterdaySales)}', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Search Bar
           Container(
             padding: const EdgeInsets.all(16),
@@ -148,17 +325,18 @@ class _CashierScreenState extends State<CashierScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredOrders.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
-                            SizedBox(height: 16),
+                            Icon(Icons.receipt_long, size: 64, color: Colors.grey[400]),
+                            const SizedBox(height: 16),
                             Text(
-                              'No orders found for cashier',
-                              style: TextStyle(
+                              'No current orders',
+                              style: GoogleFonts.poppins(
                                 fontSize: 16,
-                                color: Colors.grey,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -183,10 +361,11 @@ class _CashierScreenState extends State<CashierScreen> {
     final orderType = _getOrderType(order['order_type']);
     final status = order['status'] ?? '';
     final totalAmount = order['total_amount']?.toDouble() ?? 0.0;
+    final orderCount = order['order_count'] ?? 1;
     final createdAt = order['created_at'] != null 
         ? DateTime.parse(order['created_at'])
         : DateTime.now();
-    final tableName = order['table']?['table_id'] ?? '';
+    final tableName = order['display_name'] ?? order['table']?['table_id'] ?? 'Unknown';
     final customerName = order['customer']?['name'] ?? 'Walk-in';
 
     return Card(
@@ -208,12 +387,21 @@ class _CashierScreenState extends State<CashierScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          orderNumber,
+                          tableName,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (orderCount > 1)
+                          Text(
+                            '$orderCount orders',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -263,13 +451,13 @@ class _CashierScreenState extends State<CashierScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (tableName.isNotEmpty)
+                        if (orderNumber.isNotEmpty)
                           Row(
                             children: [
-                              const Icon(Icons.table_restaurant, size: 14, color: Colors.grey),
+                              const Icon(Icons.receipt, size: 14, color: Colors.grey),
                               const SizedBox(width: 4),
                               Text(
-                                tableName,
+                                orderNumber,
                                 style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ],
@@ -305,9 +493,9 @@ class _CashierScreenState extends State<CashierScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Total Amount:',
-                    style: TextStyle(
+                  Text(
+                    'Total Amount (${orderCount} orders):',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),

@@ -8,12 +8,21 @@ class BillScreen extends StatefulWidget {
   final int tableNumber;
   final int? orderId;
   final List<Map<String, dynamic>>? navigationItems;
+  final List<Map<String, dynamic>>? accumulatedOrders;
+  final String? orderType;
+  final String? customerName;
+  /// Display name for merged tables e.g. "Merged: T1, T2"
+  final String? tableDisplayName;
 
   const BillScreen({
     super.key,
     required this.tableNumber,
     this.orderId,
     this.navigationItems,
+    this.accumulatedOrders,
+    this.orderType,
+    this.customerName,
+    this.tableDisplayName,
   });
 
   @override
@@ -38,28 +47,53 @@ class _BillScreenState extends State<BillScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final order = await _tableService.getActiveOrderForTable(widget.tableNumber);
-    final localCart = _tableService.getCart(widget.tableNumber);
-
-    if (mounted) {
-      setState(() {
-        _activeOrder = order;
-        if (order != null && order['items'] != null) {
-          _displayItems = (order['items'] as List).map((item) {
-            return CartItem(
-              menuItem: MenuItem(
-                id: item['menu_item_id'],
-                name: item['menu_item']?['name'] ?? 'Unknown',
-                price: (item['price'] as num?)?.toDouble() ?? 0.0,
-              ),
-              quantity: item['quantity'] ?? 1,
-            );
-          }).toList();
-        } else {
-          _displayItems = localCart;
+    final acc = widget.accumulatedOrders;
+    if (acc != null && acc.isNotEmpty) {
+      // Use accumulated orders (merged or single from cashier)
+      final allItems = <CartItem>[];
+      for (final o in acc) {
+        final items = o['items'] as List? ?? [];
+        for (final item in items) {
+          allItems.add(CartItem(
+            menuItem: MenuItem(
+              id: item['menu_item_id'],
+              name: item['menu_item']?['name'] ?? 'Unknown',
+              price: (item['price'] as num?)?.toDouble() ?? 0.0,
+            ),
+            quantity: item['quantity'] ?? 1,
+          ));
         }
-        _isLoading = false;
-      });
+      }
+      if (mounted) {
+        setState(() {
+          _activeOrder = acc.first;
+          _displayItems = allItems;
+          _isLoading = false;
+        });
+      }
+    } else {
+      final order = await _tableService.getActiveOrderForTable(widget.tableNumber);
+      final localCart = _tableService.getCart(widget.tableNumber);
+      if (mounted) {
+        setState(() {
+          _activeOrder = order;
+          if (order != null && order['items'] != null) {
+            _displayItems = (order['items'] as List).map((item) {
+              return CartItem(
+                menuItem: MenuItem(
+                  id: item['menu_item_id'],
+                  name: item['menu_item']?['name'] ?? 'Unknown',
+                  price: (item['price'] as num?)?.toDouble() ?? 0.0,
+                ),
+                quantity: item['quantity'] ?? 1,
+              );
+            }).toList();
+          } else {
+            _displayItems = localCart;
+          }
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -98,7 +132,12 @@ class _BillScreenState extends State<BillScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text("Bill • ${_tableService.getTableName(widget.tableNumber)}", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(
+          "Bill • ${widget.tableDisplayName ?? (widget.orderType != null && widget.customerName != null && widget.customerName!.isNotEmpty
+              ? '${widget.orderType} • ${widget.customerName}'
+              : (widget.orderType ?? _tableService.getTableName(widget.tableNumber)))}",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
       ),
@@ -134,37 +173,6 @@ class _BillScreenState extends State<BillScreen> {
           ),
           _buildPaymentSection(grandTotal),
         ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: 0,
-          onTap: (index) {
-             Navigator.pop(context, index);
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.grey[400],
-          unselectedItemColor: Colors.grey[400],
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          elevation: 0,
-          items: const [
-             BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_rounded), label: 'Orders'),
-             BottomNavigationBarItem(icon: Icon(Icons.kitchen_rounded), label: 'KOT/BOT'),
-             BottomNavigationBarItem(icon: Icon(Icons.payments_rounded), label: 'Cashier'),
-             BottomNavigationBarItem(icon: Icon(Icons.analytics_rounded), label: 'Reports'),
-          ],
-        ),
       ),
     );
   }
@@ -269,18 +277,6 @@ class _BillScreenState extends State<BillScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text("Back to Home"),
                 ),
               ),
             ],
@@ -425,19 +421,18 @@ class _BillScreenState extends State<BillScreen> {
 
     if (confirmed == true) {
       setState(() => _isLoading = true);
-      
-      // Process payment in backend and clear table
-      final success = await _tableService.addBill(widget.tableNumber, _displayItems, method);
-      
+
+      final acc = widget.accumulatedOrders;
+      final success = acc != null && acc.length > 1
+          ? await _tableService.addBillForMerged(acc, _displayItems, method)
+          : await _tableService.addBill(widget.tableNumber, _displayItems, method);
+
       setState(() => _isLoading = false);
 
       if (success) {
         setState(() {
           _isPaymentReceived = true;
         });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Recorded Successfully!"), backgroundColor: Colors.green));
-        }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error recording payment."), backgroundColor: Colors.red));

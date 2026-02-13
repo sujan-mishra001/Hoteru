@@ -1,8 +1,10 @@
 """
 Customer management routes with branch isolation
 """
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
@@ -21,13 +23,20 @@ def apply_branch_filter_customer(query, branch_id):
 
 @router.get("", response_model=list[CustomerResponse])
 async def get_customers(
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all customers for the current user's branch"""
+    """Get all customers for the current user's branch, optionally filtered by search (name or phone)"""
     branch_id = current_user.current_branch_id
     query = db.query(Customer)
     query = apply_branch_filter_customer(query, branch_id)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(or_(
+            Customer.name.ilike(term),
+            Customer.phone.ilike(term),
+        ))
     customers = query.all()
     return customers
 
