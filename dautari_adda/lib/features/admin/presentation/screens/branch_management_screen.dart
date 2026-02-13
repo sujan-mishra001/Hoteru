@@ -77,84 +77,163 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   Widget _buildBranchCard(dynamic branch) {
     return Card(
       elevation: 4,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        children: [
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFFFFC107),
-              child: const Icon(Icons.location_on, color: Colors.white),
-            ),
-            title: Text(branch['name'] ?? 'Unknown Branch'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Code: ${branch['code'] ?? 'N/A'}'),
-                if (branch['address'] != null)
-                  Text(branch['address']),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.check),
-                  color: Colors.green,
-                  onPressed: () => _selectBranch(branch['id']),
-                  tooltip: 'Select Branch',
-                ),
-                if (_isAdmin)
-                  PopupMenuButton<String>(
-                    onSelected: (value) => _handleMenuAction(value, branch),
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Edit Branch'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'users',
-                        child: Text('Manage Users'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete Branch'),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          if (branch['phone'] != null || branch['email'] != null)
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 200),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with avatar and title
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.grey[100],
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC107).withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
               child: Row(
                 children: [
-                  if (branch['phone'] != null)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.phone, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(branch['phone']),
-                        ],
-                      ),
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: const Color(0xFFFFC107),
+                    child: const Icon(Icons.location_on, color: Colors.white, size: 30),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          branch['name'] ?? 'Unknown Branch',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFC107),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Code: ${branch['code'] ?? 'N/A'}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  if (branch['email'] != null)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.email, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(branch['email']),
-                        ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.check, size: 28),
+                        color: Colors.green,
+                        onPressed: () => _selectBranch(branch['id']),
+                        tooltip: 'Select Branch',
                       ),
-                    ),
+                      if (_isAdmin)
+                        PopupMenuButton<String>(
+                          onSelected: (value) => _handleMenuAction(value, branch),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit Branch'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'users',
+                              child: Text('Manage Users'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete Branch'),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
-        ],
+            
+            // Branch details section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (branch['address'] != null) ...[
+                    _buildDetailRow(Icons.location_on, 'Address', branch['address']),
+                    const SizedBox(height: 12),
+                  ],
+                  if (branch['phone'] != null) ...[
+                    _buildDetailRow(Icons.phone, 'Phone', branch['phone']),
+                    const SizedBox(height: 12),
+                  ],
+                  if (branch['email'] != null) ...[
+                    _buildDetailRow(Icons.email, 'Email', branch['email']),
+                    const SizedBox(height: 12),
+                  ],
+                  // Additional info
+                  _buildDetailRow(
+                    Icons.business,
+                    'Branch ID',
+                    '#${branch['id'].toString()}',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 20, color: Colors.grey[600]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
