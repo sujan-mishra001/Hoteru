@@ -235,7 +235,11 @@ class _DeliveryOrderScreenState extends State<DeliveryOrderScreen> {
 
   String get _displayName {
     final customerName = _activeOrder?['customer']?['name']?.toString() ?? widget.customerName;
-    return customerName.isNotEmpty ? 'Delivery • $customerName' : 'Delivery Order';
+    final partnerName = _activeOrder?['delivery_partner']?['name']?.toString() ?? widget.deliveryPartnerName ?? 'Self Delivery';
+    if (customerName.isNotEmpty) {
+      return 'Delivery ($partnerName) • $customerName';
+    }
+    return 'Delivery ($partnerName)';
   }
 
   String get _partnerName {

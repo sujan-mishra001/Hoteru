@@ -47,7 +47,7 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
 
   Future<void> _loadActiveOrder() async {
     setState(() => _isLoading = true);
-    final order = await _tableService.getActiveOrderForTable(widget.tableId);
+    final order = await _tableService.getActiveOrderForTable(widget.tableId, orderType: _orderType);
     if (mounted) {
       setState(() {
         _activeOrder = order;
