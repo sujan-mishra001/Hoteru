@@ -38,6 +38,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _userProfile;
+  Map<String, dynamic>? _companyData;
   String? _branchName;
   bool _isLoading = true;
   bool _isCompanyLoading = true;

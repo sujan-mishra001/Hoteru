@@ -22,7 +22,6 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
   final TableService _tableService = TableService();
   final SessionService _sessionService = SessionService();
   final ReportsService _reportsService = ReportsService();
-  final ReportsService _reportsService = ReportsService();
   late TabController _tabController;
 
   List<Map<String, dynamic>> _orders = [];
@@ -466,7 +465,6 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
     final orderTypeStr = (order['order_type'] ?? '').toString().toLowerCase();
     final customer = order['customer'];
     final customerName = customer?['name'] ?? (orderTypeStr.contains('delivery') ? '' : 'Walk-in');
-    final customerName = orderType == 'Delivery' ? null : (customer?['name'] ?? 'Walk-in');
     final deliveryPartner = order['delivery_partner'];
     final partnerName = deliveryPartner?['name'];
 

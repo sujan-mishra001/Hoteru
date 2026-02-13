@@ -119,7 +119,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                                   style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
                                 ),
                                 Text(
-                                  "$totalActiveKOTs active KOTs require attention",
+                                  "$totalAttention active KOTs require attention",
                                   style: GoogleFonts.poppins(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
                                 ),
                               ],
