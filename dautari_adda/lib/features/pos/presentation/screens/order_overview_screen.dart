@@ -147,7 +147,12 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
       return customerName != null && customerName.isNotEmpty ? 'Takeaway • $customerName' : 'Takeaway';
     }
     if (orderTypeLower == 'delivery' || orderTypeLower == 'delivery partner') {
-      return customerName != null && customerName.isNotEmpty ? 'Delivery • $customerName' : 'Delivery';
+      final deliveryPartner = _activeOrder?['delivery_partner'];
+      final partnerName = deliveryPartner?['name']?.toString() ?? 'Self Delivery';
+      if (customerName != null && customerName.isNotEmpty) {
+        return 'Delivery ($partnerName) • $customerName';
+      }
+      return 'Delivery ($partnerName)';
     }
     // Table/Dine-in: show table name
     return widget.tableName;

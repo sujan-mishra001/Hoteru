@@ -320,7 +320,7 @@ class TableService extends ChangeNotifier {
     try {
       final response = await _apiService.delete('/tables/$id');
       if (response.statusCode == 200) {
-        await fetchTables();
+        await fetchTables(force: true);
         return true;
       }
       return false;
@@ -337,7 +337,7 @@ class TableService extends ChangeNotifier {
       if (response.statusCode == 200) {
         debugPrint("TABLE_DEBUG: Table status updated successfully");
         // Refresh tables from backend to get updated status
-        await fetchTables();
+        await fetchTables(force: true);
       } else {
         debugPrint("TABLE_DEBUG: Failed to update table status: ${response.statusCode}");
       }
@@ -371,7 +371,7 @@ class TableService extends ChangeNotifier {
         'branch_id': _currentBranchId,
       });
       if (response.statusCode == 200) {
-        await fetchTables();
+        await fetchTables(force: true);
         return true;
       }
       return false;
@@ -388,7 +388,7 @@ class TableService extends ChangeNotifier {
         'branch_id': _currentBranchId,
       });
       if (response.statusCode == 200) {
-        await fetchTables();
+        await fetchTables(force: true);
         return true;
       }
       return false;
@@ -403,7 +403,7 @@ class TableService extends ChangeNotifier {
     
     // Execute fetches in parallel
     await Future.wait([
-      syncService.syncPOSData(),
+      syncService.syncPOSData(force: true),
       _fetchPastBills(),
       _fetchSettings(),
     ]);
