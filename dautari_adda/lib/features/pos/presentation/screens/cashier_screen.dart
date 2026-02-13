@@ -16,10 +16,11 @@ class CashierScreen extends StatefulWidget {
   State<CashierScreen> createState() => _CashierScreenState();
 }
 
-class _CashierScreenState extends State<CashierScreen> {
+class _CashierScreenState extends State<CashierScreen> with SingleTickerProviderStateMixin {
   final OrderService _orderService = OrderService();
   final TableService _tableService = TableService();
   final SessionService _sessionService = SessionService();
+  late TabController _tabController;
 
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _filteredOrders = [];
@@ -32,6 +33,7 @@ class _CashierScreenState extends State<CashierScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadOrders();
     _loadSalesSummary();
     _searchController.addListener(_filterOrders);
@@ -55,6 +57,7 @@ class _CashierScreenState extends State<CashierScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -236,10 +239,32 @@ class _CashierScreenState extends State<CashierScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 75,
-        title: Text(
-          'Cashier',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+        toolbarHeight: 120,
+        title: Column(
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Cashier',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TabBar(
+              controller: _tabController,
+              labelColor: Colors.black87,
+              unselectedLabelColor: Colors.black54,
+              indicatorColor: Colors.black87,
+              indicatorWeight: 3,
+              labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13),
+              tabs: const [
+                Tab(text: 'Dine-in'),
+                Tab(text: 'Takeaway'),
+                Tab(text: 'Delivery'),
+              ],
+            ),
+          ],
         ),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
@@ -324,35 +349,56 @@ class _CashierScreenState extends State<CashierScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredOrders.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.receipt_long, size: 64, color: Colors.grey[400]),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No current orders',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filteredOrders.length,
-                        itemBuilder: (context, index) {
-                          final order = _filteredOrders[index];
-                          return _buildOrderCard(order);
-                        },
-                      ),
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildOrdersList('dine-in'),
+                      _buildOrdersList('takeaway'),
+                      _buildOrdersList('delivery'),
+                    ],
+                  ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOrdersList(String type) {
+    final filtered = _filteredOrders.where((order) {
+      final orderType = (order['order_type'] ?? '').toString().toLowerCase();
+      if (type == 'dine-in') return orderType == 'table' || orderType == 'dine-in';
+      if (type == 'takeaway') return orderType == 'takeaway';
+      if (type == 'delivery') return orderType.contains('delivery');
+      return false;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.receipt_long, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No current $type orders',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final order = filtered[index];
+        return _buildOrderCard(order);
+      },
     );
   }
 
@@ -366,7 +412,10 @@ class _CashierScreenState extends State<CashierScreen> {
         ? DateTime.parse(order['created_at'])
         : DateTime.now();
     final tableName = order['display_name'] ?? order['table']?['table_id'] ?? 'Unknown';
-    final customerName = order['customer']?['name'] ?? 'Walk-in';
+    final customer = order['customer'];
+    final customerName = customer?['name'] ?? 'Walk-in';
+    final deliveryPartner = order['delivery_partner'];
+    final partnerName = deliveryPartner?['name'];
 
     return Card(
       elevation: 2,
@@ -471,6 +520,15 @@ class _CashierScreenState extends State<CashierScreen> {
                               customerName,
                               style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
+                            if (partnerName != null) ...[
+                              const SizedBox(width: 8),
+                              const Icon(Icons.delivery_dining, size: 14, color: Colors.blue),
+                              const SizedBox(width: 4),
+                              Text(
+                                partnerName,
+                                style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w500),
+                              ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 4),

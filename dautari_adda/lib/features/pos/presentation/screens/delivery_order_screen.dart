@@ -119,7 +119,6 @@ class _DeliveryOrderScreenState extends State<DeliveryOrderScreen> {
 
   Widget _buildHeader() {
     final isOccupied = _activeOrder != null;
-    final partnerName = widget.deliveryPartnerName ?? 'Self Delivery';
     
     return Container(
       width: double.infinity,
@@ -144,13 +143,13 @@ class _DeliveryOrderScreenState extends State<DeliveryOrderScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.customerName.isNotEmpty ? 'Delivery • ${widget.customerName}' : 'Delivery Order',
+                    _displayName,
                     style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     isOccupied 
-                        ? "Order #${_activeOrder?['order_number'] ?? widget.orderId} • $partnerName"
+                        ? "Order #${_activeOrder?['order_number'] ?? widget.orderId} • $_partnerName"
                         : "Loading...",
                     style: TextStyle(color: isOccupied ? Colors.red : Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
@@ -234,15 +233,25 @@ class _DeliveryOrderScreenState extends State<DeliveryOrderScreen> {
     );
   }
 
+  String get _displayName {
+    final customerName = _activeOrder?['customer']?['name']?.toString() ?? widget.customerName;
+    return customerName.isNotEmpty ? 'Delivery • $customerName' : 'Delivery Order';
+  }
+
+  String get _partnerName {
+    final partner = _activeOrder?['delivery_partner'];
+    return partner?['name']?.toString() ?? widget.deliveryPartnerName ?? 'Self Delivery';
+  }
+
   void _goToPayment() {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => DeliveryBillScreen(
           orderId: widget.orderId,
-          customerName: widget.customerName,
-          deliveryPartnerName: widget.deliveryPartnerName,
-          deliveryPartnerId: widget.deliveryPartnerId,
+          customerName: _activeOrder?['customer']?['name']?.toString() ?? widget.customerName,
+          deliveryPartnerName: _partnerName,
+          deliveryPartnerId: _activeOrder?['delivery_partner_id'] ?? widget.deliveryPartnerId,
           navigationItems: widget.navigationItems,
         ),
       ),

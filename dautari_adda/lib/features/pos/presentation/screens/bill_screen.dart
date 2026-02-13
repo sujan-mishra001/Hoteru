@@ -125,6 +125,29 @@ class _BillScreenState extends State<BillScreen> {
     final taxAmount = _tableService.calculateTax(subtotal, serviceCharge);
     final grandTotal = subtotal - discountAmount + serviceCharge + taxAmount;
 
+    String title = "Bill";
+    if (widget.tableDisplayName != null) {
+      title = widget.tableDisplayName!;
+    } else {
+      final orderType = _activeOrder?['order_type'] ?? widget.orderType;
+      final customerName = _activeOrder?['customer']?['name'] ?? widget.customerName;
+      final deliveryPartner = _activeOrder?['delivery_partner'];
+      final partnerName = deliveryPartner?['name'];
+
+      if (orderType != null && orderType.toString().toLowerCase().contains('delivery')) {
+        final pName = partnerName ?? 'Delivery';
+        title = customerName != null && customerName.toString().isNotEmpty
+            ? 'Delivery ($pName) • $customerName'
+            : 'Delivery ($pName)';
+      } else if (orderType != null && orderType.toString().toLowerCase() == 'takeaway') {
+        title = customerName != null && customerName.toString().isNotEmpty
+            ? 'Takeaway • $customerName'
+            : 'Takeaway';
+      } else {
+        title = _tableService.getTableName(widget.tableNumber);
+      }
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -133,9 +156,7 @@ class _BillScreenState extends State<BillScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          "Bill • ${widget.tableDisplayName ?? (widget.orderType != null && widget.customerName != null && widget.customerName!.isNotEmpty
-              ? '${widget.orderType} • ${widget.customerName}'
-              : (widget.orderType ?? _tableService.getTableName(widget.tableNumber)))}",
+          "Bill • $title",
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: const Color(0xFFFFC107),

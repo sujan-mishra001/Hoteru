@@ -139,7 +139,7 @@ class _TakeawayOrderScreenState extends State<TakeawayOrderScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.customerName.isNotEmpty ? 'Takeaway • ${widget.customerName}' : 'Takeaway Order',
+                    _displayName,
                     style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -227,13 +227,18 @@ class _TakeawayOrderScreenState extends State<TakeawayOrderScreen> {
     );
   }
 
+  String get _displayName {
+    final customerName = _activeOrder?['customer']?['name']?.toString() ?? widget.customerName;
+    return customerName.isNotEmpty ? 'Takeaway • $customerName' : 'Takeaway Order';
+  }
+
   void _goToPayment() {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => TakeawayBillScreen(
           orderId: widget.orderId,
-          customerName: widget.customerName,
+          customerName: _activeOrder?['customer']?['name']?.toString() ?? widget.customerName,
           navigationItems: widget.navigationItems,
         ),
       ),

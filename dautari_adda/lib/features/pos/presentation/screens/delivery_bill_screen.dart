@@ -88,7 +88,8 @@ class _DeliveryBillScreenState extends State<DeliveryBillScreen> {
     final tax = (subtotal + serviceCharge) * 0.13; // 13% tax
     final grandTotal = subtotal + serviceCharge + tax;
 
-    final partnerName = widget.deliveryPartnerName ?? 'Self Delivery';
+    final partnerName = _order?['delivery_partner']?['name'] ?? widget.deliveryPartnerName ?? 'Self Delivery';
+    final customerName = _order?['customer']?['name'] ?? widget.customerName;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -127,7 +128,7 @@ class _DeliveryBillScreenState extends State<DeliveryBillScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text("Customer", style: TextStyle(color: Colors.blue[700], fontSize: 12, fontWeight: FontWeight.w500)),
-                            Text(widget.customerName.isNotEmpty ? widget.customerName : 'Not specified', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(customerName.isNotEmpty ? customerName : 'Not specified', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
                           ],
                         ),
                       ),
