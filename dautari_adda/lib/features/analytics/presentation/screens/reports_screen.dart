@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'day_book_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? navigationItems;
@@ -142,6 +143,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   const SizedBox(height: 20),
                   _buildSummaryCards(),
                   const SizedBox(height: 20),
+                  _buildActionsSection(),
+                  const SizedBox(height: 20),
                   _buildSalesBreakdown(),
                   const SizedBox(height: 20),
                   _buildExportSection(),
@@ -235,6 +238,24 @@ class _ReportsScreenState extends State<ReportsScreen> {
         Row(
           children: [
             _buildSummaryCard(
+              'Orders',
+              '${data['orders_24h'] ?? 0}',
+              Icons.shopping_bag,
+              Colors.blue,
+            ),
+            const SizedBox(width: 12),
+            _buildSummaryCard(
+              'Paid Sales',
+              'Rs. ${(data['paid_sales'] ?? 0).toStringAsFixed(2)}',
+              Icons.account_balance_wallet,
+              Colors.teal,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _buildSummaryCard(
               'Credit Sales',
               'Rs. ${(data['credit_sales'] ?? 0).toStringAsFixed(2)}',
               Icons.credit_card,
@@ -250,6 +271,54 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildActionsSection() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            'Day Book',
+            Icons.book_rounded,
+            Colors.indigo,
+            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DayBookScreen())),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildActionButton(
+            'Sales Stats',
+            Icons.insights_rounded,
+            Colors.deepOrange,
+            () {
+              // Show in-app stats or just refresh dashboard
+              _loadDashboardData();
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(height: 8),
+            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
     );
   }
 

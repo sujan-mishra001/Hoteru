@@ -111,5 +111,5 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/dautari-logo.png"
+  image_path: "assets/images/app-logo.png"
   min_sdk_android: 21

@@ -100,7 +100,7 @@ class _DeliveryBillScreenState extends State<DeliveryBillScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          "Delivery Bill",
+          title,
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: const Color(0xFFFFC107),
