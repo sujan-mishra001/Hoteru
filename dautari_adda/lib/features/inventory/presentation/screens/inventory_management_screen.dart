@@ -4,8 +4,8 @@ import 'units_management_screen.dart';
 import 'stock_management_screen.dart';
 import 'counts_screen.dart';
 import 'bom_management_screen.dart';
-// import 'production_screen.dart';
-// import 'production_count_screen.dart';
+import 'production_screen.dart';
+import 'production_count_screen.dart';
 
 class InventoryManagementScreen extends StatelessWidget {
   const InventoryManagementScreen({super.key});
@@ -62,14 +62,14 @@ class InventoryManagementScreen extends StatelessWidget {
             icon: Icons.precision_manufacturing_rounded,
             title: 'Production',
             subtitle: 'Record batch production and consumption',
-            onTap: () => _showPlaceholder(context, 'Production'),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProductionScreen())),
           ),
           _buildMenuTile(
             context,
             icon: Icons.bar_chart_rounded,
             title: 'Production Count',
             subtitle: 'View production history and summaries',
-            onTap: () => _showPlaceholder(context, 'Production Count'),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProductionCountScreen())),
           ),
         ],
       ),
@@ -110,12 +110,6 @@ class InventoryManagementScreen extends StatelessWidget {
         subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
         trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
       ),
-    );
-  }
-
-  void _showPlaceholder(BuildContext context, String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$title screen is coming soon!'), behavior: SnackBarBehavior.floating),
     );
   }
 }

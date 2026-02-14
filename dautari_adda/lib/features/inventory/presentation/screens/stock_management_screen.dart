@@ -33,58 +33,129 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Stock Transactions', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFC107),
-        elevation: 0,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-          : _transactions.isEmpty
-              ? const Center(child: Text('No transactions found'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _transactions.length,
-                  itemBuilder: (context, index) {
-                    final txn = _transactions[index];
-                    final product = txn['product'] ?? {};
-                    final unit = product['unit'] != null ? (product['unit']['abbreviation'] ?? '') : '';
-                    final isPositive = ['IN', 'Add', 'Production_IN'].contains(txn['transaction_type']) ||
-                                       (['Adjustment', 'Count'].contains(txn['transaction_type']) && (txn['quantity'] ?? 0) > 0);
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 180,
+            backgroundColor: const Color(0xFFFFC107),
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+              title: const Text(
+                'Stock Movements',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFFD54F), Color(0xFFFFC107)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -20,
+                      top: 40,
+                      child: Icon(
+                        Icons.swap_vert_rounded,
+                        size: 150,
+                        color: Colors.black.withOpacity(0.05),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.black87), onPressed: _loadData),
+            ],
+          ),
+          _isLoading
+              ? const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFFFFC107))),
+                )
+              : _transactions.isEmpty
+                  ? const SliverFillRemaining(
+                      child: Center(child: Text('No transactions found')),
+                    )
+                  : SliverPadding(
+                      padding: const EdgeInsets.all(16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final txn = _transactions[index];
+                            final product = txn['product'] ?? {};
+                            final unit = product['unit'] != null ? (product['unit']['abbreviation'] ?? '') : '';
+                            final isPositive = ['IN', 'Add', 'Production_IN'].contains(txn['transaction_type']) ||
+                                               (['Adjustment', 'Count'].contains(txn['transaction_type']) && (txn['quantity'] ?? 0) > 0);
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: ListTile(
-                        title: Text(product['name'] ?? 'Unknown Product', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Type: ${txn['transaction_type']} | ${txn['notes'] ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                            Text(
-                              DateFormat('MMM d, HH:mm').format(DateTime.tryParse(txn['created_at']) ?? DateTime.now()),
-                              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                            ),
-                          ],
-                        ),
-                        trailing: Text(
-                          '${isPositive ? '+' : ''}${txn['quantity']} $unit',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: isPositive ? Colors.green : Colors.red,
-                          ),
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(16),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: (isPositive ? Colors.green : Colors.red).withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                                    color: isPositive ? Colors.green : Colors.red,
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(product['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 4),
+                                    Text('${txn['transaction_type']} • ${txn['notes'] ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                    Text(
+                                      DateFormat('MMM d, HH:mm').format(DateTime.tryParse(txn['created_at']) ?? DateTime.now()),
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                                    ),
+                                  ],
+                                ),
+                                trailing: Text(
+                                  '${isPositive ? '+' : ''}${txn['quantity']} $unit',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isPositive ? Colors.green : Colors.red,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: _transactions.length,
                         ),
                       ),
-                    );
-                  },
-                ),
-      floatingActionButton: FloatingActionButton(
+                    ),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddTransactionDialog,
         backgroundColor: const Color(0xFFFFC107),
-        child: const Icon(Icons.add, color: Colors.black),
+        icon: const Icon(Icons.add_rounded, color: Colors.black87),
+        label: const Text('Add Transaction', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
       ),
     );
   }

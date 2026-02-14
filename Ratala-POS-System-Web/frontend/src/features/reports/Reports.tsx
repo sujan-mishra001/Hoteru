@@ -263,22 +263,37 @@ const Reports: React.FC = () => {
                 </Grid>
                 <Grid size={{ xs: 12, lg: 4 }}>
                     <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #f1f5f9', height: '100%' }} elevation={0}>
-                        <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Quick Actions</Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Available Views</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                             <ActionItem
-                                title="View Live Sessions"
-                                description="Real-time staff activity"
+                                title="Daily Sales Report"
+                                description="Detailed day-by-day performance"
+                                onClick={() => navigate('/reports/daily-sales')}
+                                color="#FFC107"
+                            />
+                            <ActionItem
+                                title="Monthly Sales Summary"
+                                description="Year-over-year growth analytics"
+                                onClick={() => navigate('/reports/monthly-sales')}
+                                color="#3b82f6"
+                            />
+                            <ActionItem
+                                title="Daybook Report"
+                                description="Daily account and cash flow logs"
+                                onClick={() => navigate('/reports/daybook')}
+                                color="#10b981"
+                            />
+                            <ActionItem
+                                title="Purchase Report"
+                                description="Inventory procurement summary"
+                                onClick={() => navigate('/reports/purchase')}
+                                color="#ef4444"
+                            />
+                            <ActionItem
+                                title="POS Session History"
+                                description="Staff shift and drawer logs"
                                 onClick={() => navigate('/reports/sessions')}
-                            />
-                            <ActionItem
-                                title="Sales History"
-                                description="Search previous orders"
-                                onClick={() => navigate('/orders')}
-                            />
-                            <ActionItem
-                                title="Settings"
-                                description="Adjust report parameters"
-                                onClick={() => navigate('/settings')}
+                                color="#6366f1"
                             />
                         </Box>
                     </Paper>

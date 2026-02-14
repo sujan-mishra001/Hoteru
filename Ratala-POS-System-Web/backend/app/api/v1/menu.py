@@ -10,7 +10,12 @@ import shutil
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
 from app.models import MenuItem, Category, MenuGroup
-from app.schemas import MenuItemCreate
+from typing import List
+from app.schemas import (
+    MenuItemCreate, MenuItemResponse, 
+    CategoryResponse, MenuGroupResponse,
+    BulkMenuItemUpdateResponse
+)
 
 router = APIRouter()
 
@@ -50,7 +55,7 @@ async def get_public_categories(
     return query.all()
 
 
-@router.get("/items")
+@router.get("/items", response_model=List[MenuItemResponse])
 async def get_menu_items(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -59,8 +64,9 @@ async def get_menu_items(
     branch_id = current_user.current_branch_id
     query = db.query(MenuItem)
     query = apply_branch_filter_menu(query, MenuItem, branch_id)
-    items = query.all()
-    return items
+    menu_items = query.all()
+    # Explicit mapping not needed due to Pydantic from_attributes=True, but safer
+    return menu_items
 
 
 @router.post("/items")
@@ -150,7 +156,7 @@ async def create_group(
     return new_group
 
 
-@router.put("/items/bulk-update")
+@router.put("/items/bulk-update", response_model=BulkMenuItemUpdateResponse)
 async def bulk_update_menu_items(
     updates: list[dict] = Body(...),
     db: Session = Depends(get_db),
@@ -237,7 +243,7 @@ async def delete_menu_item(
     return {"message": "Menu item deleted"}
 
 
-@router.post("/items/{item_id}/image")
+@router.post("/items/{item_id}/image", response_model=MenuItemResponse)
 async def upload_menu_item_image(
     item_id: int,
     file: UploadFile = File(...),
@@ -268,7 +274,7 @@ async def upload_menu_item_image(
     return item
 
 
-@router.post("/categories/{category_id}/image")
+@router.post("/categories/{category_id}/image", response_model=CategoryResponse)
 async def upload_category_image(
     category_id: int,
     file: UploadFile = File(...),
@@ -300,7 +306,7 @@ async def upload_category_image(
     return category
 
 
-@router.post("/groups/{group_id}/image")
+@router.post("/groups/{group_id}/image", response_model=MenuGroupResponse)
 async def upload_group_image(
     group_id: int,
     file: UploadFile = File(...),

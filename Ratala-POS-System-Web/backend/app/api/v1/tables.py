@@ -222,12 +222,17 @@ async def merge_tables_bulk(
     for tid in all_ids:
         t = db.query(Table).filter(Table.id == tid, Table.branch_id == branch_id).first()
         if t:
-            t.merge_group_id = merge_group_id
+            t.merge_group_id = str(merge_group_id)
             t.merged_to_id = primary_table_id if tid != primary_table_id else None
+            # Do NOT force Occupied status if you want to allow merging empty tables
+            # But usually merge happens for active orders. 
+            # If primary has order, others should join.
+            # For now, keep as is or just let status be.
             t.status = "Occupied"
             
     db.commit()
-    return {"message": "Merged", "merge_group_id": merge_group_id}
+    print(f"DEBUG: Tables {all_ids} merged into group {merge_group_id} for branch {branch_id}")
+    return {"message": "Merged", "merge_group_id": str(merge_group_id)}
 
 
 @router.post("/unmerge")
@@ -236,16 +241,36 @@ async def unmerge_tables_bulk(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Unmerge tables by Group ID"""
+    """Unmerge tables by Group ID with branch isolation"""
     branch_id = current_user.current_branch_id
     merge_group_id = payload.get("merge_group_id")
     
-    tables = db.query(Table).filter(Table.merge_group_id == merge_group_id, Table.branch_id == branch_id).all()
+    if not merge_group_id:
+        raise HTTPException(status_code=400, detail="merge_group_id is required")
+
+    # Stringify in case it comes as int from frontend
+    mg_id = str(merge_group_id)
+    
+    tables = db.query(Table).filter(
+        Table.merge_group_id == mg_id, 
+        Table.branch_id == branch_id
+    ).all()
+    
     for t in tables:
         t.merge_group_id = None
         t.merged_to_id = None
         
+        # Check if table has active order
+        active_order = db.query(Order).filter(
+            Order.table_id == t.id,
+            Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
+        ).first()
+        
+        if not active_order:
+            t.status = "Available"
+        
     db.commit()
+    print(f"DEBUG: Merge group {mg_id} unmerged for branch {branch_id}")
     return {"message": "Unmerged"}
 
 
@@ -339,6 +364,15 @@ async def unmerge_table(
     table.merge_group_id = None
     table.merged_to_id = None
     
+    # Check if table has active order
+    active_order = db.query(Order).filter(
+        Order.table_id == table.id,
+        Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
+    ).first()
+    
+    if not active_order:
+        table.status = "Available"
+    
     # Check if any other tables are still in this group
     remaining_query = db.query(Table).filter(Table.merge_group_id == merge_group_id)
     remaining_query = apply_branch_filter_table(db, remaining_query, branch_id)
@@ -346,8 +380,17 @@ async def unmerge_table(
     
     # If only one table left, remove it from the group too
     if len(remaining_tables) == 1:
-        remaining_tables[0].merge_group_id = None
-        remaining_tables[0].merged_to_id = None
+        rem_t = remaining_tables[0]
+        rem_t.merge_group_id = None
+        rem_t.merged_to_id = None
+        
+        # Check if remaining table has active order
+        rem_order = db.query(Order).filter(
+            Order.table_id == rem_t.id,
+            Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
+        ).first()
+        if not rem_order:
+            rem_t.status = "Available"
     
     db.commit()
     db.refresh(table)

@@ -4,7 +4,7 @@ KOT (Kitchen Order Ticket) and BOT (Bar Order Ticket) management routes with bra
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import random
 
@@ -15,10 +15,12 @@ from sqlalchemy.orm import joinedload
 from fastapi import BackgroundTasks
 from app.services.printing_service import PrintingService
 
+from app.schemas.orders_customers import KOTResponse
+
 router = APIRouter()
 
 
-@router.get("")
+@router.get("", response_model=List[KOTResponse])
 async def get_kots(
     kot_type: Optional[str] = None,  # KOT or BOT
     status: Optional[str] = None,
@@ -47,7 +49,7 @@ async def get_kots(
     return kots
 
 
-@router.get("/{kot_id}")
+@router.get("/{kot_id}", response_model=KOTResponse)
 async def get_kot(
     kot_id: int,
     db: Session = Depends(get_db),
@@ -73,7 +75,7 @@ async def get_kot(
     return kot
 
 
-@router.post("")
+@router.post("", response_model=KOTResponse)
 async def create_kot(
     background_tasks: BackgroundTasks,
     kot_data: dict = Body(...),
@@ -138,7 +140,7 @@ async def create_kot(
     return kot
 
 
-@router.put("/{kot_id}")
+@router.put("/{kot_id}", response_model=KOTResponse)
 async def update_kot(
     kot_id: int,
     kot_data: dict = Body(...),
@@ -164,7 +166,7 @@ async def update_kot(
     return kot
 
 
-@router.put("/{kot_id}/status")
+@router.put("/{kot_id}/status", response_model=KOTResponse)
 async def update_kot_status(
     kot_id: int,
     status: str = Body(..., embed=True),

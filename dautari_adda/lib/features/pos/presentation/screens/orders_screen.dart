@@ -338,13 +338,25 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     dynamic backendOrder,
   ) {
     final orderType = backendOrder?['order_type'] ?? 'Table';
-    final status = backendOrder?['status'] ?? (isBooked ? "BOOKED" : "DRAFT");
+    final rawStatus = backendOrder?['status'] ?? (isBooked ? "HOLD" : "DRAFT");
+    
+    // Map backend statuses to display labels
+    String status;
+    if (rawStatus == 'Occupied') {
+      status = 'HOLD';
+    } else if (rawStatus == 'Available') {
+      status = 'VACANT';
+    } else if (rawStatus == 'Draft') {
+      status = 'VACANT DRAFT';
+    } else {
+      status = rawStatus;
+    }
     
     final statusColor = status == 'Paid' || status == 'Completed' 
         ? const Color(0xFF10B981)
-        : status == 'Pending' || status == 'Draft' 
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFEF4444);
+        : (status == 'HOLD' || status == 'PLACED')
+            ? const Color(0xFFEF4444)
+            : const Color(0xFFF59E0B);
     
     final statusLabel = status.toUpperCase();
 

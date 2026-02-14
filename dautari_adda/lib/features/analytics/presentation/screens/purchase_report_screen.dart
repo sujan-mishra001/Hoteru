@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:dautari_adda/features/analytics/data/reports_service.dart';
 import 'package:intl/intl.dart';
 
-class DayBookScreen extends StatefulWidget {
-  const DayBookScreen({super.key});
+class PurchaseReportScreen extends StatefulWidget {
+  const PurchaseReportScreen({super.key});
 
   @override
-  State<DayBookScreen> createState() => _DayBookScreenState();
+  State<PurchaseReportScreen> createState() => _PurchaseReportScreenState();
 }
 
-class _DayBookScreenState extends State<DayBookScreen> {
+class _PurchaseReportScreenState extends State<PurchaseReportScreen> {
   final ReportsService _reportsService = ReportsService();
   List<dynamic> _items = [];
   Map<String, dynamic>? _summary;
@@ -25,7 +25,7 @@ class _DayBookScreenState extends State<DayBookScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final response = await _reportsService.getDayBook(
+    final response = await _reportsService.getPurchaseReport(
       startDate: DateFormat('yyyy-MM-dd').format(_startDate),
       endDate: DateFormat('yyyy-MM-dd').format(_endDate),
     );
@@ -71,7 +71,7 @@ class _DayBookScreenState extends State<DayBookScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Day Book Report', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Purchase Report', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFFFFC107),
         elevation: 0,
         actions: [
@@ -86,7 +86,7 @@ class _DayBookScreenState extends State<DayBookScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
                 : _items.isEmpty
-                    ? const Center(child: Text('No transactions found'))
+                    ? const Center(child: Text('No purchase records found'))
                     : _buildTable(),
           ),
         ],
@@ -98,18 +98,24 @@ class _DayBookScreenState extends State<DayBookScreen> {
     if (_summary == null) return const SizedBox();
     return Container(
       padding: const EdgeInsets.all(16),
-      color: const Color(0xFFFFC107).withOpacity(0.1),
+      color: Colors.white,
       child: Row(
         children: [
           _buildSummaryCard(
-            'TOTAL PAID',
-            'Rs. ${(_summary!['total_paid'] ?? 0).toStringAsFixed(2)}',
+            'TOTAL BILLS',
+            '${_summary!['total_bills'] ?? 0}',
+            Colors.indigo,
+          ),
+          const SizedBox(width: 12),
+          _buildSummaryCard(
+            'TOTAL PAYABLE',
+            'Rs. ${(_summary!['total_payable'] ?? 0).toStringAsFixed(2)}',
             Colors.red,
           ),
           const SizedBox(width: 12),
           _buildSummaryCard(
-            'TOTAL RECEIVED',
-            'Rs. ${(_summary!['total_received'] ?? 0).toStringAsFixed(2)}',
+            'TOTAL PAID',
+            'Rs. ${(_summary!['total_paid'] ?? 0).toStringAsFixed(2)}',
             Colors.green,
           ),
         ],
@@ -117,21 +123,24 @@ class _DayBookScreenState extends State<DayBookScreen> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, Color color) {
+  Widget _buildSummaryCard(String title, dynamic value, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+            Text(title, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
             const SizedBox(height: 4),
-            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(
+              value is String ? value : value.toString(),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
@@ -143,26 +152,43 @@ class _DayBookScreenState extends State<DayBookScreen> {
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
         child: DataTable(
+          headingRowHeight: 45,
+          horizontalMargin: 12,
+          columnSpacing: 24,
           columns: const [
-            DataColumn(label: Text('DATE', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('PAID', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('RECEIVED', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('BALANCE', style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('BILL #', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('DATE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('SUPPLIER', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('PAYABLE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('PAID', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('STATUS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
           ],
           rows: _items.map((item) {
+            final status = (item['status'] ?? 'Pending').toString().toUpperCase();
+            final isPaid = status == 'PAID';
             return DataRow(cells: [
-              DataCell(Text(item['date'] ?? '')),
+              DataCell(Text(item['bill_number'] ?? '', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+              DataCell(Text(item['date'] ?? '', style: const TextStyle(fontSize: 11))),
+              DataCell(Text(item['supplier_name'] ?? 'N/A', style: const TextStyle(fontSize: 11))),
+              DataCell(Text('Rs. ${(item['payable'] ?? 0).toStringAsFixed(2)}', style: const TextStyle(fontSize: 11))),
               DataCell(Text(
                 'Rs. ${(item['paid'] ?? 0).toStringAsFixed(2)}',
-                style: const TextStyle(color: Colors.red),
+                style: const TextStyle(fontSize: 11, color: Colors.green),
               )),
-              DataCell(Text(
-                'Rs. ${(item['received'] ?? 0).toStringAsFixed(2)}',
-                style: const TextStyle(color: Colors.green),
-              )),
-              DataCell(Text(
-                'Rs. ${(item['balance'] ?? 0).toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              DataCell(Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (isPaid ? Colors.green : Colors.orange).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isPaid ? Colors.green : Colors.orange,
+                  ),
+                ),
               )),
             ]);
           }).toList(),

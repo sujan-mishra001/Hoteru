@@ -204,7 +204,6 @@ class TableService extends ChangeNotifier {
     try {
       final syncService = SyncService();
       
-      // If sync is running, wait for it
       if (syncService.isSyncing) {
         await Future.doWhile(() async {
           await Future.delayed(const Duration(milliseconds: 100));
@@ -212,32 +211,22 @@ class TableService extends ChangeNotifier {
         });
       }
       
-      // 1. Try to use SyncService cache first (Fast path - no loading spinner)
+      // Always favor SyncService cache for the full list if available and valid
       if (!force && syncService.isCacheValid && syncService.tables.isNotEmpty) {
-        if (floorId != null) {
-          _tables = syncService.tables.where((t) => t.floorId == floorId).toList();
-        } else {
-          _tables = syncService.tables;
-        }
-        // Update local status map
+        _tables = syncService.tables;
         for (var table in _tables) {
            _tableStatus[table.id] = table.status != 'Available';
         }
         notifyListeners();
-        return; // Done using cache
+        return;
       } 
       
-      // 2. Slow path - API Call
       _isLoading = true;
       notifyListeners();
 
       try {
-         // Fallback to API if cache invalid or forced
          String url = '/tables';
-         final params = <String>[];
-         if (_currentBranchId != null) params.add('branch_id=$_currentBranchId');
-         if (floorId != null) params.add('floor_id=$floorId');
-         if (params.isNotEmpty) url += '?${params.join("&")}';
+         if (_currentBranchId != null) url += '?branch_id=$_currentBranchId';
          
          final response = await _apiService.get(url);
          if (response.statusCode == 200) {
@@ -245,7 +234,6 @@ class TableService extends ChangeNotifier {
            _tables = data.map((json) => PosTable.fromJson(json)).toList();
          }
 
-         // Update local status map based on table status
          for (var table in _tables) {
             _tableStatus[table.id] = table.status != 'Available';
          }
@@ -271,12 +259,46 @@ class TableService extends ChangeNotifier {
         'branch_id': _currentBranchId,
       });
       if (response.statusCode == 200 || response.statusCode == 201) {
+        await SyncService().syncPOSData(force: true);
         await fetchFloors();
         return true;
       }
       return false;
     } catch (e) {
       debugPrint("Error creating floor: $e");
+      return false;
+    }
+  }
+
+  Future<bool> updateFloor(int id, String name) async {
+    try {
+      final response = await _apiService.patch('/floors/$id', {
+        'name': name,
+        'branch_id': _currentBranchId,
+      });
+      if (response.statusCode == 200) {
+        await SyncService().syncPOSData(force: true);
+        await fetchFloors();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error updating floor: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deleteFloor(int id) async {
+    try {
+      final response = await _apiService.delete('/floors/$id');
+      if (response.statusCode == 200) {
+        await SyncService().syncPOSData(force: true);
+        await fetchFloors();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error deleting floor: $e");
       return false;
     }
   }
@@ -292,6 +314,7 @@ class TableService extends ChangeNotifier {
         'table_type': type,
       });
       if (response.statusCode == 200 || response.statusCode == 201) {
+        await SyncService().syncPOSData(force: true);
         await fetchTables(floorId: floorId);
         return true;
       }
@@ -320,6 +343,7 @@ class TableService extends ChangeNotifier {
     try {
       final response = await _apiService.delete('/tables/$id');
       if (response.statusCode == 200) {
+        await SyncService().syncPOSData(force: true);
         await fetchTables(force: true);
         return true;
       }
@@ -353,6 +377,7 @@ class TableService extends ChangeNotifier {
         'branch_id': _currentBranchId, 
       });
       if (response.statusCode == 200) {
+        await SyncService().syncPOSData(force: true);
         await fetchTables(force: true);
         return true;
       }
@@ -371,6 +396,7 @@ class TableService extends ChangeNotifier {
         'branch_id': _currentBranchId,
       });
       if (response.statusCode == 200) {
+        await SyncService().syncPOSData(force: true);
         await fetchTables(force: true);
         return true;
       }
@@ -388,6 +414,7 @@ class TableService extends ChangeNotifier {
         'branch_id': _currentBranchId,
       });
       if (response.statusCode == 200) {
+        await SyncService().syncPOSData(force: true);
         await fetchTables(force: true);
         return true;
       }
@@ -608,7 +635,7 @@ class TableService extends ChangeNotifier {
         
         // Update table status to Occupied when order placed (dine-in only)
         if (tableId != 0) {
-          await _apiService.patch('/tables/$tableId/status', {'status': 'Occupied'});
+          await updateTableStatus(tableId, 'Occupied');
         }
         
         // KOT is automatically generated by backend when order is created
@@ -677,12 +704,12 @@ class TableService extends ChangeNotifier {
     }
   }
 
-  Future<bool> addBill(int tableId, List<CartItem> items, String paymentMethod, {String? orderType}) async {
+  Future<bool> addBill(int tableId, List<CartItem> items, String paymentMethod, {String? orderType, double? discount}) async {
     try {
       // Re-calculate consistently
       final subtotal = items.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
-      final discountPercent = getDiscountPercent(tableId);
-      final discountAmount = calculateDiscountAmount(subtotal, discountPercent);
+      final discountPercent = discount == null ? getDiscountPercent(tableId) : 0.0;
+      final discountAmount = discount ?? calculateDiscountAmount(subtotal, discountPercent);
       final sc = calculateServiceCharge(subtotal);
       final tax = calculateTax(subtotal, sc);
       final total = subtotal - discountAmount + sc + tax;
@@ -751,14 +778,15 @@ class TableService extends ChangeNotifier {
   Future<bool> addBillForMerged(
     List<Map<String, dynamic>> orders,
     List<CartItem> combinedItems,
-    String paymentMethod,
-  ) async {
+    String paymentMethod, {
+    double? discount,
+  }) async {
     if (orders.isEmpty) return false;
     try {
       final subtotal = combinedItems.fold(0.0, (sum, i) => sum + (i.menuItem.price * i.quantity));
       final firstTableId = orders.first['table_id'] as int? ?? 0;
-      final discountPercent = getDiscountPercent(firstTableId);
-      final discountAmount = calculateDiscountAmount(subtotal, discountPercent);
+      final discountPercent = discount == null ? getDiscountPercent(firstTableId) : 0.0;
+      final discountAmount = discount ?? calculateDiscountAmount(subtotal, discountPercent);
       final sc = calculateServiceCharge(subtotal);
       final tax = calculateTax(subtotal, sc);
       final total = subtotal - discountAmount + sc + tax;
@@ -771,7 +799,8 @@ class TableService extends ChangeNotifier {
         final res = await _apiService.patch('/orders/$orderId', {
           'status': 'Paid',
           'payment_type': paymentMethod,
-          'paid_amount': orderNetAmount,
+          'discount': (discountAmount / orders.length), // Distribute discount equally for simple approach
+          'paid_amount': (orderNetAmount - (discountAmount / orders.length)),
         });
         if (res.statusCode != 200) return false;
       }
@@ -803,12 +832,9 @@ class TableService extends ChangeNotifier {
     
     final hasActiveOrders = ['Occupied', 'BillRequested', 'Pending'].contains(table.status);
     
-    // Also check if there are items in cart for this table
-    final hasCartItems = getCart(tableId).isNotEmpty;
+    debugPrint("TABLE_BOOKED_DEBUG: Table $tableId - Status: ${table.status}, HasActiveOrders: $hasActiveOrders");
     
-    debugPrint("TABLE_BOOKED_DEBUG: Table $tableId - Status: ${table.status}, HasActiveOrders: $hasActiveOrders, HasCartItems: $hasCartItems");
-    
-    return hasActiveOrders || hasCartItems;
+    return hasActiveOrders;
   }
 
   void clearTable(int tableId) {
@@ -861,11 +887,14 @@ class TableService extends ChangeNotifier {
   }
 
   // Process payment for takeaway orders (no table status change)
-  Future<bool> processTakeawayPayment(int orderId, String paymentMethod) async {
+  Future<bool> processTakeawayPayment(int orderId, String paymentMethod, {double? discount, double? total}) async {
     try {
       final response = await _apiService.patch('/orders/$orderId', {
         'status': 'Paid',
         'payment_type': paymentMethod,
+        if (discount != null) 'discount': discount,
+        if (total != null) 'net_amount': total,
+        if (total != null) 'paid_amount': total,
       });
       
       if (response.statusCode == 200) {
@@ -881,11 +910,14 @@ class TableService extends ChangeNotifier {
   }
 
   // Process payment for delivery orders (no table status change)
-  Future<bool> processDeliveryPayment(int orderId, String paymentMethod) async {
+  Future<bool> processDeliveryPayment(int orderId, String paymentMethod, {double? discount, double? total}) async {
     try {
       final response = await _apiService.patch('/orders/$orderId', {
         'status': 'Paid',
         'payment_type': paymentMethod,
+        if (discount != null) 'discount': discount,
+        if (total != null) 'net_amount': total,
+        if (total != null) 'paid_amount': total,
       });
       
       if (response.statusCode == 200) {

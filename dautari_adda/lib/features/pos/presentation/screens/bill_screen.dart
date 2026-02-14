@@ -37,6 +37,8 @@ class _BillScreenState extends State<BillScreen> {
   Map<String, dynamic>? _activeOrder;
   List<CartItem> _displayItems = [];
   List<dynamic> _qrCodes = [];
+  double? _customDiscount;
+  bool _isDiscountPercent = true;
 
   @override
   void initState() {
@@ -119,8 +121,24 @@ class _BillScreenState extends State<BillScreen> {
 
     // Calculations
     final subtotal = _displayItems.fold(0.0, (sum, i) => sum + i.totalPrice);
-    final discountPercent = _tableService.getDiscountPercent(widget.tableNumber);
-    final discountAmount = _tableService.calculateDiscountAmount(subtotal, discountPercent);
+    
+    double discountAmount = 0;
+    String discountLabel = "Discount";
+    
+    if (_customDiscount != null) {
+      if (_isDiscountPercent) {
+        discountAmount = _tableService.calculateDiscountAmount(subtotal, _customDiscount!);
+        discountLabel = "Discount (${_customDiscount!.toStringAsFixed(0)}%)";
+      } else {
+        discountAmount = _customDiscount!;
+        discountLabel = "Discount (Fixed)";
+      }
+    } else {
+      final discountPercent = _tableService.getDiscountPercent(widget.tableNumber);
+      discountAmount = _tableService.calculateDiscountAmount(subtotal, discountPercent);
+      discountLabel = "Discount ($discountPercent%)";
+    }
+
     final serviceCharge = _tableService.calculateServiceCharge(subtotal);
     final taxAmount = _tableService.calculateTax(subtotal, serviceCharge);
     final grandTotal = subtotal - discountAmount + serviceCharge + taxAmount;
@@ -175,7 +193,15 @@ class _BillScreenState extends State<BillScreen> {
                 const Divider(),
                 const SizedBox(height: 12),
                 _buildSummaryRow("Subtotal", "Rs ${subtotal.toStringAsFixed(0)}"),
-                _buildSummaryRow("Discount ($discountPercent%)", "- Rs ${discountAmount.toStringAsFixed(0)}", color: Colors.orange[800]),
+                InkWell(
+                  onTap: () => _showDiscountDialog(subtotal),
+                  child: _buildSummaryRow(
+                    discountLabel, 
+                    "- Rs ${discountAmount.toStringAsFixed(0)}", 
+                    color: Colors.orange[800],
+                    isClickable: true,
+                  ),
+                ),
                 _buildSummaryRow("Service Charge (${_tableService.serviceChargeRate.toStringAsFixed(0)}%)", "Rs ${serviceCharge.toStringAsFixed(0)}"),
                 if (_tableService.taxRate > 0)
                   _buildSummaryRow("Tax (${_tableService.taxRate.toStringAsFixed(0)}%)", "Rs ${taxAmount.toStringAsFixed(0)}"),
@@ -243,15 +269,86 @@ class _BillScreenState extends State<BillScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {Color? color}) {
+  Widget _buildSummaryRow(String label, String value, {Color? color, bool isClickable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Row(
+            children: [
+              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              if (isClickable) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.edit_rounded, size: 12, color: Colors.grey[400]),
+              ]
+            ],
+          ),
           Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
         ],
+      ),
+    );
+  }
+
+  void _showDiscountDialog(double subtotal) {
+    final TextEditingController controller = TextEditingController(
+      text: _customDiscount?.toStringAsFixed(0) ?? "",
+    );
+    bool isPercent = _isDiscountPercent;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text("Apply Discount"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ToggleButtons(
+                isSelected: [isPercent, !isPercent],
+                onPressed: (index) {
+                  setModalState(() => isPercent = index == 0);
+                },
+                borderRadius: BorderRadius.circular(8),
+                constraints: const BoxConstraints(minWidth: 80, minHeight: 40),
+                children: const [
+                  Text("%"),
+                  Text("Amt"),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: isPercent ? "Discount Percentage" : "Discount Amount",
+                  prefixText: isPercent ? "" : "Rs ",
+                  suffixText: isPercent ? "%" : "",
+                  border: const OutlineInputBorder(),
+                ),
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final val = double.tryParse(controller.text) ?? 0.0;
+                setState(() {
+                  _customDiscount = val;
+                  _isDiscountPercent = isPercent;
+                });
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107)),
+              child: const Text("Apply"),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -483,9 +580,18 @@ class _BillScreenState extends State<BillScreen> {
       setState(() => _isLoading = true);
 
       final acc = widget.accumulatedOrders;
+      
+      double? finalDiscountAmount;
+      if (_customDiscount != null) {
+        final subtotal = _displayItems.fold(0.0, (sum, i) => sum + i.totalPrice);
+        finalDiscountAmount = _isDiscountPercent 
+            ? _tableService.calculateDiscountAmount(subtotal, _customDiscount!)
+            : _customDiscount!;
+      }
+
       final success = acc != null && acc.length > 1
-          ? await _tableService.addBillForMerged(acc, _displayItems, method)
-          : await _tableService.addBill(widget.tableNumber, _displayItems, method, orderType: widget.orderType);
+          ? await _tableService.addBillForMerged(acc, _displayItems, method, discount: finalDiscountAmount)
+          : await _tableService.addBill(widget.tableNumber, _displayItems, method, orderType: widget.orderType, discount: finalDiscountAmount);
 
       setState(() => _isLoading = false);
 

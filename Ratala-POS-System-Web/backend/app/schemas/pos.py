@@ -15,6 +15,9 @@ class TableSyncInfo(BaseModel):
     bot_count: int
     active_order_id: Optional[int] = None
     total_amount: Optional[float] = 0.0
+    is_hold_table: Optional[str] = "No"
+    merge_group_id: Optional[str] = None
+    merged_to_id: Optional[int] = None
 
 class POSSyncResponse(BaseModel):
     categories: List[CategoryResponse]

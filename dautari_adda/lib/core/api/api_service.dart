@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -122,7 +123,14 @@ class ApiService {
     // Add files
     for (var entry in files.entries) {
       final file = entry.value;
-      request.files.add(await http.MultipartFile.fromPath(entry.key, file.path));
+      final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
+      final typeSplit = mimeType.split('/');
+      
+      request.files.add(await http.MultipartFile.fromPath(
+        entry.key, 
+        file.path,
+        contentType: MediaType(typeSplit[0], typeSplit[1]),
+      ));
     }
     
     final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
@@ -153,7 +161,14 @@ class ApiService {
     // Add files
     for (var entry in files.entries) {
       final file = entry.value;
-      request.files.add(await http.MultipartFile.fromPath(entry.key, file.path));
+      final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
+      final typeSplit = mimeType.split('/');
+
+      request.files.add(await http.MultipartFile.fromPath(
+        entry.key, 
+        file.path,
+        contentType: MediaType(typeSplit[0], typeSplit[1]),
+      ));
     }
     
     final streamedResponse = await request.send().timeout(const Duration(seconds: 30));

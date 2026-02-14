@@ -112,6 +112,7 @@ class SyncService extends ChangeNotifier {
     return cats.map((cat) {
       final catId = cat['id'];
       final catType = cat['type'] ?? 'KOT';
+      final catImage = cat['image'];
       
       final categoryGroups = groups.where((g) => g['category_id'] == catId).toList();
       final topLevelItems = items.where((i) => i['category_id'] == catId && i['group_id'] == null).toList();
@@ -124,6 +125,7 @@ class SyncService extends ChangeNotifier {
           id: groupId,
           name: group['name'] ?? '',
           type: catType,
+          image: group['image'],
           items: groupItems.map((i) => MenuItem.fromMap(Map<String, dynamic>.from(i))).toList(),
         );
       }).toList();
@@ -132,6 +134,7 @@ class SyncService extends ChangeNotifier {
         id: catId,
         name: cat['name'] ?? '',
         type: catType,
+        image: catImage,
         subCategories: subCategories,
         items: topLevelItems.map((i) => MenuItem.fromMap(Map<String, dynamic>.from(i))).toList(),
       );

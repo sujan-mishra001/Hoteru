@@ -52,6 +52,7 @@ dependencies:
   flutter_thermal_printer: ^1.2.4
   esc_pos_utils_plus: ^2.0.4
   http_parser: ^4.1.2
+  mime: ^2.0.0
 
 dev_dependencies:
   flutter_test:

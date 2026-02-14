@@ -101,7 +101,12 @@ class PurchaseBillCreate(BaseModel):
     total_amount: float
     status: str = "Pending"
 
+
 class PurchaseReturnCreate(BaseModel):
     purchase_bill_id: int
     total_amount: float
     reason: Optional[str] = None
+
+class BulkMenuItemUpdateResponse(BaseModel):
+    updated_count: int
+    items: List[MenuItemResponse]

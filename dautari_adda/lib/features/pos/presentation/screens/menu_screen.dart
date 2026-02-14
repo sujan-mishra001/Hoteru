@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dautari_adda/features/pos/data/menu_service.dart';
 import 'package:dautari_adda/features/pos/data/table_service.dart';
 import 'package:dautari_adda/features/pos/presentation/screens/order_overview_screen.dart';
+import 'package:dautari_adda/core/api/api_service.dart';
 
 class MenuScreen extends StatefulWidget {
   final int tableNumber;
@@ -128,7 +129,7 @@ class _MenuScreenState extends State<MenuScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
+                      Center(
                       child: Container(
                         width: 50,
                         height: 5,
@@ -138,6 +139,23 @@ class _MenuScreenState extends State<MenuScreen> {
                         ),
                       ),
                     ),
+                    if (item.image != null && item.image!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            item.image!.startsWith('http')
+                                ? item.image!
+                                : "${ApiService.baseHostUrl}${item.image!.startsWith('/') ? '' : '/'}${item.image!}",
+                            width: double.infinity,
+                            height: 200,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 20),
                     Row(
                       children: [
@@ -367,7 +385,18 @@ class _MenuScreenState extends State<MenuScreen> {
                 Expanded(
                   child: Center(
                     child: item.image != null && item.image!.isNotEmpty
-                        ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(item.image!, fit: BoxFit.cover))
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              item.image!.startsWith('http') 
+                                  ? item.image! 
+                                  : "${ApiService.baseHostUrl}${item.image!.startsWith('/') ? '' : '/'}${item.image!}", 
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              errorBuilder: (context, error, stackTrace) => 
+                                  const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                            ),
+                          )
                         : Icon(Icons.fastfood, color: Colors.grey[200], size: 40),
                   ),
                 ),

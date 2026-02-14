@@ -271,9 +271,22 @@ async def update_user_photo(
     db: Session = Depends(get_db)
 ):
     """Upload and update current user's profile photo"""
-    # Validate file type
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
+    print(f"DEBUG: Profile image upload for user {current_user.id}. Content-Type: {file.content_type}")
+    
+    # Validate file type - be a bit more flexible with mobile uploads
+    is_image = file.content_type and (
+        file.content_type.startswith("image/") or 
+        file.content_type == "application/octet-stream" # Some devices send this for binary
+    )
+    
+    # Check extension as a fallback
+    if not is_image and file.filename:
+        ext = file.filename.split('.')[-1].lower()
+        if ext in ['jpg', 'jpeg', 'png', 'webp']:
+            is_image = True
+
+    if not is_image:
+        raise HTTPException(status_code=400, detail=f"File must be an image. Received: {file.content_type}")
     
     try:
         content = await file.read()

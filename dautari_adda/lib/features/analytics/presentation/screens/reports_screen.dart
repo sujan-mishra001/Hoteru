@@ -5,8 +5,9 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:dautari_adda/core/utils/toast_service.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'day_book_screen.dart';
+import 'daily_sales_report_screen.dart';
+import 'purchase_report_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? navigationItems;
@@ -275,27 +276,41 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildActionsSection() {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _buildActionButton(
-            'Day Book',
-            Icons.book_rounded,
-            Colors.indigo,
-            () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DayBookScreen())),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionButton(
+                'Day Book',
+                Icons.book_rounded,
+                Colors.indigo,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DayBookScreen())),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActionButton(
+                'Daily Sales',
+                Icons.calendar_view_day_rounded,
+                Colors.amber.shade800,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DailySalesReportScreen())),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildActionButton(
-            'Sales Stats',
-            Icons.insights_rounded,
-            Colors.deepOrange,
-            () {
-              // Show in-app stats or just refresh dashboard
-              _loadDashboardData();
-            },
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionButton(
+                'Purchase',
+                Icons.shopping_cart_rounded,
+                Colors.teal,
+                () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PurchaseReportScreen())),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -315,7 +330,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           children: [
             Icon(icon, color: color),
             const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
           ],
         ),
       ),
@@ -437,10 +452,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildExportSection() {
     final reports = [
       {
-        'name': 'Sales Report',
+        'name': 'Daily Sales Report',
         'type': 'sales',
-        'icon': Icons.description,
-        'color': Colors.blue,
+        'icon': Icons.calendar_today,
+        'color': Colors.amber.shade800,
+      },
+      {
+        'name': 'Purchase Report',
+        'type': 'purchase',
+        'icon': Icons.shopping_cart,
+        'color': Colors.teal,
       },
       {
         'name': 'Inventory Report',

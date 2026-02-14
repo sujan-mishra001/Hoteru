@@ -43,16 +43,70 @@ class ReportsService {
     }
   }
 
-  // Get Day Book (today's orders)
-  Future<List<dynamic>> getDayBook() async {
+  // Get Day Book
+  Future<Map<String, dynamic>?> getDayBook({
+    String? startDate,
+    String? endDate,
+  }) async {
     try {
-      final response = await _apiService.get('/reports/day-book');
+      String endpoint = '/reports/day-book';
+      final params = <String>[];
+      if (startDate != null) params.add('start_date=$startDate');
+      if (endDate != null) params.add('end_date=$endDate');
+      
+      if (params.isNotEmpty) {
+        endpoint += '?${params.join('&')}';
+      }
+      
+      final response = await _apiService.get(endpoint);
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-      return [];
+      return null;
     } catch (e) {
-      return [];
+      return null;
+    }
+  }
+
+  // Get Daily Sales Report
+  Future<Map<String, dynamic>?> getDailySales({
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final endpoint = '/reports/daily-sales?start_date=$startDate&end_date=$endDate';
+      final response = await _apiService.get(endpoint);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Get Purchase Report
+  Future<Map<String, dynamic>?> getPurchaseReport({
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      String endpoint = '/reports/purchase-report';
+      final params = <String>[];
+      if (startDate != null) params.add('start_date=$startDate');
+      if (endDate != null) params.add('end_date=$endDate');
+      
+      if (params.isNotEmpty) {
+        endpoint += '?${params.join('&')}';
+      }
+      
+      final response = await _apiService.get(endpoint);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -89,11 +143,6 @@ class ReportsService {
   // Export Master Excel Report
   Future<Uint8List?> exportMasterExcel() async {
     try {
-      // Assuming a generic endpoint or reusing export for sales as a fallback if specific master report logic isn't defined
-      // If backend doesn't have /master/excel, you can default to sales report or create a new endpoint.
-      // Based on typical patterns, let's try a dedicated endpoint or fallback to sales export.
-      // For now, let's use the sales export as a proxy for "Master Excel" until a specific backend endpoint is confirmed/created.
-      // Or better, check if backend has it. If not, use sales excel export.
       return exportReport(reportType: 'sales', format: 'excel');
     } catch (e) {
       return null;
@@ -105,7 +154,6 @@ class ReportsService {
     String? startDate,
     String? endDate,
   }) async {
-    // This could call dashboard-summary or a specific sales endpoint if added
     return getDashboardSummary(startDate: startDate, endDate: endDate);
   }
 }

@@ -871,7 +871,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    isBooked ? "BOOKED" : "PENDING",
+                                    isBooked ? "HOLD" : "DRAFT",
                                     style: TextStyle(
                                       color: isBooked ? Colors.red : Colors.orange,
                                       fontSize: 10,
@@ -972,10 +972,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return const Center(child: Text('No floors available. Please add floors first.'));
           }
 
-          return RefreshIndicator(
-            onRefresh: () => _tableService.fetchTables(),
-            color: const Color(0xFFFFC107),
-            child: Column(
+          return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
@@ -1148,8 +1145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 _buildDeliveryTakeawayBar(),
               ],
-            ),
-          );
+            );
         },
       ),
     );
@@ -1516,7 +1512,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isBooked ? 'BOOKED' : 'MERGED',
+                    isBooked ? 'HOLD' : 'MERGED',
                     style: GoogleFonts.poppins(
                       color: statusColor,
                       fontSize: 12,
@@ -1578,20 +1574,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasItems = _tableService.getCart(table.id).isNotEmpty;
     final hasKOT = table.kotCount > 0;
 
-    Color statusColor = const Color(0xFF10B981); // Green (Open)
-    String statusText = "OPEN";
+    Color statusColor = const Color(0xFF10B981); // Green (Vacant)
+    String statusText = "VACANT";
 
     if (table.isHoldTable == 'Yes') {
       statusColor = Colors.orange;
-      statusText = "ON HOLD";
-      if (isBooked) statusColor = Colors.deepOrange;
+      statusText = "VACANT (HOLD)";
+      if (isBooked) {
+        statusColor = Colors.deepOrange;
+        statusText = "HOLD";
+      }
     } else if (table.mergeGroupId != null) {
       statusColor = Colors.blue;
       statusText = "MERGED";
       if (isBooked) statusColor = Colors.indigo;
+      if (isBooked) statusText = "HOLD";
     } else if (isBooked) {
       statusColor = const Color(0xFFEF4444);
-      statusText = "BOOKED";
+      statusText = "HOLD";
     }
 
     return InkWell(

@@ -180,7 +180,7 @@ class _OrderOverviewScreenState extends State<OrderOverviewScreen> {
     } else {
       // Table/Dine-in
       iconData = Icons.table_restaurant_rounded;
-      statusLabel = isOccupied ? "Occupied" : "Draft Order";
+      statusLabel = isOccupied ? "HOLD" : "VACANT DRAFT";
     }
     
     return Container(

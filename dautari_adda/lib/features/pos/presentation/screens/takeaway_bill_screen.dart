@@ -28,6 +28,61 @@ class _TakeawayBillScreenState extends State<TakeawayBillScreen> {
   Map<String, dynamic>? _order;
   List<dynamic> _items = [];
   List<dynamic> _qrCodes = [];
+  double? _customDiscount;
+  bool _isDiscountPercent = true;
+
+  double get subtotal {
+    if (_order != null && _order!['gross_amount'] != null) {
+      return (_order!['gross_amount'] as num).toDouble();
+    }
+    return _items.fold(0.0, (sum, item) {
+      final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+      final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+      return sum + (price * qty);
+    });
+  }
+
+  double get discountAmount {
+    if (_customDiscount != null) {
+      return _isDiscountPercent 
+          ? subtotal * (_customDiscount! / 100)
+          : _customDiscount!;
+    }
+    if (_order != null && _order!['discount'] != null) {
+      return (_order!['discount'] as num).toDouble();
+    }
+    return 0.0;
+  }
+
+  String get discountLabel {
+    if (_customDiscount != null) {
+      return _isDiscountPercent 
+          ? "Discount (${_customDiscount!.toStringAsFixed(0)}%)" 
+          : "Discount (Fixed)";
+    }
+    if (_order != null && _order!['discount'] != null && (_order!['discount'] as num) > 0) {
+      return "Discount";
+    }
+    return "Discount";
+  }
+
+  double get serviceCharge {
+    if (_order != null && _order!['service_charge_amount'] != null) {
+      return (_order!['service_charge_amount'] as num).toDouble();
+    }
+    return _tableService.calculateServiceCharge(subtotal);
+  }
+
+  double get tax {
+    if (_order != null && _order!['tax_amount'] != null) {
+      return (_order!['tax_amount'] as num).toDouble();
+    }
+    return _tableService.calculateTax(subtotal, serviceCharge);
+  }
+
+  double get grandTotal {
+    return subtotal - discountAmount + serviceCharge + tax;
+  }
 
   @override
   void initState() {
@@ -75,14 +130,13 @@ class _TakeawayBillScreenState extends State<TakeawayBillScreen> {
     }
 
     // Calculations
-    final subtotal = _items.fold(0.0, (sum, item) {
-      final price = (item['price'] as num?)?.toDouble() ?? 0.0;
-      final qty = item['quantity'] as int? ?? 1;
-      return sum + (price * qty);
-    });
+    final subtotal = this.subtotal;
+    final discountAmount = this.discountAmount;
+    final discountLabel = this.discountLabel;
+
     final serviceCharge = subtotal * 0.10; // 10% service charge
     final tax = (subtotal + serviceCharge) * 0.13; // 13% tax
-    final grandTotal = subtotal + serviceCharge + tax;
+    final grandTotal = this.grandTotal;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -111,6 +165,15 @@ class _TakeawayBillScreenState extends State<TakeawayBillScreen> {
                 const Divider(),
                 const SizedBox(height: 12),
                 _buildSummaryRow("Subtotal", "Rs ${subtotal.toStringAsFixed(0)}"),
+                InkWell(
+                  onTap: () => _showDiscountDialog(subtotal),
+                  child: _buildSummaryRow(
+                    discountLabel, 
+                    "- Rs ${discountAmount.toStringAsFixed(0)}", 
+                    color: Colors.orange[800],
+                    isClickable: true,
+                  ),
+                ),
                 _buildSummaryRow("Service Charge (10%)", "Rs ${serviceCharge.toStringAsFixed(0)}"),
                 _buildSummaryRow("Tax (13%)", "Rs ${tax.toStringAsFixed(0)}"),
                 const SizedBox(height: 12),
@@ -154,15 +217,86 @@ class _TakeawayBillScreenState extends State<TakeawayBillScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {Color? color}) {
+  Widget _buildSummaryRow(String label, String value, {Color? color, bool isClickable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Row(
+            children: [
+              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              if (isClickable) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.edit_rounded, size: 12, color: Colors.grey[400]),
+              ]
+            ],
+          ),
           Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
         ],
+      ),
+    );
+  }
+
+  void _showDiscountDialog(double subtotal) {
+    final TextEditingController controller = TextEditingController(
+      text: _customDiscount?.toStringAsFixed(0) ?? "",
+    );
+    bool isPercent = _isDiscountPercent;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text("Apply Discount"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ToggleButtons(
+                isSelected: [isPercent, !isPercent],
+                onPressed: (index) {
+                  setModalState(() => isPercent = index == 0);
+                },
+                borderRadius: BorderRadius.circular(8),
+                constraints: const BoxConstraints(minWidth: 80, minHeight: 40),
+                children: const [
+                  Text("%"),
+                  Text("Amt"),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: isPercent ? "Discount Percentage" : "Discount Amount",
+                  prefixText: isPercent ? "" : "Rs ",
+                  suffixText: isPercent ? "%" : "",
+                  border: const OutlineInputBorder(),
+                ),
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final val = double.tryParse(controller.text) ?? 0.0;
+                setState(() {
+                  _customDiscount = val;
+                  _isDiscountPercent = isPercent;
+                });
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107)),
+              child: const Text("Apply"),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -354,7 +488,7 @@ class _TakeawayBillScreenState extends State<TakeawayBillScreen> {
     if (confirmed == true) {
       setState(() => _isLoading = true);
 
-      final success = await _tableService.processTakeawayPayment(widget.orderId, method);
+      final success = await _tableService.processTakeawayPayment(widget.orderId, method, discount: discountAmount, total: grandTotal);
 
       setState(() => _isLoading = false);
 

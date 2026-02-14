@@ -32,11 +32,28 @@ class CustomerResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class UserBasicResponse(BaseModel):
+    id: int
+    full_name: Optional[str] = None
+    email: str
+    class Config:
+        from_attributes = True
+
 class TableResponse(BaseModel):
     id: int
     table_id: str
-    floor: str
+    floor: Optional[str] = None
     status: str
+    class Config:
+        from_attributes = True
+
+class OrderMinimalResponse(BaseModel):
+    id: int
+    order_number: str
+    order_type: str
+    status: str
+    table_id: Optional[int] = None
+    table: Optional[TableResponse] = None
     class Config:
         from_attributes = True
 
@@ -86,6 +103,9 @@ class KOTResponse(BaseModel):
     kot_type: str
     status: str
     created_at: datetime
+    order_id: Optional[int] = None
+    order: Optional[OrderMinimalResponse] = None
+    user: Optional[UserBasicResponse] = None
     items: List[KOTItemResponse] = []
     class Config:
         from_attributes = True

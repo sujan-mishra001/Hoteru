@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dautari_adda/features/admin/data/branch_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class BranchManagementScreen extends StatefulWidget {
   const BranchManagementScreen({super.key});
@@ -29,141 +30,249 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        toolbarHeight: 75,
-        title: const Text('Branch Management', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFC107),
-        elevation: 0,
-        actions: [
-          if (_isAdmin)
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => _showAddBranchDialog(),
+      backgroundColor: const Color(0xFFF6F8FB),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
+          : CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                _buildSliverAppBar(screenHeight),
+                _branches.isEmpty
+                    ? SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _buildEmptyState(),
+                      )
+                    : SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final branch = _branches[index];
+                              return _buildBranchCard(branch);
+                            },
+                            childCount: _branches.length,
+                          ),
+                        ),
+                      ),
+              ],
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadBranches,
+    );
+  }
+
+  Widget _buildSliverAppBar(double screenHeight) {
+    return SliverAppBar(
+      expandedHeight: screenHeight / 3, // Modern requirement: 1/3 of the page
+      pinned: true,
+      backgroundColor: const Color(0xFFFFC107),
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+        onPressed: () => Navigator.pop(context),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+          onPressed: _loadBranches,
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFFD54F), Color(0xFFFFC107)],
+                ),
+              ),
+            ),
+            Positioned(
+              right: -50,
+              top: -50,
+              child: Icon(Icons.location_city_rounded, size: 220, color: Colors.white.withOpacity(0.12)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    "Branch\nLocations",
+                    style: GoogleFonts.outfit(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black87,
+                      height: 1.1,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      "Currently managing ${_branches.length} branches",
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(0),
+        child: Container(
+          height: 20,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF6F8FB),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.storefront_rounded, size: 64, color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No branches found',
+            style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          if (_isAdmin)
+            ElevatedButton.icon(
+              onPressed: () => _showAddBranchDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add First Branch'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC107),
+                foregroundColor: Colors.black87,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _branches.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.location_city, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text('No branches found'),
-                      if (_isAdmin)
-                        ElevatedButton(
-                          onPressed: () => _showAddBranchDialog(),
-                          child: const Text('Add First Branch'),
-                        ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _branches.length,
-                  itemBuilder: (context, index) {
-                    final branch = _branches[index];
-                    return _buildBranchCard(branch);
-                  },
-                ),
     );
   }
 
   Widget _buildBranchCard(dynamic branch) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFFFFC107),
-              child: const Icon(Icons.location_on, color: Colors.white),
-            ),
-            title: Text(branch['name'] ?? 'Unknown Branch'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Code: ${branch['code'] ?? 'N/A'}'),
-                if (branch['address'] != null)
-                  Text(branch['address']),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.check),
-                  color: Colors.green,
-                  onPressed: () => _selectBranch(branch['id']),
-                  tooltip: 'Select Branch',
-                ),
-                if (_isAdmin)
-                  PopupMenuButton<String>(
-                    onSelected: (value) => _handleMenuAction(value, branch),
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Edit Branch'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'users',
-                        child: Text('Manage Users'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete Branch'),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
-          if (branch['phone'] != null || branch['email'] != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.grey[100],
-              child: Row(
-                children: [
-                  if (branch['phone'] != null)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.phone, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(branch['phone']),
-                        ],
-                      ),
-                    ),
-                  if (branch['email'] != null)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.email, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(branch['email']),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
         ],
       ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.location_on_rounded, color: Color(0xFFE6A700), size: 24),
+              ),
+              title: Text(
+                branch['name'] ?? 'Unknown Branch',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blueGrey[900]),
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('Code: ${branch['code'] ?? 'N/A'}', style: GoogleFonts.outfit(color: Colors.blueGrey[400], fontSize: 13)),
+              ),
+              trailing: _isAdmin
+                ? PopupMenuButton<String>(
+                    onSelected: (value) => _handleMenuAction(value, branch),
+                    icon: Icon(Icons.more_vert_rounded, color: Colors.blueGrey[400]),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded, size: 18), SizedBox(width: 8), Text('Edit')])),
+                      const PopupMenuItem(value: 'users', child: Row(children: [Icon(Icons.people_alt_rounded, size: 18), SizedBox(width: 8), Text('Staff')])),
+                      const PopupMenuItem(value: 'select', child: Row(children: [Icon(Icons.check_circle_rounded, size: 18), SizedBox(width: 8), Text('Select')])),
+                      const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_rounded, size: 18, color: Colors.red), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))])),
+                    ],
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    onPressed: () => _selectBranch(branch['id']),
+                  ),
+            ),
+            if (branch['address'] != null || branch['phone'] != null) ...[
+              const Divider(height: 1, indent: 20, endIndent: 20),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    if (branch['address'] != null)
+                      _buildInfoRow(Icons.map_rounded, branch['address']),
+                    if (branch['phone'] != null) ...[
+                      const SizedBox(height: 12),
+                      _buildInfoRow(Icons.phone_rounded, branch['phone']),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.blueGrey[300]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.outfit(color: Colors.blueGrey[600], fontSize: 14),
+          ),
+        ),
+      ],
     );
   }
 
@@ -174,6 +283,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
         break;
       case 'users':
         _showManageUsersDialog(branch);
+        break;
+      case 'select':
+        _selectBranch(branch['id']);
         break;
       case 'delete':
         _confirmDeleteBranch(branch);
@@ -192,34 +304,35 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Add New Branch'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Branch Name'),
+                decoration: const InputDecoration(labelText: 'Branch Name', prefixIcon: Icon(Icons.business_rounded)),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: codeController,
-                decoration: const InputDecoration(labelText: 'Branch Code'),
+                decoration: const InputDecoration(labelText: 'Branch Code', prefixIcon: Icon(Icons.tag_rounded)),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: addressController,
-                decoration: const InputDecoration(labelText: 'Address'),
+                decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.location_on_rounded)),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Phone'),
+                decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_rounded)),
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_rounded)),
                 keyboardType: TextInputType.emailAddress,
               ),
             ],
@@ -247,6 +360,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                 _showErrorSnackBar(e.toString());
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC107),
+              foregroundColor: Colors.black87,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: const Text('Create Branch'),
           ),
         ],
@@ -264,29 +382,30 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Branch'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Branch Name'),
+                decoration: const InputDecoration(labelText: 'Branch Name', prefixIcon: Icon(Icons.business_rounded)),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: addressController,
-                decoration: const InputDecoration(labelText: 'Address'),
+                decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.location_on_rounded)),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Phone'),
+                decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_rounded)),
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_rounded)),
                 keyboardType: TextInputType.emailAddress,
               ),
             ],
@@ -313,6 +432,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                 _showErrorSnackBar(e.toString());
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC107),
+              foregroundColor: Colors.black87,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: const Text('Update'),
           ),
         ],
@@ -326,9 +450,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Users in ${branch['name']}'),
+        title: Text('Users in ${branch['name']}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: SizedBox(
           width: double.maxFinite,
+          height: 300,
           child: users.isEmpty
               ? const Center(child: Text('No users assigned to this branch'))
               : ListView.builder(
@@ -336,16 +462,19 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                   itemBuilder: (context, index) {
                     final user = users[index];
                     return ListTile(
+                      contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
-                        backgroundColor: const Color(0xFFFFC107),
+                        backgroundColor: const Color(0xFFFFC107).withOpacity(0.2),
+                        foregroundColor: const Color(0xFFE6A700),
                         child: Text(
                           (user['full_name'] ?? 'U')[0].toString().toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      title: Text(user['full_name'] ?? 'Unknown'),
-                      subtitle: Text(user['email']),
+                      title: Text(user['full_name'] ?? 'Unknown', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      subtitle: Text(user['email'], style: GoogleFonts.outfit(fontSize: 12)),
                       trailing: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.red),
+                        icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red),
                         onPressed: () => _removeUserFromBranch(user['id'], branch['id']),
                       ),
                     );
@@ -359,6 +488,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
           ),
           ElevatedButton(
             onPressed: () => _showAssignUserDialog(branch['id']),
+            style: ElevatedButton.styleFrom(
+               backgroundColor: const Color(0xFFFFC107),
+               foregroundColor: Colors.black87,
+               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             child: const Text('Assign User'),
           ),
         ],
@@ -367,7 +501,6 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   }
 
   void _showAssignUserDialog(int branchId) async {
-    // TODO: Implement user selection dialog
     _showInfoSnackBar('User assignment feature coming soon');
   }
 
@@ -378,6 +511,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
         branchId: branchId,
       );
       _showSuccessSnackBar('User removed from branch');
+      Navigator.pop(context); // Close dialog
       _loadBranches();
     } catch (e) {
       _showErrorSnackBar(e.toString());
@@ -403,14 +537,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Branch'),
-        content: Text('Are you sure you want to delete ${branch['name']}?'),
+        content: Text('Are you sure you want to delete ${branch['name']}? This action cannot be undone.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               try {
                 await _branchService.deleteBranch(branch['id']);

@@ -254,17 +254,285 @@ async def get_sales_summary(
 
 @router.get("/day-book")
 async def get_day_book(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get day book (all transactions for today) for the current user's branch"""
+    """Get day book (all transactions) for the current user's branch with balance calculation"""
     branch_id = get_branch_filter(current_user)
-    today = datetime.now().date()
     
-    order_query = db.query(Order).filter(Order.created_at >= today)
-    order_query = apply_branch_filter_order(order_query, branch_id)
-    orders = order_query.all()
-    return orders
+    query = db.query(Order)
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        query = query.filter(Order.created_at >= start_dt, Order.created_at < end_dt)
+    else:
+        today = datetime.now().date()
+        query = query.filter(Order.created_at >= today)
+        
+    query = apply_branch_filter_order(query, branch_id)
+    orders = query.filter(Order.status != 'Cancelled').order_by(Order.created_at.desc()).all()
+    
+    # Calculate running balance if needed, but for now just return list
+    result = []
+    total_paid = 0
+    total_received = 0
+    
+    for o in orders:
+        paid = float(o.paid_amount or 0)
+        received = paid # In many cases, paid by customer is our received
+        total_paid += paid
+        total_received += received
+        
+        result.append({
+            "date": o.created_at.strftime('%Y-%m-%d'),
+            "paid": paid,
+            "received": received,
+            "balance": received - paid, # Simplified balance logic
+            "order_number": o.order_number
+        })
+        
+    return {
+        "items": result,
+        "summary": {
+            "total_paid": total_paid,
+            "total_received": total_received
+        }
+    }
+
+@router.get("/daily-sales")
+async def get_daily_sales_report(
+    start_date: str,
+    end_date: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get summarized daily sales report for a date range"""
+    branch_id = get_branch_filter(current_user)
+    
+    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+    end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    
+    query = db.query(
+        func.date(Order.created_at).label('date'),
+        func.sum(Order.total_amount).label('gross_total'),
+        func.sum(Order.discount).label('discount'),
+        func.sum(Order.service_charge_amount).label('service_charge'),
+        func.sum(Order.tax_amount).label('tax'),
+        func.sum(Order.net_amount).label('net_total'),
+        func.sum(Order.paid_amount).label('paid'),
+        func.sum(Order.credit_amount).label('credit_sales'),
+        func.sum(Order.delivery_charge).label('delivery_charge')
+    ).filter(
+        Order.created_at >= start_dt,
+        Order.created_at < end_dt,
+        Order.status != 'Cancelled'
+    )
+    
+    if branch_id:
+        query = query.filter(Order.branch_id == branch_id)
+        
+    daily_stats = query.group_by(func.date(Order.created_at)).order_by(func.date(Order.created_at).desc()).all()
+    
+    result = []
+    total_gross = 0
+    total_net = 0
+    total_paid = 0
+    total_credit = 0
+    total_discount = 0
+    
+    for stat in daily_stats:
+        res = {
+            "date": str(stat.date),
+            "gross_total": float(stat.gross_total or 0),
+            "discount": float(stat.discount or 0),
+            "complementary": 0, # Placeholder if not tracked specifically
+            "delivery_commission": 0, # Placeholder
+            "net_total": float(stat.net_total or 0),
+            "paid": float(stat.paid or 0),
+            "credit_sales": float(stat.credit_sales or 0),
+            "net_delivery": float(stat.delivery_charge or 0),
+            "credit_service": 0, # Placeholder
+            "cash": 0, # Need payment type breakdown for these
+            "fonepay": 0,
+            "esewa": 0
+        }
+        
+        # Payment breakdown for this specific day
+        day_start = datetime.combine(stat.date, datetime.min.time())
+        day_end = datetime.combine(stat.date, datetime.max.time())
+        
+        breakdown = db.query(
+            Order.payment_type,
+            func.sum(Order.paid_amount).label('amount')
+        ).filter(
+            Order.created_at.between(day_start, day_end),
+            Order.status != 'Cancelled'
+        )
+        if branch_id:
+            breakdown = breakdown.filter(Order.branch_id == branch_id)
+            
+        breakdown = breakdown.group_by(Order.payment_type).all()
+        
+        for b in breakdown:
+            ptype = (b.payment_type or "").lower()
+            if 'cash' in ptype: res['cash'] += float(b.amount or 0)
+            elif 'fonepay' in ptype: res['fonepay'] += float(b.amount or 0)
+            elif 'esewa' in ptype: res['esewa'] += float(b.amount or 0)
+
+        total_gross += res['gross_total']
+        total_net += res['net_total']
+        total_paid += res['paid']
+        total_credit += res['credit_sales']
+        total_discount += res['discount']
+        
+        result.append(res)
+        
+    return {
+        "items": result,
+        "summary": {
+            "gross_sales": total_gross,
+            "discount": total_discount,
+            "net_sales": total_net,
+            "paid_sales": total_paid,
+            "credit_sales": total_credit,
+            "complementary": 0,
+            "delivery_commission": 0,
+            "net_delivery": sum(item['net_delivery'] for item in result)
+        }
+    }
+
+@router.get("/monthly-sales")
+async def get_monthly_sales_report(
+    year: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get summarized monthly sales report for a year"""
+    branch_id = get_branch_filter(current_user)
+    
+    # Months list for display
+    months = ["Baisakh", "Jestha", "Ashad", "Shrawan", "Bhadra", "Ashwin", "Kartik", "Mangsir", "Poush", "Magh", "Falgun", "Chaitra"]
+    
+    # Since we are using standard datetime, we'll map Gregorian months to a year view
+    # For a true B.S report, a conversion library would be needed. 
+    # For now, we aggregate by Gregorian months 1-12.
+    
+    result = {}
+    
+    query = db.query(
+        func.extract('month', Order.created_at).label('month'),
+        func.sum(Order.total_amount).label('gross_sales'),
+        func.sum(Order.discount).label('discount'),
+        func.sum(Order.net_amount).label('net_sales'),
+        func.sum(Order.paid_amount).label('paid_sales'),
+        func.sum(Order.credit_amount).label('credit_sales')
+    ).filter(
+        func.extract('year', Order.created_at) == year,
+        Order.status != 'Cancelled'
+    )
+    
+    if branch_id:
+        query = query.filter(Order.branch_id == branch_id)
+        
+    monthly_stats = query.group_by(func.extract('month', Order.created_at)).all()
+    
+    # Prepare base structure
+    monthly_map = {int(stat.month): stat for stat in monthly_stats}
+    
+    rows = [
+        "Gross Sales", "Discount", "Complementary", "Net Sales", "Paid Sales", "Cash", "Esewa", "Fonepay", "Customer Credit"
+    ]
+    
+    # For simplicity, we'll return a structure that the frontend can easily map to a table
+    # Columns: Months (1-12), Rows: Metrics
+    
+    final_data = []
+    for row_name in rows:
+        row_obj = {"particular": row_name}
+        for m_idx in range(1, 13):
+            month_label = f"month_{m_idx}"
+            stat = monthly_map.get(m_idx)
+            
+            val = 0
+            if stat:
+                if row_name == "Gross Sales": val = float(stat.gross_sales or 0)
+                elif row_name == "Discount": val = float(stat.discount or 0)
+                elif row_name == "Net Sales": val = float(stat.net_sales or 0)
+                elif row_name == "Paid Sales": val = float(stat.paid_sales or 0)
+                elif row_name == "Customer Credit": val = float(stat.credit_sales or 0)
+                elif row_name in ["Cash", "Esewa", "Fonepay"]:
+                    # Payment type specific monthly aggregation
+                    p_query = db.query(func.sum(Order.paid_amount)).filter(
+                        func.extract('year', Order.created_at) == year,
+                        func.extract('month', Order.created_at) == m_idx,
+                        Order.payment_type.ilike(f"%{row_name}%"),
+                        Order.status != 'Cancelled'
+                    )
+                    if branch_id: p_query = p_query.filter(Order.branch_id == branch_id)
+                    val = float(p_query.scalar() or 0)
+            
+            row_obj[month_label] = val
+        final_data.append(row_obj)
+        
+    return final_data
+
+@router.get("/purchase-report")
+async def get_purchase_report(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get summarized purchase report"""
+    branch_id = get_branch_filter(current_user)
+    
+    query = db.query(PurchaseBill).options(joinedload(PurchaseBill.supplier))
+    
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        query = query.filter(PurchaseBill.order_date >= start_dt, PurchaseBill.order_date < end_dt)
+        
+    if supplier_id:
+        query = query.filter(PurchaseBill.supplier_id == supplier_id)
+        
+    if branch_id:
+        query = query.filter(PurchaseBill.branch_id == branch_id)
+        
+    bills = query.order_by(PurchaseBill.order_date.desc()).all()
+    
+    result = []
+    total_payable = 0
+    total_paid = 0
+    
+    for b in bills:
+        # Simplified assumption: If status is 'Paid', entire amount is paid. 
+        # In a more complex system, we'd have a 'paid_amount' field on PurchaseBill.
+        paid = float(b.total_amount) if getattr(b, 'status', '').lower() == 'paid' else 0
+        total_payable += float(b.total_amount)
+        total_paid += paid
+        
+        result.append({
+            "bill_number": b.bill_number,
+            "date": b.order_date.strftime('%Y-%m-%d'),
+            "supplier_name": b.supplier.name if b.supplier else "N/A",
+            "payable": float(b.total_amount),
+            "paid": paid,
+            "status": b.status or "Pending",
+            "paid_by": "System" # Placeholder
+        })
+        
+    return {
+        "items": result,
+        "summary": {
+            "total_payable": total_payable,
+            "total_paid": total_paid,
+            "total_bills": len(bills)
+        }
+    }
 
 
 @router.get("/export/pdf/{report_type}")

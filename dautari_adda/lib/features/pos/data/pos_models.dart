@@ -192,7 +192,7 @@ class MenuItem {
       'name': name,
       'price': price,
       if (description != null) 'description': description,
-      if (image != null) 'image_url': image,
+      if (image != null) 'image': image,
       'is_available': available,
       if (categoryId != null) 'category_id': categoryId,
       if (groupId != null) 'group_id': groupId,
@@ -207,7 +207,7 @@ class MenuItem {
       name: map['name'] ?? '',
       price: (map['price'] as num?)?.toDouble() ?? 0.0,
       description: map['description'],
-      image: map['image_url'],
+      image: map['image'] ?? map['image_url'], // Support both for safety
       available: map['is_available'] ?? true,
       categoryId: map['category_id']?.toInt(),
       groupId: map['group_id']?.toInt(),
@@ -222,6 +222,7 @@ class MenuCategory {
   final int? id;
   final String name;
   final String type;
+  final String? image;
   final List<MenuCategory> subCategories;
   final List<MenuItem> items;
 
@@ -229,6 +230,7 @@ class MenuCategory {
     this.id,
     required this.name,
     this.type = 'KOT',
+    this.image,
     this.subCategories = const [],
     this.items = const [],
   });
@@ -238,6 +240,7 @@ class MenuCategory {
       if (id != null) 'id': id,
       'name': name,
       'type': type,
+      if (image != null) 'image': image,
       'items': items.map((i) => i.toMap()).toList(),
       'subCategories': subCategories.map((s) => s.toMap()).toList(),
     };
@@ -248,6 +251,7 @@ class MenuCategory {
       id: map['id']?.toInt(),
       name: map['name'] ?? '',
       type: map['type'] ?? 'KOT',
+      image: map['image'],
       items: (map['items'] as List? ?? [])
           .map((i) => MenuItem.fromMap(Map<String, dynamic>.from(i)))
           .toList(),

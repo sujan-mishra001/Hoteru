@@ -32,38 +32,104 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Units of Measurement', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFFFFC107),
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-          : _units.isEmpty
-              ? const Center(child: Text('No units found'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _units.length,
-                  itemBuilder: (context, index) {
-                    final unit = _units[index];
-                    return Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        title: Text(unit['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Abbreviation: ${unit['abbreviation'] ?? '-'}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () => _confirmDelete(unit),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 180,
+            backgroundColor: const Color(0xFFFFC107),
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+              title: const Text(
+                'Units of Measure',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFFD54F), Color(0xFFFFC107)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -20,
+                      top: 40,
+                      child: Icon(
+                        Icons.straighten_rounded,
+                        size: 150,
+                        color: Colors.black.withOpacity(0.05),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          _isLoading
+              ? const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFFFFC107))),
+                )
+              : _units.isEmpty
+                  ? const SliverFillRemaining(
+                      child: Center(child: Text('No units found')),
+                    )
+                  : SliverPadding(
+                      padding: const EdgeInsets.all(16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final unit = _units[index];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFC107).withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.straighten_rounded, color: Color(0xFFFFC107), size: 18),
+                                ),
+                                title: Text(unit['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('Abbreviation: ${unit['abbreviation'] ?? '-'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                                  onPressed: () => _confirmDelete(unit),
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: _units.length,
                         ),
                       ),
-                    );
-                  },
-                ),
-      floatingActionButton: FloatingActionButton(
+                    ),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddUnitDialog,
         backgroundColor: const Color(0xFFFFC107),
-        child: const Icon(Icons.add, color: Colors.black87),
+        icon: const Icon(Icons.add_rounded, color: Colors.black87),
+        label: const Text('Add Unit', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -75,6 +141,7 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Add Unit'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -94,9 +161,16 @@ class _UnitsManagementScreenState extends State<UnitsManagementScreen> {
               if (success) {
                 Navigator.pop(context);
                 _loadUnits();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to add unit')));
               }
             },
-            child: const Text('Add'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC107),
+              foregroundColor: Colors.black87,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Add Unit'),
           ),
         ],
       ),

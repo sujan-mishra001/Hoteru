@@ -52,6 +52,10 @@ import UserManagement from '../../features/users/UserManagement';
 import Roles from '../../features/roles/Roles';
 import Reports from '../../features/reports/Reports';
 import SessionReport from '../../features/reports/SessionReport';
+import DailySalesReport from '../../features/reports/DailySalesReport';
+import MonthlySalesReport from '../../features/reports/MonthlySalesReport';
+import DaybookReport from '../../features/reports/DaybookReport';
+import PurchaseReport from '../../features/reports/PurchaseReport';
 import Settings from '../../features/settings/Settings';
 import DigitalMenu from '../../features/pos/DigitalMenu';
 
@@ -108,8 +112,14 @@ const AppRoutes: React.FC = () => {
                                 <Route path="bill" element={<PurchaseBill />} />
                                 <Route path="return" element={<PurchaseReturn />} />
                             </Route>
-                            <Route path="/reports" element={<Reports />} />
-                            <Route path="/reports/sessions" element={<SessionReport />} />
+                            <Route path="/reports">
+                                <Route index element={<Reports />} />
+                                <Route path="sessions" element={<SessionReport />} />
+                                <Route path="daily-sales" element={<DailySalesReport />} />
+                                <Route path="monthly-sales" element={<MonthlySalesReport />} />
+                                <Route path="daybook" element={<DaybookReport />} />
+                                <Route path="purchase" element={<PurchaseReport />} />
+                            </Route>
                             <Route path="/settings" element={<Settings />} />
                             <Route path="/menu" element={<MenuManagement />} />
                             <Route element={<PermissionGuard allowedRoles={['admin']} />}>

@@ -58,8 +58,8 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     sx={{ mb: 6, cursor: 'pointer', textAlign: 'center' }}
                 >
                     <Avatar
-                        src="/logo.png"
-                        sx={{ width: 40, height: 40, bgcolor: 'transparent', mx: 'auto' }}
+                        src="/Ratala%20Hospitality%20Logo.jpg"
+                        sx={{ width: 40, height: 40, bgcolor: 'transparent', mx: 'auto', borderRadius: '8px' }}
                     />
                     <Typography
                         variant="caption"
@@ -71,7 +71,7 @@ const POSLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             fontSize: '10px'
                         }}
                     >
-                        Finora
+                        Ratala
                     </Typography>
                 </Box>
 
