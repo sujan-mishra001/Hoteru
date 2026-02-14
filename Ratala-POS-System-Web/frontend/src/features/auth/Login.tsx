@@ -53,7 +53,7 @@ const Login: React.FC = () => {
 
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: '#1e293b' }}>Welcome Back</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: '#1e293b' }}>Welcome Back</Typography>
 
             {error && <Alert severity="error">{error}</Alert>}
             {successMessage && <Alert severity="success">{successMessage}</Alert>}

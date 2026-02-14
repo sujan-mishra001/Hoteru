@@ -93,6 +93,12 @@ async def get_tables(
                     table_dict["kot_count"] += 1
                 else:
                     table_dict["bot_count"] += 1
+        elif table.status in ["Occupied", "BillRequested"] and not table.merge_group_id:
+            # Self-healing: Table is marked occupied but has no active order -> Reset to Available
+            table.status = "Available"
+            table_dict["status"] = "Available"
+            db.add(table)
+            db.commit()
         
         result.append(table_dict)
     
@@ -143,7 +149,8 @@ async def get_tables_with_stats(
             # Get active order
             active_order = db.query(Order).filter(
                 Order.table_id == table.id,
-                Order.status.in_(["Pending", "In Progress", "BillRequested"])
+                # Include Draft orders too
+                Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
             ).first()
             
             if active_order:
@@ -156,6 +163,12 @@ async def get_tables_with_stats(
                         table_data["kot_count"] += 1
                     else:
                         table_data["bot_count"] += 1
+            elif table.status in ["Occupied", "BillRequested"] and not table.merge_group_id:
+                # Self-healing
+                table.status = "Available"
+                table_data["status"] = "Available"
+                db.add(table)
+                db.commit()
             
             floor_data["tables"].append(table_data)
         

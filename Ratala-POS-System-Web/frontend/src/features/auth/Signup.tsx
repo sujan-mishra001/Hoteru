@@ -49,7 +49,7 @@ const Signup: React.FC = () => {
 
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>Create Your Account</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Create Your Account</Typography>
 
             {error && <Alert severity="error">{error}</Alert>}
             {success && <Alert severity="success">{success}</Alert>}

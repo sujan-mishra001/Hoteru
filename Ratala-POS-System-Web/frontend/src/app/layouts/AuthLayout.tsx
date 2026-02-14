@@ -46,32 +46,34 @@ const AuthLayout: React.FC = () => {
                     p: 4
                 }}
             >
-                <Box sx={{ width: '100%', maxWidth: 400 }}>
-                    <Box sx={{ mb: 4, textAlign: 'left' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+                <Box sx={{ width: '100%', maxWidth: 480 }}>
+                    <Box sx={{ mb: 5, textAlign: 'center' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, mb: 3 }}>
                             <Box
                                 component="img"
                                 src="/Ratala Hospitality Logo.jpg"
                                 alt="Ratala Hospitality Logo"
                                 sx={{
-                                    height: 80,
-                                    borderRadius: '12px',
-                                    objectFit: 'contain'
+                                    height: 150,
+                                    borderRadius: '20px',
+                                    objectFit: 'contain',
+                                    boxShadow: '0 p4x 20px rgba(0,0,0,0.08)'
                                 }}
                             />
                             <Typography
-                                variant="h4"
+                                variant="h3"
                                 sx={{
                                     fontWeight: 900,
                                     color: '#FFC107',
-                                    letterSpacing: '-0.5px',
-                                    textTransform: 'uppercase'
+                                    letterSpacing: '-1px',
+                                    textTransform: 'uppercase',
+                                    lineHeight: 1.1
                                 }}
                             >
                                 Ratala Hospitality
                             </Typography>
                         </Box>
-                        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500 ,textAlign:'center'}}>
+                        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500, textAlign: 'center' }}>
                             Premium Restaurant Management App
                         </Typography>
                     </Box>
