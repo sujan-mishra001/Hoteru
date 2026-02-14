@@ -92,7 +92,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       Hero(
                         tag: 'app_logo',
                         child: Image.asset(
-                          'assets/images/dautari-logo.png',
+                          'assets/images/app-logo.png',
                           height: 100,
                           fit: BoxFit.contain,
                         ),

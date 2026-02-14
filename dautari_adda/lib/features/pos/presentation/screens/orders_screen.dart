@@ -86,20 +86,13 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
       body: ListenableBuilder(
         listenable: tableService,
         builder: (context, _) {
-          final activeTableIds = tableService.activeTableIds;
-          // Only count orders that require attention (not completed/paid/cancelled)
-          final activeStatuses = ['pending', 'preparing', 'ready', 'draft', 'booked'];
-          final pendingTakeaway = _backendOrders.where((o) {
-            final orderType = (o['order_type'] ?? '').toString().toLowerCase();
-            final status = (o['status'] ?? '').toString().toLowerCase();
-            return orderType == 'takeaway' && activeStatuses.contains(status);
-          }).length;
-          final pendingDelivery = _backendOrders.where((o) {
-            final orderType = (o['order_type'] ?? '').toString().toLowerCase();
-            final status = (o['status'] ?? '').toString().toLowerCase();
-            return orderType.contains('delivery') && activeStatuses.contains(status);
-          }).length;
-          final totalAttention = activeTableIds.length + pendingTakeaway + pendingDelivery;
+          // Count active KOTs (not Served or Cancelled)
+          int totalActiveKOTs = 0;
+          for (var order in _backendOrders) {
+            final kots = order['kots'] as List? ?? [];
+            totalActiveKOTs += kots.where((k) => k['status'] != 'Served' && k['status'] != 'Cancelled').length;
+          }
+
           return Column(
             children: [
               Container(
@@ -119,7 +112,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                                   style: GoogleFonts.poppins(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
                                 ),
                                 Text(
-                                  "$totalAttention active KOTs require attention",
+                                  "$totalActiveKOTs active KOTs require attention",
                                   style: GoogleFonts.poppins(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
                                 ),
                               ],
