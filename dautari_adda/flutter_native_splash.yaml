@@ -1,6 +1,6 @@
 flutter_native_splash:
   color: "#FFFFFF"
-  image: "assets/images/dautari-logo-splash.png"
+  image: "assets/images/applogo1.png"
   android_12:
-    image: "assets/images/dautari-logo-splash.png"
+    image: "assets/images/applogo1.png"
     color: "#FFFFFF"

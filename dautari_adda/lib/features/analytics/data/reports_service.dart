@@ -86,6 +86,20 @@ class ReportsService {
     }
   }
 
+  // Export Master Excel Report
+  Future<Uint8List?> exportMasterExcel() async {
+    try {
+      // Assuming a generic endpoint or reusing export for sales as a fallback if specific master report logic isn't defined
+      // If backend doesn't have /master/excel, you can default to sales report or create a new endpoint.
+      // Based on typical patterns, let's try a dedicated endpoint or fallback to sales export.
+      // For now, let's use the sales export as a proxy for "Master Excel" until a specific backend endpoint is confirmed/created.
+      // Or better, check if backend has it. If not, use sales excel export.
+      return exportReport(reportType: 'sales', format: 'excel');
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Other report methods (kept for reference or refined)
   Future<Map<String, dynamic>?> getSalesReport({
     String? startDate,

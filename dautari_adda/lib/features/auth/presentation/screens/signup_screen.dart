@@ -93,7 +93,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         tag: 'app_logo',
                         child: Image.asset(
                           'assets/images/app-logo.png',
-                          height: 130,
+                          height: 100,
                           fit: BoxFit.contain,
                         ),
                       ),
