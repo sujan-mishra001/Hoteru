@@ -247,6 +247,19 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final dineInCount = _orders.where((order) {
+      final orderType = (order['order_type'] ?? '').toString().toLowerCase();
+      return orderType == 'table' || orderType == 'dine-in';
+    }).length;
+    final takeawayCount = _orders.where((order) {
+      final orderType = (order['order_type'] ?? '').toString().toLowerCase();
+      return orderType == 'takeaway';
+    }).length;
+    final deliveryCount = _orders.where((order) {
+      final orderType = (order['order_type'] ?? '').toString().toLowerCase();
+      return orderType.contains('delivery');
+    }).length;
+
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 120,
@@ -267,11 +280,11 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
               unselectedLabelColor: Colors.black54,
               indicatorColor: Colors.black87,
               indicatorWeight: 3,
-              labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13),
-              tabs: const [
-                Tab(text: 'Dine-in'),
-                Tab(text: 'Takeaway'),
-                Tab(text: 'Delivery'),
+              labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 11), // Slightly smaller font to fit counts
+              tabs: [
+                Tab(text: 'Dine-in ($dineInCount)'),
+                Tab(text: 'Takeaway ($takeawayCount)'),
+                Tab(text: 'Delivery ($deliveryCount)'),
               ],
             ),
           ],
@@ -280,12 +293,7 @@ class _CashierScreenState extends State<CashierScreen> with SingleTickerProvider
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
         actionsIconTheme: const IconThemeData(color: Colors.black54),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadOrders,
-          ),
-        ],
+        actions: const [], // Removed refresh button
       ),
       body: Column(
         children: [

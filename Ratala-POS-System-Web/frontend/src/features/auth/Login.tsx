@@ -53,41 +53,63 @@ const Login: React.FC = () => {
 
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: '#1e293b' }}>Welcome Back</Typography>
+            <Box sx={{ mb: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e293b', mb: 0.5, letterSpacing: '-0.5px' }}>
+                    Welcome Back
+                </Typography>
+                <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500 }}>
+                    Log in to your account to continue
+                </Typography>
+            </Box>
 
-            {error && <Alert severity="error">{error}</Alert>}
-            {successMessage && <Alert severity="success">{successMessage}</Alert>}
+            {error && <Alert severity="error" sx={{ borderRadius: '12px' }}>{error}</Alert>}
+            {successMessage && <Alert severity="success" sx={{ borderRadius: '12px' }}>{successMessage}</Alert>}
 
-            <TextField
-                label="Username or Email"
-                fullWidth
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                variant="outlined"
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                    label="Username or Email"
+                    fullWidth
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                    variant="outlined"
+                    sx={{
+                        '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            backgroundColor: '#f8fafc',
+                            '&:hover backgroundColor': '#f1f5f9',
+                        }
+                    }}
+                />
 
-            <TextField
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                fullWidth
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                variant="outlined"
-                InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                            </IconButton>
-                        </InputAdornment>
-                    ),
-                }}
-            />
+                <TextField
+                    label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    fullWidth
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    variant="outlined"
+                    sx={{
+                        '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            backgroundColor: '#f8fafc',
+                        }
+                    }}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </IconButton>
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+            </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Link to="/forgot-password" style={{ color: '#FFC107', fontWeight: 600, textDecoration: 'none', fontSize: '0.875rem' }}>
+                <Link to="/forgot-password" style={{ color: '#FFC107', fontWeight: 700, textDecoration: 'none', fontSize: '0.9rem' }}>
                     Forgot password?
                 </Link>
             </Box>
@@ -98,21 +120,23 @@ const Login: React.FC = () => {
                 disabled={isLoading}
                 fullWidth
                 sx={{
-                    py: 1.5,
+                    py: 1.8,
                     bgcolor: '#FFC107',
-                    '&:hover': { bgcolor: '#FF7700' },
+                    color: '#000',
+                    '&:hover': { bgcolor: '#eab308' },
                     borderRadius: '12px',
-                    fontWeight: 700,
+                    fontWeight: 900,
                     fontSize: '1rem',
-                    textTransform: 'none'
+                    textTransform: 'none',
+                    boxShadow: '0 4px 12px rgba(255, 193, 7, 0.3)',
                 }}
             >
-                {isLoading ? <Loader2 className="animate-spin" size={24} /> : 'Login'}
+                {isLoading ? <Loader2 className="animate-spin" size={24} /> : 'Sign In'}
             </Button>
 
-            <Box sx={{ textAlign: 'center', mt: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                    Don't have an account? <Link to="/signup" style={{ color: '#FFC107', fontWeight: 700, textDecoration: 'none' }}>Sign up</Link>
+            <Box sx={{ textAlign: 'center', mt: 1 }}>
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
+                    Don't have an account? <Link to="/signup" style={{ color: '#FFC107', fontWeight: 800, textDecoration: 'none', marginLeft: '4px' }}>Create Account</Link>
                 </Typography>
             </Box>
         </Box>

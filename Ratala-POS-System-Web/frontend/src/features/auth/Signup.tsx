@@ -49,63 +49,76 @@ const Signup: React.FC = () => {
 
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Create Your Account</Typography>
+            <Box sx={{ mb: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e293b', mb: 0.5, letterSpacing: '-0.5px' }}>
+                    Create Account
+                </Typography>
+                <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500 }}>
+                    Join us and start managing your restaurant
+                </Typography>
+            </Box>
 
-            {error && <Alert severity="error">{error}</Alert>}
-            {success && <Alert severity="success">{success}</Alert>}
+            {error && <Alert severity="error" sx={{ borderRadius: '12px' }}>{error}</Alert>}
+            {success && <Alert severity="success" sx={{ borderRadius: '12px' }}>{success}</Alert>}
 
-            <TextField
-                label="Full Name"
-                fullWidth
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                    label="Full Name"
+                    fullWidth
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', backgroundColor: '#f8fafc' } }}
+                />
 
-            <TextField
-                label="Email Address"
-                type="email"
-                fullWidth
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-            />
+                <TextField
+                    label="Email Address"
+                    type="email"
+                    fullWidth
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', backgroundColor: '#f8fafc' } }}
+                />
 
-            <TextField
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                fullWidth
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                            </IconButton>
-                        </InputAdornment>
-                    ),
-                }}
-            />
+                <TextField
+                    label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    fullWidth
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', backgroundColor: '#f8fafc' } }}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </IconButton>
+                            </InputAdornment>
+                        ),
+                    }}
+                />
 
-            <TextField
-                label="Confirm Password"
-                type={showPassword ? 'text' : 'password'}
-                fullWidth
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                            </IconButton>
-                        </InputAdornment>
-                    ),
-                }}
-            />
+                <TextField
+                    label="Confirm Password"
+                    type={showPassword ? 'text' : 'password'}
+                    fullWidth
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', backgroundColor: '#f8fafc' } }}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </IconButton>
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+            </Box>
 
             <Button
                 type="submit"
@@ -113,21 +126,24 @@ const Signup: React.FC = () => {
                 disabled={isLoading}
                 fullWidth
                 sx={{
-                    mt: 2,
-                    py: 1.5,
+                    mt: 1,
+                    py: 1.8,
                     bgcolor: '#FFC107',
-                    '&:hover': { bgcolor: '#FF7700' },
+                    color: '#000',
+                    '&:hover': { bgcolor: '#eab308' },
                     borderRadius: '12px',
-                    fontWeight: 800,
-                    textTransform: 'none'
+                    fontWeight: 900,
+                    fontSize: '1rem',
+                    textTransform: 'none',
+                    boxShadow: '0 4px 12px rgba(255, 193, 7, 0.3)',
                 }}
             >
-                {isLoading ? <Loader2 className="animate-spin" /> : 'Get Started'}
+                {isLoading ? <Loader2 className="animate-spin" /> : 'Create Account'}
             </Button>
 
             <Box sx={{ textAlign: 'center', mt: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                    Already have an account? <Link to="/login" style={{ color: '#FFC107', fontWeight: 700, textDecoration: 'none' }}>Log in</Link>
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
+                    Already have an account? <Link to="/login" style={{ color: '#FFC107', fontWeight: 800, textDecoration: 'none', marginLeft: '4px' }}>Sign In</Link>
                 </Typography>
             </Box>
         </Box>
