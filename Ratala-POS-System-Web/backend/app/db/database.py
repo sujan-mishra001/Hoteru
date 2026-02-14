@@ -106,19 +106,33 @@ def init_db():
         Base.metadata.create_all(bind=engine)
         print("Database tables initialized")
 
-        # Manually fix schema for production (missing columns in users table)
+        # Manually fix schema for production
         from sqlalchemy import text
-        with engine.connect() as conn:
-            # Set isolation level to AUTOCOMMIT for DDL
-            conn = conn.execution_options(isolation_level="AUTOCOMMIT")
-            try:
-                # Check/Add profile_image_url
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url VARCHAR"))
-                # Check/Add profile_image_data
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_data BYTEA"))
-                print("✓ Schema verified (manual update applied if needed)")
-            except Exception as e:
-                print(f"Schema update check failed (ignoring): {e}")
+        try:
+            with engine.connect() as conn:
+                conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+                print("Checking schema for missing columns...")
+                
+                updates = [
+                    ("users", "profile_image_url", "VARCHAR"),
+                    ("users", "profile_image_data", "BYTEA"),
+                    ("categories", "image_data", "BYTEA"),
+                    ("menu_groups", "image_data", "BYTEA"),
+                    ("menu_items", "image_data", "BYTEA"),
+                    ("company_settings", "logo_url", "VARCHAR"),
+                    ("company_settings", "logo_data", "BYTEA")
+                ]
+                
+                for table, col, dtype in updates:
+                    try:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {dtype}"))
+                        print(f"  ✓ {table}.{col} verified")
+                    except Exception as e:
+                        print(f"  ⚠ Error checking {table}.{col}: {e}")
+                
+                print("✓ Schema verified")
+        except Exception as e:
+            print(f"⚠ Schema check failed: {e}")
 
     except OperationalError as e:
         print(f"Error creating tables: {e}")

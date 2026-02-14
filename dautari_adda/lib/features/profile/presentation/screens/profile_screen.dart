@@ -297,14 +297,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   
                               return NetworkImage(fullUrl);
                             }(),
+                            onBackgroundImageError: (_userProfile?['profile_image_url'] != null && _userProfile?['profile_image_url'] != "")
+                                ? (exception, stackTrace) {
+                                    print('Error loading profile picture: $exception');
+                                  }
+                                : null,
                             child: _isUploading
                                 ? const CircularProgressIndicator(color: Color(0xFFFFC107))
                                 : (_userProfile?['profile_image_url'] == null || _userProfile?['profile_image_url'] == "")
                                     ? const Icon(Icons.person, size: 50, color: Color(0xFFFFC107))
                                     : null,
-                            onBackgroundImageError: (exception, stackTrace) {
-                              print('Error loading profile picture: $exception');
-                            },
                           ),
                         ),
                         // Camera icon badge
