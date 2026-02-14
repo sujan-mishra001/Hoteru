@@ -3,7 +3,6 @@ import 'package:dautari_adda/core/utils/toast_service.dart';
 import 'package:dautari_adda/features/profile/data/settings_service.dart';
 import 'package:dautari_adda/core/theme/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dautari_adda/features/admin/presentation/screens/printer_management_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -22,6 +21,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _vibrationEnabled = true;
   bool _darkMode = false;
 
+  // Business settings
+  double _taxRate = 13.0;
+  double _serviceChargeRate = 10.0;
+  double _discountRate = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +42,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _notificationsEnabled = settings['notifications_enabled'] ?? true;
           _soundEnabled = settings['sound_enabled'] ?? true;
           _vibrationEnabled = settings['vibration_enabled'] ?? true;
+          _taxRate = (settings['tax_rate'] ?? 13.0).toDouble();
+          _serviceChargeRate = (settings['service_charge_rate'] ?? 10.0).toDouble();
+          _discountRate = (settings['discount_rate'] ?? 0.0).toDouble();
+          // We don't overwrite _darkMode here because it's already set from ThemeProvider
+          // and usually controlled locally for instant feedback, but let's sync if needed
         });
         
         // Save to local storage for immediate service access
@@ -60,6 +69,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'notifications_enabled': _notificationsEnabled,
         'sound_enabled': _soundEnabled,
         'vibration_enabled': _vibrationEnabled,
+        'tax_rate': _taxRate,
+        'service_charge_rate': _serviceChargeRate,
+        'discount_rate': _discountRate,
         'dark_mode': _darkMode,
       });
 
@@ -105,7 +117,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // App Preferences
+                  // Business Settings
+                  _buildSectionHeader('Business Settings'),
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    child: Column(
+                      children: [
+                        _buildSliderTile(
+                          icon: Icons.percent,
+                          title: 'Tax Rate',
+                          value: _taxRate,
+                          onChanged: (val) => setState(() => _taxRate = val),
+                          suffix: '%',
+                        ),
+                        const Divider(height: 1),
+                        _buildSliderTile(
+                          icon: Icons.room_service,
+                          title: 'Service Charge',
+                          value: _serviceChargeRate,
+                          onChanged: (val) => setState(() => _serviceChargeRate = val),
+                          suffix: '%',
+                        ),
+                        const Divider(height: 1),
+                        _buildSliderTile(
+                          icon: Icons.discount,
+                          title: 'Default Discount',
+                          value: _discountRate,
+                          onChanged: (val) => setState(() => _discountRate = val),
+                          suffix: '%',
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Preferences
                   _buildSectionHeader('App Preferences'),
                   Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -153,57 +200,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           leading: const Icon(Icons.privacy_tip_outlined),
                           title: const Text('Privacy Policy'),
                           onTap: () => ToastService.showInfo(context, 'Opening Privacy Policy...'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // System & About
-                  _buildSectionHeader('System & About'),
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.print, color: Colors.blue),
-                          title: const Text('Printer Management'),
-                          subtitle: const Text('Configure POS printers and devices'),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const PrinterManagementScreen()),
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.info_outline, color: Colors.green),
-                          title: const Text('About App'),
-                          subtitle: const Text('Version: 1.0.0 (Dautari Adda POS)'),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                          onTap: () {
-                            showAboutDialog(
-                              context: context,
-                              applicationName: 'Dautari Adda',
-                              applicationVersion: '1.0.0',
-                              applicationIcon: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFC107).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.restaurant,
-                                  size: 40,
-                                  color: Color(0xFFFFC107),
-                                ),
-                              ),
-                              children: [
-                                const Text("Professional POS & Restaurant Management System."),
-                              ],
-                            );
-                          },
                         ),
                       ],
                     ),

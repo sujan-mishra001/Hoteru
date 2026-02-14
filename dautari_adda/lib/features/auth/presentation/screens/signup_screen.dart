@@ -92,12 +92,12 @@ class _SignupScreenState extends State<SignupScreen> {
                       Hero(
                         tag: 'app_logo',
                         child: Image.asset(
-                          'assets/images/dautari-logo.png',
-                          height: 100,
+                          'assets/images/app-logo.png',
+                          height: 130,
                           fit: BoxFit.contain,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 12),
                       
                       // App Name
                       Text(
@@ -110,7 +110,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         'Sign up to get started!',
                         textAlign: TextAlign.center,
@@ -119,7 +119,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           color: Colors.grey[600],
                         ),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 36),
                       
                       // Name Field
                       _buildTextField(
