@@ -94,11 +94,29 @@ async def create_order(
     items_data = order_data.pop('items', [])
     
     if 'order_number' not in order_data:
-        # Get global count of orders for this branch to generate sequential number
-        branch_id = current_user.current_branch_id
-        order_count = db.query(Order).filter(Order.branch_id == branch_id).count()
-        seq = order_count + 1
-        order_data['order_number'] = f"ORD-{datetime.now().strftime('%Y%m%d')}-{seq:04d}"
+        # Generate globally unique order number (format: ORD-YYYYMMDD-SEQ)
+        # We search for the last order of the day globally to avoid collision between branches
+        today_str = datetime.now().strftime('%Y%m%d')
+        prefix = f"ORD-{today_str}-"
+        
+        last_order = db.query(Order).filter(
+            Order.order_number.like(f"{prefix}%")
+        ).order_by(Order.order_number.desc()).first()
+        
+        if last_order:
+            try:
+                parts = last_order.order_number.split('-')
+                if len(parts) >= 3:
+                    last_seq = int(parts[-1])
+                    seq = last_seq + 1
+                else:
+                    seq = 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+            
+        order_data['order_number'] = f"{prefix}{seq:04d}"
     order_data['created_by'] = current_user.id
     
     # Tie to active POS Session
@@ -197,11 +215,22 @@ async def create_order(
 
     # Create KOT
     if kot_items:
-        kot_count = db.query(KOT).filter(
-            func.date(KOT.created_at) == datetime.now().date(),
-            KOT.kot_type == 'KOT'
-        ).count()
-        new_kot_num = f"KOT-{datetime.now().strftime('%Y%m%d')}-{kot_count + 1:04d}"
+        today_str = datetime.now().strftime('%Y%m%d')
+        kot_prefix = f"KOT-{today_str}-"
+        last_kot = db.query(KOT).filter(
+            KOT.kot_number.like(f"{kot_prefix}%")
+        ).order_by(KOT.kot_number.desc()).first()
+        
+        kot_seq = 1
+        if last_kot:
+            try:
+                parts = last_kot.kot_number.split('-')
+                if len(parts) >= 3:
+                    kot_seq = int(parts[-1]) + 1
+            except (ValueError, IndexError):
+                pass
+        
+        new_kot_num = f"{kot_prefix}{kot_seq:04d}"
         
         kot = KOT(
             kot_number=new_kot_num,
@@ -224,11 +253,22 @@ async def create_order(
             
     # Create BOT
     if bot_items:
-        bot_count = db.query(KOT).filter(
-            func.date(KOT.created_at) == datetime.now().date(),
-            KOT.kot_type == 'BOT'
-        ).count()
-        new_bot_num = f"BOT-{datetime.now().strftime('%Y%m%d')}-{bot_count + 1:04d}"
+        today_str = datetime.now().strftime('%Y%m%d')
+        bot_prefix = f"BOT-{today_str}-"
+        last_bot = db.query(KOT).filter(
+            KOT.kot_number.like(f"{bot_prefix}%")
+        ).order_by(KOT.kot_number.desc()).first()
+        
+        bot_seq = 1
+        if last_bot:
+            try:
+                parts = last_bot.kot_number.split('-')
+                if len(parts) >= 3:
+                    bot_seq = int(parts[-1]) + 1
+            except (ValueError, IndexError):
+                pass
+        
+        new_bot_num = f"{bot_prefix}{bot_seq:04d}"
         
         bot = KOT(
             kot_number=new_bot_num,
@@ -612,11 +652,22 @@ async def add_order_items(
 
     # Create KOT
     if kot_items:
-        kot_count = db.query(KOT).filter(
-            func.date(KOT.created_at) == datetime.now().date(),
-            KOT.kot_type == 'KOT'
-        ).count()
-        new_kot_num = f"KOT-{datetime.now().strftime('%Y%m%d')}-{kot_count + 1:04d}"
+        today_str = datetime.now().strftime('%Y%m%d')
+        kot_prefix = f"KOT-{today_str}-"
+        last_kot = db.query(KOT).filter(
+            KOT.kot_number.like(f"{kot_prefix}%")
+        ).order_by(KOT.kot_number.desc()).first()
+        
+        kot_seq = 1
+        if last_kot:
+            try:
+                parts = last_kot.kot_number.split('-')
+                if len(parts) >= 3:
+                    kot_seq = int(parts[-1]) + 1
+            except (ValueError, IndexError):
+                pass
+        
+        new_kot_num = f"{kot_prefix}{kot_seq:04d}"
         
         kot = KOT(
             kot_number=new_kot_num,
@@ -639,11 +690,22 @@ async def add_order_items(
             
     # Create BOT
     if bot_items:
-        bot_count = db.query(KOT).filter(
-            func.date(KOT.created_at) == datetime.now().date(),
-            KOT.kot_type == 'BOT'
-        ).count()
-        new_bot_num = f"BOT-{datetime.now().strftime('%Y%m%d')}-{bot_count + 1:04d}"
+        today_str = datetime.now().strftime('%Y%m%d')
+        bot_prefix = f"BOT-{today_str}-"
+        last_bot = db.query(KOT).filter(
+            KOT.kot_number.like(f"{bot_prefix}%")
+        ).order_by(KOT.kot_number.desc()).first()
+        
+        bot_seq = 1
+        if last_bot:
+            try:
+                parts = last_bot.kot_number.split('-')
+                if len(parts) >= 3:
+                    bot_seq = int(parts[-1]) + 1
+            except (ValueError, IndexError):
+                pass
+        
+        new_bot_num = f"{bot_prefix}{bot_seq:04d}"
         
         bot = KOT(
             kot_number=new_bot_num,
