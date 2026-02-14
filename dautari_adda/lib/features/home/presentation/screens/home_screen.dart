@@ -20,9 +20,9 @@ class HomeScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? navigationItems;
 
   const HomeScreen({
-    super.key, 
-    this.onSettingsTap, 
-    this.onTabChange, 
+    super.key,
+    this.onSettingsTap,
+    this.onTabChange,
     this.navigationItems,
   });
 
@@ -36,10 +36,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final CustomerService _customerService = CustomerService();
   final SessionService _sessionService = SessionService();
   final AuthService _authService = AuthService();
-  List<MenuCategory> _categories = [];
+
+  List<dynamic> _categories = [];
   bool _isLoadingMenu = true;
   int? _selectedFloorId;
-  
+
   // Session state
   Map<String, dynamic>? _activeSession;
   bool _isLoadingSession = true;
@@ -71,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startSession() async {
-    // Check if session already exists
     if (_activeSession != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -82,7 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Show dialog for opening balance
     final TextEditingController balanceController = TextEditingController(text: "0.0");
     final double? openingBalance = await showDialog<double>(
       context: context,
@@ -124,13 +123,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (openingBalance == null) return;
 
     setState(() => _isStartingSession = true);
-    
+
     try {
       final session = await _sessionService.openSession(
         openingCash: openingBalance,
         notes: "Session started from mobile app",
       );
-      
+
       if (mounted) {
         setState(() {
           _activeSession = session;
@@ -178,7 +177,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final defaultClosing = openingCash + totalSales;
 
     final TextEditingController closingController = TextEditingController(text: defaultClosing.toStringAsFixed(2));
-    
+    final TextEditingController notesController = TextEditingController();
+
     final Map<String, dynamic>? result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
@@ -205,11 +205,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
+              controller: notesController,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 hintText: "Notes (optional)",
               ),
-              onChanged: (value) {},
             ),
           ],
         ),
@@ -223,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final closingBalance = double.tryParse(closingController.text) ?? defaultClosing;
               Navigator.pop(context, {
                 'closingCash': closingBalance,
-                'notes': '',
+                'notes': notesController.text,
               });
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -236,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result == null) return;
 
     setState(() => _isStartingSession = true);
-    
+
     try {
       final success = await _sessionService.closeSession(
         sessionId: sessionId,
@@ -244,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
         totalSales: totalSales,
         notes: result['notes'],
       );
-      
+
       if (success && mounted) {
         setState(() {
           _activeSession = null;
@@ -293,14 +293,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_activeSession != null) {
-      // Session is active - show details and end button
       final startTime = _activeSession!['start_time'] != null
           ? DateTime.parse(_activeSession!['start_time'])
           : null;
       final startedBy = _activeSession!['user']?['full_name'] ?? 'Unknown';
       final openingCash = (_activeSession!['opening_cash'] as num?)?.toDouble() ?? 0.0;
       final totalSales = (_activeSession!['total_sales'] as num?)?.toDouble() ?? 0.0;
-      
+
       String timeText = '';
       if (startTime != null) {
         final now = DateTime.now();
@@ -313,7 +312,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Session info card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -340,21 +338,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text("Started by: $startedBy", style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
-                Text("Opening: Rs ${openingCash.toStringAsFixed(2)} • Sales: Rs ${totalSales.toStringAsFixed(2)}", 
-                  style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
+                Text("Started by: $startedBy",
+                    style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
+                Text("Opening: Rs ${openingCash.toStringAsFixed(2)} • Sales: Rs ${totalSales.toStringAsFixed(2)}",
+                    style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          // End Session button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _isStartingSession ? null : _endSession,
-              icon: _isStartingSession 
-                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.stop_circle, color: Colors.white),
+              icon: _isStartingSession
+                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.stop_circle, color: Colors.white),
               label: Text(
                 _isStartingSession ? "Processing..." : "End Session",
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
@@ -371,7 +369,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // No active session - show start button
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -403,9 +400,9 @@ class _HomeScreenState extends State<HomeScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _isStartingSession ? null : _startSession,
-            icon: _isStartingSession 
-              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC107)))
-              : const Icon(Icons.play_circle_fill, color: Colors.black87),
+            icon: _isStartingSession
+                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC107)))
+                : const Icon(Icons.play_circle_fill, color: Colors.black87),
             label: Text(
               _isStartingSession ? "Starting..." : "Open Session",
               style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
@@ -424,8 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadFloors() async {
     await _tableService.initializationDone;
-    
-    // 1. Use existing data if available (prevent redundant reload)
+
     if (_tableService.floors.isNotEmpty) {
       if (mounted) {
         setState(() {
@@ -433,14 +429,12 @@ class _HomeScreenState extends State<HomeScreen> {
             _selectedFloorId = _tableService.floors.first.id;
           }
         });
-        // If tables are already loaded and match the selected floor (or if we have all tables), skip fetch
         if (_tableService.tables.isNotEmpty) {
           return;
         }
       }
     }
 
-    // 2. Fetch only if data is missing
     await _tableService.fetchFloors();
     if (_tableService.floors.isNotEmpty) {
       if (mounted) {
@@ -454,31 +448,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMenu() async {
     await _tableService.initializationDone;
-    
-    // 1. Use existing data from SyncService if valid
+
     if (_syncService.categories.isNotEmpty) {
-       if (mounted) {
+      if (mounted) {
         setState(() {
           _categories = _syncService.categories;
           _isLoadingMenu = false;
         });
-       }
-       // Add listener and return, skipping redundant sync
-       _syncService.addListener(_onSyncUpdate);
-       return;
+      }
+      _syncService.addListener(_onSyncUpdate);
+      return;
     }
 
     if (!_syncService.isCacheValid) {
       await _syncService.syncPOSData();
     }
+
     if (mounted) {
       setState(() {
         _categories = _syncService.categories;
         _isLoadingMenu = false;
       });
     }
-    
-    // Listen for updates
+
     _syncService.addListener(_onSyncUpdate);
   }
 
@@ -550,17 +542,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAddTableDialog() {
-    if (_selectedFloorId == null) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please add or select a floor first")),
+    if (_selectedFloorId == null || _selectedFloorId == kHoldSectionId || _selectedFloorId == kMergeSectionId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a regular floor first")),
       );
       return;
     }
-    
+
     final idController = TextEditingController();
     final capacityController = TextEditingController(text: "4");
     String selectedType = "Regular";
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -629,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (idController.text.isNotEmpty) {
                   final cap = int.tryParse(capacityController.text) ?? 4;
                   final success = await _tableService.createTable(
-                    idController.text.trim(), 
+                    idController.text.trim(),
                     _selectedFloorId!,
                     capacity: cap,
                     type: selectedType,
@@ -790,7 +782,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(24.0),
               child: Row(
                 children: [
-                   Container(
+                  Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFC107).withOpacity(0.1),
@@ -955,194 +947,209 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: const [
           SizedBox(width: 8),
         ],
-
       ),
       body: ListenableBuilder(
         listenable: _tableService,
         builder: (context, child) {
           final floors = _tableService.floors;
           List<PosTable> tables;
+
           if (_selectedFloorId == kHoldSectionId) {
             tables = _tableService.tables.where((t) => t.isHoldTable == 'Yes').toList();
           } else if (_selectedFloorId == kMergeSectionId) {
             tables = _tableService.tables.where((t) => t.mergeGroupId != null).toList();
           } else {
-            tables = _tableService.tables.where((t) => t.floorId == _selectedFloorId && t.isHoldTable != 'Yes' && t.mergeGroupId == null).toList();
+            tables = _tableService.tables
+                .where((t) => t.floorId == _selectedFloorId && t.isHoldTable != 'Yes' && t.mergeGroupId == null)
+                .toList();
           }
-          
+
           if (floors.isEmpty && _selectedFloorId != null && _selectedFloorId != kHoldSectionId && _selectedFloorId != kMergeSectionId) {
             return const Center(child: Text('No floors available. Please add floors first.'));
           }
+
           if (floors.isEmpty && _selectedFloorId == null) {
             return const Center(child: Text('No floors available. Please add floors first.'));
           }
+
           return RefreshIndicator(
             onRefresh: () => _tableService.fetchTables(),
             color: const Color(0xFFFFC107),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Session Status Card removed as per request
-
-              // Floor Selection + Hold + Merge (permanent)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Floor Layout",
-                      style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      _selectedFloorId == kMergeSectionId
-                          ? "${_getMergeGroups(tables).length} Merge Groups"
-                          : "${tables.length} Tables",
-                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500),
-                    ),
-                  ],
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Floor Layout",
+                        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        _selectedFloorId == kMergeSectionId
+                            ? "${_getMergeGroups(tables).length} Merge Groups"
+                            : "${tables.length} Tables",
+                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 44,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    ...floors.map((floor) {
-                      final isSelected = _selectedFloorId == floor.id;
-                      return Padding(
+                SizedBox(
+                  height: 44,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      ...floors.map((floor) {
+                        final isSelected = _selectedFloorId == floor.id;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _selectedFloorId = floor.id);
+                              _tableService.fetchTables(floorId: floor.id);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFFFFC107) : Theme.of(context).cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFFFFC107)
+                                        : Theme.of(context).dividerColor.withOpacity(0.1)),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                            color: const Color(0xFFFFC107).withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2))
+                                      ]
+                                    : null,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                floor.name,
+                                style: GoogleFonts.poppins(
+                                  color: isSelected ? Colors.black87 : Theme.of(context).textTheme.bodySmall?.color,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: GestureDetector(
                           onTap: () {
-                            setState(() => _selectedFloorId = floor.id);
-                            _tableService.fetchTables(floorId: floor.id);
+                            setState(() => _selectedFloorId = kHoldSectionId);
+                            _tableService.fetchTables();
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFFFFC107) : Theme.of(context).cardColor,
+                              color: _selectedFloorId == kHoldSectionId ? Colors.orange : Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: isSelected ? const Color(0xFFFFC107) : Theme.of(context).dividerColor.withOpacity(0.1)),
-                              boxShadow: isSelected ? [
-                                BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
-                              ] : null,
+                              border: Border.all(
+                                  color: _selectedFloorId == kHoldSectionId
+                                      ? Colors.orange
+                                      : Theme.of(context).dividerColor.withOpacity(0.1)),
+                              boxShadow: _selectedFloorId == kHoldSectionId
+                                  ? [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
+                                  : null,
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              floor.name,
+                              "Hold Table",
                               style: GoogleFonts.poppins(
-                                color: isSelected ? Colors.black87 : Theme.of(context).textTheme.bodySmall?.color,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: _selectedFloorId == kHoldSectionId
+                                    ? Colors.white
+                                    : Theme.of(context).textTheme.bodySmall?.color,
+                                fontWeight: _selectedFloorId == kHoldSectionId ? FontWeight.bold : FontWeight.w500,
                                 fontSize: 13,
                               ),
                             ),
                           ),
                         ),
-                      );
-                    }),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
+                      ),
+                      GestureDetector(
                         onTap: () {
-                          setState(() => _selectedFloorId = kHoldSectionId);
+                          setState(() => _selectedFloorId = kMergeSectionId);
                           _tableService.fetchTables();
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           decoration: BoxDecoration(
-                            color: _selectedFloorId == kHoldSectionId ? Colors.orange : Theme.of(context).cardColor,
+                            color: _selectedFloorId == kMergeSectionId ? Colors.blue : Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _selectedFloorId == kHoldSectionId ? Colors.orange : Theme.of(context).dividerColor.withOpacity(0.1)),
-                            boxShadow: _selectedFloorId == kHoldSectionId ? [
-                              BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
-                            ] : null,
+                            border: Border.all(
+                                color: _selectedFloorId == kMergeSectionId
+                                    ? Colors.blue
+                                    : Theme.of(context).dividerColor.withOpacity(0.1)),
+                            boxShadow: _selectedFloorId == kMergeSectionId
+                                ? [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
+                                : null,
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            "Hold Table",
+                            "Merge Table",
                             style: GoogleFonts.poppins(
-                              color: _selectedFloorId == kHoldSectionId ? Colors.white : Theme.of(context).textTheme.bodySmall?.color,
-                              fontWeight: _selectedFloorId == kHoldSectionId ? FontWeight.bold : FontWeight.w500,
+                              color:
+                                  _selectedFloorId == kMergeSectionId ? Colors.white : Theme.of(context).textTheme.bodySmall?.color,
+                              fontWeight: _selectedFloorId == kMergeSectionId ? FontWeight.bold : FontWeight.w500,
                               fontSize: 13,
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedFloorId = kMergeSectionId);
-                        _tableService.fetchTables();
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: _selectedFloorId == kMergeSectionId ? Colors.blue : Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _selectedFloorId == kMergeSectionId ? Colors.blue : Theme.of(context).dividerColor.withOpacity(0.1)),
-                          boxShadow: _selectedFloorId == kMergeSectionId ? [
-                            BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
-                          ] : null,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          "Merge Table",
-                          style: GoogleFonts.poppins(
-                            color: _selectedFloorId == kMergeSectionId ? Colors.white : Theme.of(context).textTheme.bodySmall?.color,
-                            fontWeight: _selectedFloorId == kMergeSectionId ? FontWeight.bold : FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-
-              // Tables Grid
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: _tableService.isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-                      : tables.isEmpty
-                          ? _buildEmptyTablesState()
-                          : RefreshIndicator(
-                              onRefresh: () async {
-                                await _loadFloors();
-                                await _loadMenu();
-                              },
-                              child: _selectedFloorId == kMergeSectionId
-                                  ? _buildMergeSectionGrid(tables)
-                                  : GridView.builder(
-                                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 3,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                        childAspectRatio: 0.85,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: _tableService.isLoading
+                        ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
+                        : tables.isEmpty
+                            ? _buildEmptyTablesState()
+                            : RefreshIndicator(
+                                onRefresh: () async {
+                                  await _loadFloors();
+                                  await _loadMenu();
+                                },
+                                child: _selectedFloorId == kMergeSectionId
+                                    ? _buildMergeSectionGrid(tables)
+                                    : GridView.builder(
+                                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 3,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                          childAspectRatio: 0.85,
+                                        ),
+                                        itemCount: tables.length,
+                                        itemBuilder: (context, index) {
+                                          final table = tables[index];
+                                          return GestureDetector(
+                                            onLongPress: () => _showEditTableDialog(table),
+                                            child: _buildSaaSTableCard(table),
+                                          );
+                                        },
                                       ),
-                                      itemCount: tables.length,
-                                      itemBuilder: (context, index) {
-                                        final table = tables[index];
-                                        return GestureDetector(
-                                          onLongPress: () => _showEditTableDialog(table),
-                                          child: _buildSaaSTableCard(table),
-                                        );
-                                      },
-                                    ),
-                            ),
+                              ),
+                  ),
                 ),
-              ),
-
-              // Delivery & Takeaway buttons (above bottom nav)
-              _buildDeliveryTakeawayBar(),
-            ],
-          ));
+                _buildDeliveryTakeawayBar(),
+              ],
+            ),
+          );
         },
       ),
     );
@@ -1285,7 +1292,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             onPressed: () async {
               if (nameC.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name is required'), backgroundColor: Colors.orange));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('Name is required'), backgroundColor: Colors.orange));
                 return;
               }
               try {
@@ -1308,6 +1316,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+
     if (saved == true && mounted) {
       nameController.text = nameC.text.trim();
     }
@@ -1316,9 +1325,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showDeliveryDialog() async {
     final partners = await DeliveryService().getDeliveryPartners();
     if (!mounted) return;
+
     final nameController = TextEditingController();
     int? selectedPartnerId;
     String? selectedPartnerName;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1348,9 +1359,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       items: [
                         const DropdownMenuItem(value: null, child: Text('-- Select --')),
                         ...partners.map((p) => DropdownMenuItem(
-                          value: p['id'],
-                          child: Text(p['name'] ?? 'Unknown'),
-                        )),
+                              value: p['id'],
+                              child: Text(p['name'] ?? 'Unknown'),
+                            )),
                       ],
                       onChanged: (v) => setModalState(() {
                         selectedPartnerId = v;
@@ -1407,93 +1418,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSaaSQuickStats() {
-    final activeCount = _tableService.activeTableIds.length;
-    
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFC107), Color(0xFFFFD54F)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFFFFC107).withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 8)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Quick Snapshot",
-                style: GoogleFonts.poppins(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                activeCount == 0 ? "All Tables Available" : "$activeCount Tables Active",
-                style: GoogleFonts.poppins(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.analytics_outlined, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  "Reports",
-                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSaaSCategoryChip(String label, BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(left: 16),
-      child: ActionChip(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BillScreen(
-                tableNumber: 1, 
-                navigationItems: widget.navigationItems,
-              ),
-            ),
-          );
-          if (result is int && widget.onTabChange != null) widget.onTabChange!(result);
-        },
-        label: Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
-        backgroundColor: Theme.of(context).cardColor,
-        side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      ),
-    );
-  }
-
-  /// Groups tables by merge_group_id for Merge section display
   List<List<PosTable>> _getMergeGroups(List<PosTable> tables) {
-    final Map<dynamic, List<PosTable>> groups = {};
+    final Map<String, List<PosTable>> groups = {};
     for (final t in tables) {
       if (t.mergeGroupId != null) {
-        groups.putIfAbsent(t.mergeGroupId, () => []).add(t);
+        groups.putIfAbsent(t.mergeGroupId!, () => []).add(t);
       }
     }
     return groups.values.toList();
@@ -1648,31 +1577,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final isBooked = _tableService.isTableBooked(table.id);
     final hasItems = _tableService.getCart(table.id).isNotEmpty;
     final hasKOT = table.kotCount > 0;
-    
-    // Status Logic
+
     Color statusColor = const Color(0xFF10B981); // Green (Open)
     String statusText = "OPEN";
-    
-    // Using isHoldTable field
+
     if (table.isHoldTable == 'Yes') {
       statusColor = Colors.orange;
       statusText = "ON HOLD";
-      // Determine if really booked (has orders)
       if (isBooked) statusColor = Colors.deepOrange;
     } else if (table.mergeGroupId != null) {
-      // Merged table
-      statusColor = Colors.blue; 
+      statusColor = Colors.blue;
       statusText = "MERGED";
       if (isBooked) statusColor = Colors.indigo;
     } else if (isBooked) {
-      statusColor = const Color(0xFFEF4444); // Red
+      statusColor = const Color(0xFFEF4444);
       statusText = "BOOKED";
     }
 
     return InkWell(
       onTap: () async {
         final hasActiveOrder = _tableService.isTableBooked(table.id);
-        
         if (!hasActiveOrder) {
           if (mounted) {
             Navigator.push(
@@ -1712,7 +1636,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Stack(
           children: [
-            // Hold/Merge Status Badge (shown in same area)
             if (table.isHoldTable == 'Yes' || table.mergeGroupId != null)
               Positioned(
                 top: 8,
@@ -1733,8 +1656,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-            
-            // 3-Dots Menu
             Positioned(
               top: 0,
               right: 0,
@@ -1744,11 +1665,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 onSelected: (value) async {
                   if (value == 'hold') {
-                    // Toggle Hold
                     bool newStatus = table.isHoldTable != 'Yes';
                     await _tableService.setHoldTable(table.id, newStatus);
                     if (mounted) {
-                       ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(newStatus ? "Table set to Hold" : "Hold removed")),
                       );
                     }
@@ -1781,7 +1701,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1794,10 +1713,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      table.isHoldTable == 'Yes' ? Icons.pause_circle_filled : Icons.table_bar_rounded, 
-                      size: 24, 
-                      color: statusColor
-                    ),
+                        table.isHoldTable == 'Yes' ? Icons.pause_circle_filled : Icons.table_bar_rounded,
+                        size: 24,
+                        color: statusColor),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -1830,8 +1748,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            
-            // Amount badge (Top Left now, to avoid overlap with menu)
             if (isBooked && table.totalAmount > 0)
               Positioned(
                 top: 6,
@@ -1854,134 +1770,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSessionCard(Map<String, dynamic>? session) {
-    if (session == null) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red.withOpacity(0.2)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.red),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("No Active Session", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.red[700])),
-                  Text("Please start a session to manage orders", style: GoogleFonts.poppins(fontSize: 12, color: Colors.red[900])),
-                ],
-              ),
-            ),
-            ElevatedButton(
-              onPressed: _showStartSessionDialog,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, elevation: 0),
-              child: const Text("Start"),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.green.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.check_circle_outline, color: Colors.green),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Session Active", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.green[700])),
-                Text("Opened: ${session['start_time']}", style: GoogleFonts.poppins(fontSize: 10, color: Colors.green[800])),
-              ],
-            ),
-          ),
-          Text("Rs ${session['opening_cash']}", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 12),
-          IconButton(
-            onPressed: () => _showEndSessionDialog(),
-            icon: const Icon(Icons.power_settings_new, color: Colors.red),
-            tooltip: "Close Session",
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showStartSessionDialog() {
-    final controller = TextEditingController(text: "0");
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Start POS Session"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Enter opening cash in drawer:"),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: const InputDecoration(prefixText: "Rs ", border: OutlineInputBorder()),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () async {
-              final cash = double.tryParse(controller.text) ?? 0.0;
-              final success = await _syncService.startSession(cash);
-              if (success && mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Session started successfully")));
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107)),
-            child: const Text("Start Session"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEndSessionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Close POS Session?"),
-        content: const Text("This will finalize all sales for this shift. Are you sure?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () async {
-              final success = await _syncService.endSession();
-              if (success && mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Session closed successfully")));
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Close Session"),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyTablesState() {
     return Center(
       child: Column(
@@ -1994,7 +1782,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: GoogleFonts.poppins(color: Colors.grey[400], fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          if (_selectedFloorId != null)
+          if (_selectedFloorId != null && _selectedFloorId != kHoldSectionId && _selectedFloorId != kMergeSectionId)
             ElevatedButton(
               onPressed: _showAddTableDialog,
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107), foregroundColor: Colors.black87),
@@ -2005,112 +1793,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-  Widget _buildEnhancedStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.4),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                color: color.withOpacity(0.7),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickCategory(IconData icon, String label, Color color, BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 12),
-      child: ActionChip(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BillScreen(
-                tableNumber: 1, 
-                navigationItems: widget.navigationItems,
-              ),
-            ),
-          );
-          if (result is int && widget.onTabChange != null) {
-            widget.onTabChange!(result);
-          }
-        },
-        avatar: Icon(icon, size: 16, color: color),
-        label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.white,
-        side: BorderSide(color: color.withOpacity(0.2)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      ),
-    );
-  }
-
-  IconData _getIconForCategory(String name) {
-    name = name.toLowerCase();
-    if (name.contains('bev') || name.contains('coffee') || name.contains('tea')) return Icons.coffee_rounded;
-    if (name.contains('food') || name.contains('snack')) return Icons.restaurant_rounded;
-    if (name.contains('dairy')) return Icons.icecream_rounded;
-    if (name.contains('dal')) return Icons.soup_kitchen_rounded;
-    if (name.contains('drink') || name.contains('beer') || name.contains('whisky')) return Icons.local_bar_rounded;
-    if (name.contains('smoke')) return Icons.smoking_rooms_rounded;
-    return Icons.restaurant_menu_rounded;
-  }
-
-  Color _getColorForCategory(String name) {
-    name = name.toLowerCase();
-    if (name.contains('bev')) return Colors.brown;
-    if (name.contains('food')) return Colors.pink;
-    if (name.contains('dairy')) return Colors.blue;
-    if (name.contains('dal')) return Colors.green;
-    if (name.contains('drink')) return Colors.purple;
-    if (name.contains('smoke')) return Colors.blueGrey;
-    return Colors.orange;
-  }
-
-
   void _showMergeTableDialog(PosTable primaryTable) {
-    final availableTables = _tableService.tables.where((t) => t.id != primaryTable.id && _tableService.isTableBooked(t.id) == false).toList();
+    final availableTables = _tableService.tables
+        .where((t) =>
+            t.id != primaryTable.id &&
+            t.mergeGroupId == null &&
+            t.isHoldTable != 'Yes' &&
+            _tableService.isTableBooked(t.id) == false)
+        .toList();
+
     final List<int> selectedIds = [];
 
     if (availableTables.isEmpty) {
@@ -2135,8 +1826,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   value: selectedIds.contains(t.id),
                   onChanged: (val) {
                     setDialogState(() {
-                      if (val == true) selectedIds.add(t.id);
-                      else selectedIds.remove(t.id);
+                      if (val == true) {
+                        selectedIds.add(t.id);
+                      } else {
+                        selectedIds.remove(t.id);
+                      }
                     });
                   },
                 );
@@ -2148,14 +1842,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (selectedIds.isEmpty) return;
-                
-                Navigator.pop(context); // Close dialog first
-
+                Navigator.pop(context);
                 final success = await _tableService.mergeTables(primaryTable.id, selectedIds);
                 if (success && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tables Merged Successfully")));
                 } else if (mounted) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Merge Failed"), backgroundColor: Colors.red));
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(const SnackBar(content: Text("Merge Failed"), backgroundColor: Colors.red));
                 }
               },
               child: const Text("Merge"),
