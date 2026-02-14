@@ -263,47 +263,28 @@ async def update_user_me(
     return current_user
 
 
+@router.post("/users/me/profile-picture")
 @router.post("/users/me/photo")
 async def update_user_photo(
     file: UploadFile = File(...),
     current_user: DBUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload and update user profile photo"""
-    # Create directory if it doesn't exist
-    upload_dir = "uploads/profiles"
-    os.makedirs(upload_dir, exist_ok=True)
-    
+    """Upload and update current user's profile photo"""
     # Validate file type
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
     
-    # Generate unique filename
-    file_extension = os.path.splitext(file.filename)[1]
-    filename = f"profile_{current_user.id}_{uuid.uuid4().hex}{file_extension}"
-    file_path = os.path.join(upload_dir, filename)
-    
-    # Save file
     try:
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+        content = await file.read()
+        current_user.profile_image_data = content
+        current_user.profile_image_url = f"/api/v1/images/users/{current_user.id}/profile"
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Could not save image: {str(e)}")
         
-    # Update user model
-    # Delete old photo if exists
-    if current_user.profile_image_url:
-        old_path = current_user.profile_image_url.lstrip("/")
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except:
-                pass
-                
-    current_user.profile_image_url = f"/{upload_dir}/{filename}"
-    db.commit()
-    
     return {"profile_image_url": current_user.profile_image_url}
 
 

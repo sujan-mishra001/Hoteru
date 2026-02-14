@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:dautari_adda/core/api/api_service.dart';
 import 'dart:convert';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 class CompanyDataScreen extends StatefulWidget {
   const CompanyDataScreen({super.key});
@@ -57,153 +59,250 @@ class _CompanyDataScreenState extends State<CompanyDataScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: AppBar(
-          title: const Text(
-            'Company Data',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
+      backgroundColor: const Color(0xFFF8F9FD),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
+          : _error != null
+              ? _buildErrorState()
+              : _buildMainContent(),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline_rounded, size: 80, color: Colors.red.shade300),
+          const SizedBox(height: 24),
+          Text(
+            "Oops! Something went wrong",
+            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(color: Colors.grey[600]),
             ),
           ),
-          backgroundColor: const Color(0xFFFFC107),
-          elevation: 0,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: _loadCompanyData,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try Again'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC107),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.black),
-              onPressed: _isLoading ? null : _loadCompanyData,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return CustomScrollView(
+      slivers: [
+        _buildSliverAppBar(),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader("Basic Information", Icons.info_outline_rounded),
+                _buildInfoGroup([
+                  _buildDetailTile(Icons.business_rounded, "Company Name", _companyData?['company_name']),
+                  _buildDetailTile(Icons.email_outlined, "Email Address", _companyData?['email']),
+                  _buildDetailTile(Icons.phone_outlined, "Phone Number", _companyData?['phone']),
+                  _buildDetailTile(Icons.location_on_outlined, "Headquarters", _companyData?['address']),
+                ]),
+                const SizedBox(height: 32),
+                _buildSectionHeader("Tax & Compliance", Icons.verified_user_outlined),
+                _buildInfoGroup([
+                  _buildDetailTile(Icons.assignment_ind_outlined, "VAT/PAN No.", _companyData?['vat_pan_no']),
+                  _buildDetailTile(Icons.app_registration_rounded, "Registration No.", _companyData?['registration_no']),
+                  _buildDetailTile(Icons.receipt_long_outlined, "Invoice Prefix", _companyData?['invoice_prefix']),
+                ]),
+                const SizedBox(height: 32),
+                _buildSectionHeader("Billing & Charges", Icons.payments_outlined),
+                _buildInfoGroup([
+                  _buildDetailTile(Icons.currency_exchange_rounded, "Currency", _companyData?['currency']),
+                  _buildDetailTile(Icons.percent_rounded, "Tax Rate", "${_companyData?['tax_rate']}%"),
+                  _buildDetailTile(Icons.room_service_outlined, "Service Charge", "${_companyData?['service_charge_rate']}%"),
+                  _buildDetailTile(Icons.discount_outlined, "Default Discount", "${_companyData?['discount_rate']}%"),
+                ]),
+                const SizedBox(height: 32),
+                _buildSectionHeader("Additional Details", Icons.more_horiz_rounded),
+                _buildInfoGroup([
+                  _buildDetailTile(Icons.schedule_rounded, "Timezone", _companyData?['timezone']),
+                  _buildDetailTile(Icons.calendar_today_outlined, "Member Since", _formatDate(_companyData?['created_at'])),
+                  _buildDetailTile(Icons.update_rounded, "Last Updated", _formatDate(_companyData?['updated_at'])),
+                ]),
+                if (_companyData?['invoice_footer_text'] != null && _companyData?['invoice_footer_text'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 32),
+                  _buildSectionHeader("Invoice Footer", Icons.short_text_rounded),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Text(
+                      _companyData?['invoice_footer_text'],
+                      style: GoogleFonts.poppins(fontStyle: FontStyle.italic, color: Colors.grey[700]),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: 180.0,
+      floating: false,
+      pinned: true,
+      backgroundColor: const Color(0xFFFFC107),
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
+        onPressed: () => Navigator.pop(context),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+          onPressed: _loadCompanyData,
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        centerTitle: true,
+        title: Text(
+          "Company Profile",
+          style: GoogleFonts.poppins(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        background: Stack(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFD54F), Color(0xFFFFC107)],
+                ),
+              ),
+            ),
+            Positioned(
+              right: -30,
+              top: -30,
+              child: Icon(Icons.business_rounded, size: 200, color: Colors.white.withOpacity(0.1)),
             ),
           ],
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC107)))
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(_error!, textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadCompanyData,
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC107)),
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadCompanyData,
-                  color: const Color(0xFFFFC107),
-                  child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: _buildCompanyFields(),
-                  ),
-                ),
     );
   }
 
-  List<Widget> _buildCompanyFields() {
-    if (_companyData == null) return [];
-    final fields = <Widget>[];
-    final displayOrder = [
-      'company_name',
-      'email',
-      'phone',
-      'address',
-      'vat_pan_no',
-      'registration_no',
-      'invoice_prefix',
-      'currency',
-      'timezone',
-      'tax_rate',
-      'service_charge_rate',
-      'discount_rate',
-      'invoice_footer_text',
-      'created_at',
-      'updated_at',
-    ];
-    final labels = {
-      'company_name': 'Company Name',
-      'email': 'Email',
-      'phone': 'Phone',
-      'address': 'Address',
-      'vat_pan_no': 'VAT/PAN No',
-      'registration_no': 'Registration No',
-      'invoice_prefix': 'Invoice Prefix',
-      'currency': 'Currency',
-      'timezone': 'Timezone',
-      'tax_rate': 'Tax Rate (%)',
-      'service_charge_rate': 'Service Charge Rate (%)',
-      'discount_rate': 'Discount Rate (%)',
-      'invoice_footer_text': 'Invoice Footer Text',
-      'created_at': 'Created At',
-      'updated_at': 'Updated At',
-    };
-    for (final key in displayOrder) {
-      if (_companyData!.containsKey(key)) {
-        final value = _companyData![key];
-        final displayValue = value == null || value.toString().isEmpty ? '-' : value.toString();
-        fields.add(_buildInfoCard(labels[key] ?? key, displayValue));
-        fields.add(const SizedBox(height: 12));
-      }
-    }
-    for (final entry in _companyData!.entries) {
-      if (!displayOrder.contains(entry.key)) {
-        fields.add(_buildInfoCard(entry.key, entry.value?.toString() ?? '-'));
-        fields.add(const SizedBox(height: 12));
-      }
-    }
-    return fields;
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFFFFC107)),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.blueGrey[800],
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildInfoCard(String label, String value) {
+  Widget _buildInfoGroup(List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDetailTile(IconData icon, String label, dynamic value) {
+    final displayValue = (value == null || value.toString().isEmpty || value.toString() == "null") ? "Not set" : value.toString();
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-                fontSize: 13,
-              ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFC107).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Icon(icon, size: 18, color: const Color(0xFFFFC107)),
           ),
+          const SizedBox(width: 16),
           Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  displayValue,
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+
+  String _formatDate(dynamic dateStr) {
+    if (dateStr == null) return "N/A";
+    try {
+      final date = DateTime.parse(dateStr.toString());
+      return DateFormat('MMM dd, yyyy').format(date);
+    } catch (e) {
+      return dateStr.toString();
+    }
+  }
 }
+

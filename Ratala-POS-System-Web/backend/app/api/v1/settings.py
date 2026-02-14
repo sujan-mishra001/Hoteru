@@ -195,6 +195,11 @@ async def update_company_logo(
             detail="Only admins can update company logo"
         )
         
+    settings = db.query(CompanySettings).first()
+    if not settings:
+        settings = CompanySettings()
+        db.add(settings)
+        
     # Save to database
     try:
         content = await file.read()
@@ -204,7 +209,7 @@ async def update_company_logo(
         raise HTTPException(status_code=500, detail=f"Could not read file: {str(e)}")
     
     db.commit()
-    db.commit()
+    db.refresh(settings)
     
     return {"logo_url": settings.logo_url}
 

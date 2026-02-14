@@ -92,7 +92,7 @@ const AuthLayout: React.FC = () => {
                                 Ratala Hospitality
                             </Typography>
                         </Box>
-                        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500, textAlign: { xs: 'center', sm: 'left' }, ml: { sm: 1 , xs: 'center' } }}>
+                        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 500, textAlign: { xs: 'center', sm: 'left' }, ml: { sm: 1, xs: 0 } }}>
                             Restaurant Management App
                         </Typography>
                     </Box>
