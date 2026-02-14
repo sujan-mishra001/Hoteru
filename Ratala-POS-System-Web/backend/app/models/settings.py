@@ -1,7 +1,7 @@
 """
 Settings-related models (Company Settings, Payment Modes, etc.)
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, LargeBinary
 from datetime import datetime
 from app.db.database import Base
 
@@ -19,6 +19,7 @@ class CompanySettings(Base):
     registration_no = Column(String, nullable=True)
     start_date = Column(String, nullable=True)
     logo_url = Column(String, nullable=True)
+    logo_data = Column(LargeBinary, nullable=True) # Binary storage for image
     
     # Invoice settings
     invoice_prefix = Column(String, default="INV")

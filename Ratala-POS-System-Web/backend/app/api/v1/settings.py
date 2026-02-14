@@ -195,46 +195,15 @@ async def update_company_logo(
             detail="Only admins can update company logo"
         )
         
-    # Create directory if it doesn't exist
-    from pathlib import Path
-    BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-    upload_dir = BASE_DIR / "uploads" / "company"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Validate file type
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-    
-    # Generate unique filename
-    file_extension = os.path.splitext(file.filename)[1]
-    filename = f"logo_{uuid.uuid4().hex}{file_extension}"
-    file_path = upload_dir / filename
-    
-    # Save file
+    # Save to database
     try:
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+        content = await file.read()
+        settings.logo_data = content
+        settings.logo_url = "/api/v1/images/company/logo" # Point to DB-serving endpoint
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
-        
-    # Update settings
-    settings = db.query(CompanySettings).first()
-    if not settings:
-         settings = CompanySettings(company_name="")
-         db.add(settings)
-         db.flush()
-         
-    # Delete old logo if exists
-    if settings.logo_url:
-        old_path = settings.logo_url.lstrip("/")
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except:
-                pass
-                
-    settings.logo_url = f"/{upload_dir}/{filename}"
+        raise HTTPException(status_code=500, detail=f"Could not read file: {str(e)}")
+    
+    db.commit()
     db.commit()
     
     return {"logo_url": settings.logo_url}

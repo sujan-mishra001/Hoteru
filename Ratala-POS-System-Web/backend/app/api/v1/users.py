@@ -1,7 +1,7 @@
 """
 User management routes (Admin only)
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -149,4 +149,33 @@ async def delete_user(
     
     db.delete(user)
     db.commit()
+    db.delete(user)
+    db.commit()
     return {"message": "User deleted successfully"}
+
+
+@router.post("/{user_id}/image")
+async def upload_user_profile_image(
+    user_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(check_admin_role)
+):
+    """Upload and update profile image for a user (Admin only)"""
+    user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+        
+    try:
+        content = await file.read()
+        user.profile_image_data = content
+        user.profile_image_url = f"/api/v1/images/users/{user_id}/profile"
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not read file: {str(e)}")
+        
+    db.commit()
+    db.refresh(user)
+    return user

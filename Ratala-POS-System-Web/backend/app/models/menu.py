@@ -1,7 +1,7 @@
 """
 Menu-related models (Categories, Menu Groups, Menu Items)
 """
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, LargeBinary
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.database import Base
@@ -15,6 +15,7 @@ class Category(Base):
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)  # KOT or BOT
     image = Column(String, nullable=True)
+    image_data = Column(LargeBinary, nullable=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
@@ -29,6 +30,7 @@ class MenuGroup(Base):
     name = Column(String, nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"))
     image = Column(String, nullable=True)
+    image_data = Column(LargeBinary, nullable=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
@@ -47,6 +49,7 @@ class MenuItem(Base):
     group_id = Column(Integer, ForeignKey("menu_groups.id"), nullable=True)
     price = Column(Float, nullable=False)
     image = Column(String, nullable=True)
+    image_data = Column(LargeBinary, nullable=True)
     description = Column(String, nullable=True)
     inventory_tracking = Column(Boolean, default=False)
     kot_bot = Column(String, nullable=False)  # KOT or BOT

@@ -531,10 +531,24 @@ async def delete_table(
     if not table:
         raise HTTPException(status_code=404, detail="Table not found or access denied")
     
-    # Soft delete
-    table.is_active = False
+    # Hard Delete Logic
+    
+    # 1. Check for active orders
+    active_orders = db.query(Order).filter(
+        Order.table_id == table.id,
+        Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
+    ).count()
+    
+    if active_orders > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete table with active orders. Please complete or cancel them first.")
+        
+    # 2. Nullify table_id for past orders (preserve history)
+    db.query(Order).filter(Order.table_id == table.id).update({Order.table_id: None}, synchronize_session=False)
+    
+    # 3. Delete table
+    db.delete(table)
     db.commit()
-    return {"message": "Table deleted successfully"}
+    return {"message": "Table deleted permanently"}
 
 
 

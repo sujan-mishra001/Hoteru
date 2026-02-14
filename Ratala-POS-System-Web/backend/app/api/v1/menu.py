@@ -254,35 +254,82 @@ async def upload_menu_item_image(
     if not item:
         raise HTTPException(status_code=404, detail="Menu item not found or access denied")
         
-    # Create directory if it doesn't exist
-    from pathlib import Path
-    BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-    upload_dir = BASE_DIR / "uploads" / "menu_items"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Validate file type
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File must be an image")
-    
-    # Generate unique filename
-    extension = os.path.splitext(file.filename)[1]
-    filename = f"{uuid.uuid4()}{extension}"
-    file_path = upload_dir / filename
-    
-    # Save file
+    # Save to database (Binary)
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        content = await file.read()
+        item.image_data = content
+        item.image = f"/api/v1/images/menu-items/{item_id}"
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Could not read file: {str(e)}")
         
-    # Update menu item image path (relative to static files server)
-    image_url = f"/uploads/menu_items/{filename}"
-    item.image = image_url
     db.commit()
     db.refresh(item)
     
     return item
+
+
+@router.post("/categories/{category_id}/image")
+async def upload_category_image(
+    category_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Upload and update image for a category"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(Category).filter(Category.id == category_id)
+    query = apply_branch_filter_menu(query, Category, branch_id)
+    category = query.first()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found or access denied")
+        
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+        
+    try:
+        content = await file.read()
+        category.image_data = content
+        category.image = f"/api/v1/images/categories/{category_id}"
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not read file: {str(e)}")
+        
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+@router.post("/groups/{group_id}/image")
+async def upload_group_image(
+    group_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Upload and update image for a menu group"""
+    branch_id = current_user.current_branch_id
+    
+    query = db.query(MenuGroup).filter(MenuGroup.id == group_id)
+    query = apply_branch_filter_menu(query, MenuGroup, branch_id)
+    group = query.first()
+    
+    if not group:
+        raise HTTPException(status_code=404, detail="Menu group not found or access denied")
+        
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+        
+    try:
+        content = await file.read()
+        group.image_data = content
+        group.image = f"/api/v1/images/groups/{group_id}"
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not read file: {str(e)}")
+        
+    db.commit()
+    db.refresh(group)
+    return group
 
 
 @router.put("/categories/{category_id}")

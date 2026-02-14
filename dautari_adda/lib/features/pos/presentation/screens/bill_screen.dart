@@ -382,7 +382,23 @@ class _BillScreenState extends State<BillScreen> {
             const Text("Select QR Provider", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 16),
             ..._qrCodes.map((qr) => ListTile(
-              leading: const Icon(Icons.qr_code),
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(
+                    "${ApiService.baseHostUrl}${qr['image_url']}",
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.qr_code, size: 24, color: Colors.grey),
+                  ),
+                ),
+              ),
               title: Text(qr['name']),
               onTap: () {
                 Navigator.pop(context);
@@ -407,7 +423,30 @@ class _BillScreenState extends State<BillScreen> {
             children: [
               Text(qr['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
               const SizedBox(height: 20),
-              Image.network("${ApiService.baseHostUrl}${qr['image_url']}", height: 300, fit: BoxFit.contain),
+              Image.network(
+                "${ApiService.baseHostUrl}${qr['image_url']}",
+                height: 300,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Column(
+                  children: [
+                    const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                    Text('Failed to load image', style: GoogleFonts.poppins(color: Colors.grey)),
+                  ],
+                ),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return SizedBox(
+                    height: 300,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,

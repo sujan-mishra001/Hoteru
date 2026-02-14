@@ -43,5 +43,8 @@ try:
     api_router.include_router(qr_codes.router)  # prefix already set in router
     api_router.include_router(printers.router, prefix="/printers", tags=["Printers"])
     api_router.include_router(pos.router, prefix="/pos", tags=["POS"])
+    
+    from . import images
+    api_router.include_router(images.router)
 except ImportError as e:
     print(f"Warning: Could not import some routes: {e}")
