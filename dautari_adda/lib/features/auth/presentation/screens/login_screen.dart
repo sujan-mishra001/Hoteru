@@ -75,16 +75,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       Hero(
                         tag: 'app_logo',
                         child: Image.asset(
-                          'assets/images/dautari-logo.png',
-                          height: 120,
+                          'assets/images/app-logo.png',
+                          height: 130,
                           fit: BoxFit.contain,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 12),
                       
                       // App Name
                       Text(
-                        'Dautari Adda',
+                        'Ratala Hospitality',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 32,
@@ -230,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Terms Text
                       Text(
-                        "By logging in, you agree to Dautari Adda hospitality terms and conditions.",
+                        "By logging in, you agree Ratala hospitality terms and conditions.",
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
