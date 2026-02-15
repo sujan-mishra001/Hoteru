@@ -62,7 +62,7 @@ async def get_menu_items(
 ):
     """Get all menu items for the current user's branch"""
     branch_id = current_user.current_branch_id
-    query = db.query(MenuItem)
+    query = db.query(MenuItem).filter(MenuItem.is_active == True)
     query = apply_branch_filter_menu(query, MenuItem, branch_id)
     menu_items = query.all()
     # Explicit mapping not needed due to Pydantic from_attributes=True, but safer
@@ -97,7 +97,7 @@ async def get_categories(
 ):
     """Get all categories for the current user's branch"""
     branch_id = current_user.current_branch_id
-    query = db.query(Category)
+    query = db.query(Category).filter(Category.is_active == True)
     query = apply_branch_filter_menu(query, Category, branch_id)
     categories = query.all()
     return categories
@@ -130,7 +130,7 @@ async def get_groups(
 ):
     """Get all menu groups for the current user's branch"""
     branch_id = current_user.current_branch_id
-    query = db.query(MenuGroup)
+    query = db.query(MenuGroup).filter(MenuGroup.is_active == True)
     query = apply_branch_filter_menu(query, MenuGroup, branch_id)
     groups = query.all()
     return groups
@@ -195,8 +195,8 @@ async def bulk_update_menu_items(
     return {"updated_count": len(updated_items), "items": updated_items}
 
 
-@router.put("/items/{item_id}")
-@router.patch("/items/{item_id}")
+@router.put("/items/{item_id}", response_model=MenuItemResponse)
+@router.patch("/items/{item_id}", response_model=MenuItemResponse)
 async def update_menu_item(
     item_id: int,
     item_data: dict = Body(...),
@@ -228,7 +228,7 @@ async def delete_menu_item(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a menu item in the current user's branch"""
+    """Soft delete a menu item (mark as inactive)"""
     branch_id = current_user.current_branch_id
     
     query = db.query(MenuItem).filter(MenuItem.id == item_id)
@@ -238,7 +238,7 @@ async def delete_menu_item(
     if not item:
         raise HTTPException(status_code=404, detail="Menu item not found or access denied")
     
-    db.delete(item)
+    item.is_active = False
     db.commit()
     return {"message": "Menu item deleted"}
 
@@ -338,8 +338,8 @@ async def upload_group_image(
     return group
 
 
-@router.put("/categories/{category_id}")
-@router.patch("/categories/{category_id}")
+@router.put("/categories/{category_id}", response_model=CategoryResponse)
+@router.patch("/categories/{category_id}", response_model=CategoryResponse)
 async def update_category(
     category_id: int,
     category_data: dict = Body(...),
@@ -371,7 +371,7 @@ async def delete_category(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a category in the current user's branch"""
+    """Soft delete a category and its items/groups"""
     branch_id = current_user.current_branch_id
     
     query = db.query(Category).filter(Category.id == category_id)
@@ -381,13 +381,18 @@ async def delete_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found or access denied")
     
-    db.delete(category)
+    category.is_active = False
+    
+    # Also soft delete groups and items in this category
+    db.query(MenuGroup).filter(MenuGroup.category_id == category_id).update({"is_active": False})
+    db.query(MenuItem).filter(MenuItem.category_id == category_id).update({"is_active": False})
+    
     db.commit()
-    return {"message": "Category deleted"}
+    return {"message": "Category and associated items deleted"}
 
 
-@router.put("/groups/{group_id}")
-@router.patch("/groups/{group_id}")
+@router.put("/groups/{group_id}", response_model=MenuGroupResponse)
+@router.patch("/groups/{group_id}", response_model=MenuGroupResponse)
 async def update_group(
     group_id: int,
     group_data: dict = Body(...),
@@ -419,7 +424,7 @@ async def delete_group(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a menu group in the current user's branch"""
+    """Soft delete a menu group and its items"""
     branch_id = current_user.current_branch_id
     
     query = db.query(MenuGroup).filter(MenuGroup.id == group_id)
@@ -429,7 +434,11 @@ async def delete_group(
     if not group:
         raise HTTPException(status_code=404, detail="Menu group not found or access denied")
     
-    db.delete(group)
+    group.is_active = False
+    
+    # Also soft delete items in this group
+    db.query(MenuItem).filter(MenuItem.group_id == group_id).update({"is_active": False})
+    
     db.commit()
-    return {"message": "Menu group deleted"}
+    return {"message": "Menu group and associated items deleted"}
 

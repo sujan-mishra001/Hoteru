@@ -3,7 +3,7 @@ Menu-related models (Categories, Menu Groups, Menu Items)
 """
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, LargeBinary
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.database import Base
 
 

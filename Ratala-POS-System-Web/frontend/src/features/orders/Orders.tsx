@@ -33,7 +33,7 @@ import BillView from '../pos/billing/BillView';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-const TABS = ['Table', 'Delivery', 'Takeaway', 'Pay First', 'Draft'];
+const TABS = ['Table', 'Delivery', 'Takeaway', 'Draft'];
 
 interface Order {
     id: number;
@@ -70,6 +70,7 @@ const Orders: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const { showAlert, showConfirm } = useNotification();
     const [billDialogOpen, setBillDialogOpen] = useState(false);
+    const [counts, setCounts] = useState<{ [key: string]: number }>({ Table: 0, Delivery: 0, Takeaway: 0, Draft: 0 });
     const billRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
@@ -108,7 +109,22 @@ const Orders: React.FC = () => {
         try {
             setLoading(true);
             const response = await ordersAPI.getAll();
-            let allOrders = Array.isArray(response.data) ? response.data : (response.data?.data || response.data || []);
+            const rawOrders = Array.isArray(response.data) ? response.data : (response.data?.data || response.data || []);
+
+            // Calculate active counts (Pending or In Progress)
+            const activeStatuses = ['Pending', 'In Progress'];
+            const newCounts = {
+                Table: rawOrders.filter((o: Order) => o.order_type === 'Table' && activeStatuses.includes(o.status)).length,
+                Delivery: rawOrders.filter((o: Order) =>
+                    ['Delivery', 'Self Delivery', 'Delivery Partner'].includes(o.order_type) &&
+                    activeStatuses.includes(o.status)
+                ).length,
+                Takeaway: rawOrders.filter((o: Order) => o.order_type === 'Takeaway' && activeStatuses.includes(o.status)).length,
+                Draft: rawOrders.filter((o: Order) => o.status === 'Draft').length,
+            };
+            setCounts(newCounts);
+
+            let allOrders = [...rawOrders];
 
             // Filter by active tab
             if (activeTab === 'Draft') {
@@ -278,7 +294,7 @@ const Orders: React.FC = () => {
                                 fontSize: '0.85rem'
                             }}
                         >
-                            {tab}
+                            {tab}({counts[tab] || 0})
                         </Button>
                     ))}
                 </Paper>

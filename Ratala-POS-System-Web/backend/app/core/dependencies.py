@@ -95,10 +95,20 @@ def check_role(required_role: str):
 
 
 def check_admin_role(current_user: DBUser = Depends(get_current_user)) -> DBUser:
-    """Dependency to ensure user is admin"""
-    if current_user.role != "admin":
+    """Dependency to ensure user is admin (organization level)"""
+    if current_user.role != "admin" and current_user.role != "platform_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
+        )
+    return current_user
+
+
+def check_platform_admin(current_user: DBUser = Depends(get_current_user)) -> DBUser:
+    """Dependency to ensure user is platform admin (super admin)"""
+    if current_user.role != "platform_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform Admin access required"
         )
     return current_user

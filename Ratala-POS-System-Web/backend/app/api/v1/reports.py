@@ -95,7 +95,7 @@ async def get_dashboard_summary(
             base_time = end_dt 
         except ValueError:
             # Fallback to 24h if date parsing fails
-            base_time = datetime.now()
+            base_time = datetime.now(timezone.utc)
             start_dt = base_time - timedelta(hours=24)
             order_query = db.query(Order).filter(Order.created_at >= start_dt)
             order_query = apply_branch_filter_order(order_query, branch_id)
@@ -103,7 +103,7 @@ async def get_dashboard_summary(
             period_label = "Last 24 Hours"
     else:
         # Default to last 24 hours
-        base_time = datetime.now()
+        base_time = datetime.now(timezone.utc)
         start_dt = base_time - timedelta(hours=24)
         order_query = db.query(Order).filter(Order.created_at >= start_dt)
         order_query = apply_branch_filter_order(order_query, branch_id)

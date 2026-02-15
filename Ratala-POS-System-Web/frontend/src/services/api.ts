@@ -211,6 +211,7 @@ export const reportsAPI = {
 // Users API
 export const usersAPI = {
   getAll: () => api.get('/users'),
+  getAllOrganizationUsers: () => api.get('/users/all'),
   getById: (id: number) => api.get(`/users/${id}`),
   create: (data: any) => api.post('/users', data),
   update: (id: number, data: any) => api.put(`/users/${id}`, data),
@@ -251,6 +252,7 @@ export const branchAPI = {
   create: (data: any) => api.post('/branches', data),
   update: (id: number, data: any) => api.put(`/branches/${id}`, data),
   delete: (id: number) => api.delete(`/branches/${id}`),
+  getAllSystemBranches: () => api.get('/branches'),
   select: (branchId: number) => {
     // This is a direct axios call because it's at the root level /select-branch
     const token = localStorage.getItem('token');

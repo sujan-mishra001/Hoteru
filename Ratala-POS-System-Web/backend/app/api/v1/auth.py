@@ -125,6 +125,28 @@ async def login_for_access_token(
     print(f"DEBUG: Received login request for {form_data.username}")
     from app.services import branch_service
     
+    # Special Platform Admin Login Check
+    if form_data.username == "admin@panel" and form_data.password == "admin@123":
+        print("🚀 Platform Admin Login successful")
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={
+                "sub": "platform_admin",
+                "role": "platform_admin",
+                "organization_id": None,
+                "branch_id": None
+            },
+            expires_delta=access_token_expires
+        )
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "role": "platform_admin",
+            "organization_id": None,
+            "current_branch_id": None,
+            "accessible_branches": []
+        }
+
     user = db.query(DBUser).filter(
         (DBUser.username == form_data.username) | (DBUser.email == form_data.username)
     ).first()

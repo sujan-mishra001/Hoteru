@@ -217,7 +217,12 @@ const Billing: React.FC = () => {
             setIsPaid(true);
 
             logActivity('Payment Received', `Payment of Rs. ${paidAmount} received for ${table?.hold_table_name || `Table ${table?.table_id}`} via ${selectedPaymentMode}`, 'order');
-            showAlert("Payment successful!", 'success');
+
+            if (creditAmount > 0) {
+                showAlert(`Due is saved in name of ${order.customer?.name || 'Customer'}`, 'success');
+            } else {
+                showAlert("Payment successful!", 'success');
+            }
 
             // We don't navigate immediately anymore to allow printing the bill
         } catch (error) {
@@ -476,7 +481,12 @@ const Billing: React.FC = () => {
                                 <Grid size={{ xs: 12 }}>
                                     <Tooltip title={!order?.customer_id ? "Assign a customer to enable Credit payment" : ""}>
                                         <Box
-                                            onClick={() => order?.customer_id && setSelectedPaymentMode('Credit')}
+                                            onClick={() => {
+                                                if (order?.customer_id) {
+                                                    setSelectedPaymentMode('Credit');
+                                                    setPaidAmount(0); // Automatically set to 0 for credit orders
+                                                }
+                                            }}
                                             sx={{
                                                 p: 2.5, borderRadius: '20px', border: '2px solid',
                                                 borderColor: selectedPaymentMode === 'Credit' ? '#ef4444' : '#f1f5f9',
@@ -521,15 +531,15 @@ const Billing: React.FC = () => {
                             />
 
                             <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {paidAmount > (order?.net_amount || 0) && (
+                                {paidAmount > (order?.net_amount || 0) && selectedPaymentMode !== 'Credit' && (
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: '#dcfce7', borderRadius: '16px' }}>
                                         <Typography variant="body2" fontWeight={800} color="#16a34a">Change Return</Typography>
                                         <Typography variant="subtitle1" fontWeight={900} color="#16a34a">Rs. {Number(paidAmount - (order?.net_amount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                     </Box>
                                 )}
-                                {paidAmount < (order?.net_amount || 0) && (
+                                {(paidAmount < (order?.net_amount || 0) || selectedPaymentMode === 'Credit') && (
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2, bgcolor: '#fee2e2', borderRadius: '16px' }}>
-                                        <Typography variant="body2" fontWeight={800} color="#dc2626">Balance Due</Typography>
+                                        <Typography variant="body2" fontWeight={800} color="#dc2626">{selectedPaymentMode === 'Credit' ? 'Due Payment' : 'Balance Due'}</Typography>
                                         <Typography variant="subtitle1" fontWeight={900} color="#dc2626">Rs. {Number((order?.net_amount || 0) - paidAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                     </Box>
                                 )}

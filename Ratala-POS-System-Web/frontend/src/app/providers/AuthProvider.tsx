@@ -20,7 +20,7 @@ interface AuthContextType {
     user: User | null;
     token: string | null;
     isAuthenticated: boolean;
-    login: (token: string, expiresInMinutes?: number) => Promise<void>;
+    login: (token: string, expiresInMinutes?: number) => Promise<User>;
     logout: () => void;
     updateUser: (userData: User) => void;
     loading: boolean;
@@ -113,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setToken(newToken);
             setUser(userData);
+            return userData;
         } catch (error) {
             console.error('Error fetching user after login:', error);
             throw error;

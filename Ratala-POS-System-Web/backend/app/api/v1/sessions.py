@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.db.database import get_db
 from app.models.pos_session import POSSession
@@ -32,7 +32,7 @@ def auto_close_old_sessions(db: Session):
     
     for session in old_sessions:
         session.status = "Closed"
-        session.end_time = datetime.now()
+        session.end_time = datetime.now(timezone.utc)
         # Note: Ideally, we'd calculate actual sales/orders here
         # For now, we're just marking it closed
         db.add(session)
@@ -84,7 +84,7 @@ def create_session(
         opening_cash=session_in.opening_cash,
         notes=session_in.notes,
         status="Open",
-        start_time=datetime.now()
+        start_time=datetime.now(timezone.utc)
     )
     db.add(db_session)
     db.commit()
@@ -127,7 +127,7 @@ def update_session(
     
     # If closing the session
     if session_in.status == "Closed" and db_session.status == "Open":
-        update_data["end_time"] = datetime.now()
+        update_data["end_time"] = datetime.now(timezone.utc)
         
         # Calculate summaries for the session
         from app.models import Order

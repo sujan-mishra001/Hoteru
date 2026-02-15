@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 
 from app.db.database import get_db
@@ -94,15 +94,32 @@ async def create_kot(
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         branch_id = current_user.current_branch_id
         
-        # Count existing KOTs for today in this branch
-        count = db.query(KOT).join(Order).filter(
-            Order.branch_id == branch_id,
-            KOT.kot_type == kot_type,
-            KOT.created_at >= today_start
-        ).count()
-        
-        seq = count + 1
-        kot_data['kot_number'] = f"#{prefix}-{datetime.now().strftime('%Y%m%d')}-{seq:04d}"
+        # We'll use a loop to ensure we find a unique number
+        attempt = 0
+        while True:
+            # Count existing KOTs for today in this branch (as a starting point)
+            if attempt == 0:
+                count = db.query(KOT).join(Order).filter(
+                    Order.branch_id == branch_id,
+                    KOT.kot_type == kot_type,
+                    KOT.created_at >= today_start
+                ).count()
+                seq = count + 1
+            else:
+                seq += 1
+            
+            kot_number = f"#{prefix}-{datetime.now().strftime('%Y%m%d')}-{seq:04d}"
+            
+            # Check if this number already exists
+            existing = db.query(KOT).filter(KOT.kot_number == kot_number).first()
+            if not existing:
+                kot_data['kot_number'] = kot_number
+                break
+            
+            attempt += 1
+            if attempt > 100: # Safety break
+                kot_data['kot_number'] = f"#{prefix}-{datetime.now().strftime('%Y%m%d')}-{seq:04d}-{random.randint(1000, 9999)}"
+                break
     
     kot_data['created_by'] = current_user.id
     

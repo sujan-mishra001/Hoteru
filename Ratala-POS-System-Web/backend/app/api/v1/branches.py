@@ -86,7 +86,14 @@ def list_branches(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List all branches in the user's organization"""
+    """List all branches in the user's organization or all branches for platform admin"""
+    if current_user.role == "platform_admin":
+        from app.models.branch import Branch
+        query = db.query(Branch)
+        if active_only:
+            query = query.filter(Branch.is_active == True)
+        return query.offset(skip).limit(limit).all()
+        
     if not current_user.organization_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

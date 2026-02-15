@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body, File, Uploa
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user, check_admin_role, get_password_hash
+from app.core.dependencies import get_current_user, check_admin_role, get_password_hash, check_platform_admin
 from app.models import User as DBUser, Role, UserBranchAssignment
 from app.schemas import UserResponse, UserCreateByAdmin, UserUpdate
 from app.core.config import settings
@@ -16,10 +16,41 @@ router = APIRouter()
 @router.get("", response_model=list[UserResponse])
 async def get_users(
     db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user)
+):
+    """Get users for the current branch (Branch visibility)"""
+    # Fix: Fetch only users assigned to the current branch
+    if not current_user.organization_id:
+        return []
+    
+    # If admin, they might want to see all users, but the user management page 
+    # requirement says "only users associated with the current branch"
+    # UserBranchAssignment links users to branches.
+    users = db.query(DBUser).join(
+        UserBranchAssignment, DBUser.id == UserBranchAssignment.user_id
+    ).filter(
+        UserBranchAssignment.branch_id == current_user.current_branch_id,
+        DBUser.organization_id == current_user.organization_id
+    ).all()
+    
+    return users
+
+
+@router.get("/all", response_model=list[UserResponse])
+async def get_all_organization_users(
+    db: Session = Depends(get_db),
     current_user: DBUser = Depends(check_admin_role)
 ):
-    """Get all users (Admin only)"""
-    users = db.query(DBUser).all()
+    """Get all users in the organization (Admin only)"""
+    if current_user.role == "platform_admin":
+        return db.query(DBUser).all()
+        
+    if not current_user.organization_id:
+        return []
+        
+    users = db.query(DBUser).filter(
+        DBUser.organization_id == current_user.organization_id
+    ).all()
     return users
 
 
@@ -147,8 +178,6 @@ async def delete_user(
     if user.role == 'admin':
         raise HTTPException(status_code=403, detail="Cannot delete admin user")
     
-    db.delete(user)
-    db.commit()
     db.delete(user)
     db.commit()
     return {"message": "User deleted successfully"}

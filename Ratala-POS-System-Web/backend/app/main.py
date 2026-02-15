@@ -45,10 +45,39 @@ print(f"✓ Static files mounted at: {UPLOAD_DIR}")
 # Initialize database on startup
 @app.on_event("startup")
 def startup_event():
-    """Initialize database tables"""
+    """Initialize database tables and create platform admin if missing"""
     try:
         init_db()
         print("✓ Database initialized successfully")
+        
+        # Ensure Platform Admin exists
+        from app.db.database import SessionLocal
+        db = SessionLocal()
+        try:
+            platform_email = "admin@panel"
+            platform_admin = db.query(DBUser).filter(DBUser.email == platform_email).first()
+            if not platform_admin:
+                print("🔧 Creating Platform Admin user...")
+                platform_admin = DBUser(
+                    username="platform_admin",
+                    email=platform_email,
+                    full_name="Platform Manager",
+                    hashed_password=get_password_hash("admin@123"),
+                    role="platform_admin",
+                    disabled=False,
+                    is_organization_owner=False
+                )
+                db.add(platform_admin)
+                db.commit()
+                print("✓ Platform Admin created successfully")
+            else:
+                # Update role if it's different (e.g. from previous turns)
+                if platform_admin.role != "platform_admin":
+                    platform_admin.role = "platform_admin"
+                    db.commit()
+        finally:
+            db.close()
+            
     except Exception as e:
         print(f"✗ Database initialization failed: {e}")
         print("\nPlease check:")

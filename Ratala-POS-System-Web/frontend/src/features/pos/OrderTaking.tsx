@@ -456,9 +456,23 @@ const OrderTaking: React.FC = () => {
     }
 
     return (
-        <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#f8fafc', overflow: 'hidden' }}>
+        <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            height: '100vh',
+            bgcolor: '#f8fafc',
+            overflow: 'hidden'
+        }}>
             {/* Left: Item Selection */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'white', minWidth: 0 }}>
+            <Box sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: 'white',
+                minWidth: 0,
+                height: { xs: '60%', md: '100%' }, // On mobile, limit height of left part
+                borderBottom: { xs: '1px solid #f1f5f9', md: 'none' }
+            }}>
                 {/* Header */}
                 <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 2 }}>
                     <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: '#f8fafc' }}>
@@ -500,7 +514,11 @@ const OrderTaking: React.FC = () => {
                         placeholder="Search items..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        sx={{ ml: 'auto', width: 250, '& .MuiOutlinedInput-root': { borderRadius: '20px', bgcolor: '#f8fafc' } }}
+                        sx={{
+                            ml: 'auto',
+                            width: { xs: 150, sm: 200, md: 250 },
+                            '& .MuiOutlinedInput-root': { borderRadius: '20px', bgcolor: '#f8fafc' }
+                        }}
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
@@ -541,7 +559,7 @@ const OrderTaking: React.FC = () => {
                 <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                     {/* Subcategories (Groups) */}
                     <Box sx={{
-                        width: 180,
+                        width: { xs: 120, sm: 150, md: 180 },
                         borderRight: '1px solid #f1f5f9',
                         bgcolor: '#f8fafc',
                         overflowY: 'auto',
@@ -704,12 +722,14 @@ const OrderTaking: React.FC = () => {
 
             {/* Right: Order Summary */}
             <Box sx={{
-                width: 380,
+                width: { xs: '100%', md: 320, lg: 380 }, // Responsive width
+                height: { xs: '40%', md: '100%' }, // On mobile, takes remaining height
                 bgcolor: 'white',
-                borderLeft: '1px solid #f1f5f9',
+                borderLeft: { md: '1px solid #f1f5f9' },
                 display: 'flex',
                 flexDirection: 'column',
-                boxShadow: '-4px 0 15px rgba(0,0,0,0.02)'
+                boxShadow: '-4px 0 15px rgba(0,0,0,0.02)',
+                minWidth: { md: 320 }
             }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>

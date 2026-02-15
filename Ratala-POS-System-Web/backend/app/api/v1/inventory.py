@@ -5,7 +5,7 @@ Core Principle: Stock is NEVER updated directly, only through transactions
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 
 from app.db.database import get_db
@@ -650,10 +650,15 @@ async def create_production(
     if insufficient:
         raise HTTPException(status_code=400, detail={"msg": "Insufficient materials", "items": insufficient})
         
-    today_date = datetime.now().strftime('%Y%m%d')
-    # Count ALL productions for serial number sequence
-    total_count = db.query(BatchProduction).count()
-    prod_num = f"PROD-{today_date}-{str(total_count + 1).zfill(4)}"
+    today_date = datetime.now(timezone.utc).strftime('%Y%m%d')
+    while True:
+        # Count ALL productions for serial number sequence
+        total_count = db.query(BatchProduction).count()
+        prod_num = f"PROD-{today_date}-{str(total_count + 1).zfill(4)}"
+        
+        # Double check uniqueness
+        if not db.query(BatchProduction).filter(BatchProduction.production_number == prod_num).first():
+            break
     
     # Find active session
     active_session = db.query(POSSession).filter(

@@ -3,7 +3,7 @@ Customer management models
 """
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.database import Base
 
 
@@ -22,5 +22,5 @@ class Customer(Base):
     due_amount = Column(Float, default=0.0)
     is_active = Column(Boolean, default=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

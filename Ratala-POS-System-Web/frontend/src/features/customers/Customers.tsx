@@ -24,7 +24,7 @@ import {
     Snackbar,
     Alert
 } from '@mui/material';
-import { UserPlus, Search, Phone, History, X, Edit2, Trash2, Calendar, Receipt } from 'lucide-react';
+import { UserPlus, Search, Phone, History, X, Edit2, Trash2, Calendar, Receipt, Banknote } from 'lucide-react';
 import { customersAPI, ordersAPI } from '../../services/api';
 
 interface Customer {
@@ -131,6 +131,35 @@ const Customers: React.FC = () => {
         }
     };
 
+    const [settleDialogOpen, setSettleDialogOpen] = useState(false);
+    const [selectedCustomerForSettle, setSelectedCustomerForSettle] = useState<Customer | null>(null);
+    const [settleAmount, setSettleAmount] = useState<string>('');
+
+    const handleSettleDue = async () => {
+        if (!selectedCustomerForSettle || !settleAmount) return;
+        const amount = parseFloat(settleAmount);
+        if (isNaN(amount) || amount <= 0) {
+            showSnackbar('Please enter a valid amount', 'error');
+            return;
+        }
+
+        try {
+            const currentDue = selectedCustomerForSettle.due_amount || 0;
+            const newDue = Math.max(0, currentDue - amount);
+
+            await customersAPI.update(selectedCustomerForSettle.id, {
+                due_amount: newDue
+            });
+
+            showSnackbar(`Payment of NPRs. ${amount} recorded for ${selectedCustomerForSettle.name}`);
+            setSettleDialogOpen(false);
+            setSettleAmount('');
+            loadCustomers();
+        } catch (error: any) {
+            showSnackbar(error.response?.data?.detail || 'Error recording payment', 'error');
+        }
+    };
+
     const filteredCustomers = customers.filter(customer =>
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.phone?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -226,6 +255,9 @@ const Customers: React.FC = () => {
                                         <TableCell><Typography fontWeight={700} color={due > 0 ? "#ef4444" : "#64748b"}>NPRs. {Number(due).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography></TableCell>
                                         <TableCell align="right">
                                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                                                <IconButton size="small" onClick={() => { setSelectedCustomerForSettle(customer); setSettleAmount(''); setSettleDialogOpen(true); }} sx={{ color: '#10b981' }} title="Record Payment">
+                                                    <Banknote size={16} />
+                                                </IconButton>
                                                 <IconButton size="small" onClick={() => { setEditingCustomer(customer); setOpenEditDialog(true); }} sx={{ color: '#64748b' }}><Edit2 size={16} /></IconButton>
                                                 <IconButton size="small" onClick={() => handleDeleteCustomer(customer.id)} sx={{ color: '#ef4444' }}><Trash2 size={16} /></IconButton>
                                                 <Button
@@ -349,6 +381,43 @@ const Customers: React.FC = () => {
                     <Button onClick={() => setOpenHistoryDialog(false)} variant="contained" sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' } }}>Close</Button>
                 </DialogActions>
             </Dialog>
+            {/* Settle Due Dialog */}
+            <Dialog open={settleDialogOpen} onClose={() => setSettleDialogOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <Typography fontWeight={800}>Record Customer Payment</Typography>
+                    <Typography variant="body2" color="text.secondary">For {selectedCustomerForSettle?.name}</Typography>
+                </DialogTitle>
+                <DialogContent sx={{ pt: 3 }}>
+                    <Box sx={{ mb: 2, p: 2, bgcolor: '#fef2f2', borderRadius: '12px', border: '1px solid #fee2e2' }}>
+                        <Typography variant="caption" color="error" fontWeight={700}>TOTAL OUTSTANDING DUE</Typography>
+                        <Typography variant="h5" color="error" fontWeight={900}>
+                            NPRs. {Number(selectedCustomerForSettle?.due_amount || 0).toLocaleString()}
+                        </Typography>
+                    </Box>
+                    <TextField
+                        fullWidth
+                        label="Payment Amount"
+                        type="number"
+                        value={settleAmount}
+                        onChange={(e) => setSettleAmount(e.target.value)}
+                        autoFocus
+                        InputProps={{
+                            startAdornment: <Typography sx={{ mr: 1, fontWeight: 700, color: '#94a3b8' }}>NPRs.</Typography>,
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ p: 2, borderTop: '1px solid #f1f5f9' }}>
+                    <Button onClick={() => setSettleDialogOpen(false)}>Cancel</Button>
+                    <Button
+                        onClick={handleSettleDue}
+                        variant="contained"
+                        sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, fontWeight: 700 }}
+                    >
+                        Receive Payment
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             <Snackbar
                 open={snackbar.open}
                 autoHideDuration={4000}

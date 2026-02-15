@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from app.services.printing_service import PrintingService
 
 from app.db.database import get_db
@@ -95,28 +95,33 @@ async def create_order(
     
     if 'order_number' not in order_data:
         # Generate globally unique order number (format: ORD-YYYYMMDD-SEQ)
-        # We search for the last order of the day globally to avoid collision between branches
         today_str = datetime.now().strftime('%Y%m%d')
         prefix = f"ORD-{today_str}-"
         
-        last_order = db.query(Order).filter(
-            Order.order_number.like(f"{prefix}%")
-        ).order_by(Order.order_number.desc()).first()
-        
-        if last_order:
-            try:
-                parts = last_order.order_number.split('-')
-                if len(parts) >= 3:
-                    last_seq = int(parts[-1])
-                    seq = last_seq + 1
-                else:
-                    seq = 1
-            except (ValueError, IndexError):
-                seq = 1
-        else:
-            seq = 1
+        while True:
+            last_order = db.query(Order).filter(
+                Order.order_number.like(f"{prefix}%")
+            ).order_by(Order.order_number.desc()).first()
             
-        order_data['order_number'] = f"{prefix}{seq:04d}"
+            if last_order:
+                try:
+                    parts = last_order.order_number.split('-')
+                    if len(parts) >= 3:
+                        last_seq = int(parts[-1])
+                        seq = last_seq + 1
+                    else:
+                        seq = 1
+                except (ValueError, IndexError):
+                    seq = 1
+            else:
+                seq = 1
+                
+            order_number = f"{prefix}{seq:04d}"
+            # Double check uniqueness
+            if not db.query(Order).filter(Order.order_number == order_number).first():
+                order_data['order_number'] = order_number
+                break
+            # If exists, loop will run again and last_order will find the one we just detected
     order_data['created_by'] = current_user.id
     
     # Tie to active POS Session
@@ -216,21 +221,25 @@ async def create_order(
     # Create KOT
     if kot_items:
         today_str = datetime.now().strftime('%Y%m%d')
-        kot_prefix = f"KOT-{today_str}-"
-        last_kot = db.query(KOT).filter(
-            KOT.kot_number.like(f"{kot_prefix}%")
-        ).order_by(KOT.kot_number.desc()).first()
+        kot_prefix = f"#KOT-{today_str}-"
         
-        kot_seq = 1
-        if last_kot:
-            try:
-                parts = last_kot.kot_number.split('-')
-                if len(parts) >= 3:
-                    kot_seq = int(parts[-1]) + 1
-            except (ValueError, IndexError):
-                pass
-        
-        new_kot_num = f"{kot_prefix}{kot_seq:04d}"
+        while True:
+            last_kot = db.query(KOT).filter(
+                KOT.kot_number.like(f"{kot_prefix}%")
+            ).order_by(KOT.kot_number.desc()).first()
+            
+            kot_seq = 1
+            if last_kot:
+                try:
+                    parts = last_kot.kot_number.split('-')
+                    if len(parts) >= 3:
+                        kot_seq = int(parts[-1]) + 1
+                except (ValueError, IndexError):
+                    pass
+            
+            new_kot_num = f"{kot_prefix}{kot_seq:04d}"
+            if not db.query(KOT).filter(KOT.kot_number == new_kot_num).first():
+                break
         
         kot = KOT(
             kot_number=new_kot_num,
@@ -254,21 +263,25 @@ async def create_order(
     # Create BOT
     if bot_items:
         today_str = datetime.now().strftime('%Y%m%d')
-        bot_prefix = f"BOT-{today_str}-"
-        last_bot = db.query(KOT).filter(
-            KOT.kot_number.like(f"{bot_prefix}%")
-        ).order_by(KOT.kot_number.desc()).first()
+        bot_prefix = f"#BOT-{today_str}-"
         
-        bot_seq = 1
-        if last_bot:
-            try:
-                parts = last_bot.kot_number.split('-')
-                if len(parts) >= 3:
-                    bot_seq = int(parts[-1]) + 1
-            except (ValueError, IndexError):
-                pass
-        
-        new_bot_num = f"{bot_prefix}{bot_seq:04d}"
+        while True:
+            last_bot = db.query(KOT).filter(
+                KOT.kot_number.like(f"{bot_prefix}%")
+            ).order_by(KOT.kot_number.desc()).first()
+            
+            bot_seq = 1
+            if last_bot:
+                try:
+                    parts = last_bot.kot_number.split('-')
+                    if len(parts) >= 3:
+                        bot_seq = int(parts[-1]) + 1
+                except (ValueError, IndexError):
+                    pass
+            
+            new_bot_num = f"{bot_prefix}{bot_seq:04d}"
+            if not db.query(KOT).filter(KOT.kot_number == new_bot_num).first():
+                break
         
         bot = KOT(
             kot_number=new_bot_num,
@@ -314,7 +327,7 @@ async def create_order(
             customer.total_visits += 1
             customer.total_spent += (new_order.net_amount or 0)
             customer.due_amount += (new_order.credit_amount or 0)
-            customer.updated_at = datetime.now()
+            customer.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(new_order)
@@ -416,7 +429,7 @@ async def update_order(
                     customer.total_visits += 1
                     customer.total_spent += (order.net_amount or 0)
                     customer.due_amount += (order.credit_amount or 0)
-                    customer.updated_at = datetime.now()
+                    customer.updated_at = datetime.now(timezone.utc)
             
             # Update active POS Session for the current user (Real-time tracking)
             if current_user:
@@ -429,7 +442,7 @@ async def update_order(
                     # Update session stats
                     active_session.total_sales += (order.net_amount or 0)
                     active_session.total_orders += 1
-                    active_session.updated_at = datetime.now()
+                    active_session.updated_at = datetime.now(timezone.utc)
                     
         elif new_status == 'Cancelled':
             if order.table_id and order.order_type in ['Table', 'Dine-in']:
@@ -442,6 +455,15 @@ async def update_order(
                         ).update({"status": "Available"})
                     else:
                         table.status = "Available"
+            
+            # If the order was previously Paid/Completed, subtract from customer stats
+            if old_status in ['Paid', 'Completed'] and order.customer_id:
+                customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+                if customer:
+                    customer.total_spent -= (order.net_amount or 0)
+                    customer.due_amount -= (order.credit_amount or 0)
+                    if customer.total_visits > 0:
+                        customer.total_visits -= 1
         elif new_status == 'BillRequested' and order.table_id and order.order_type in ['Table', 'Dine-in']:
             table = db.query(Table).filter(Table.id == order.table_id).first()
             if table:
@@ -653,21 +675,25 @@ async def add_order_items(
     # Create KOT
     if kot_items:
         today_str = datetime.now().strftime('%Y%m%d')
-        kot_prefix = f"KOT-{today_str}-"
-        last_kot = db.query(KOT).filter(
-            KOT.kot_number.like(f"{kot_prefix}%")
-        ).order_by(KOT.kot_number.desc()).first()
+        kot_prefix = f"#KOT-{today_str}-"
         
-        kot_seq = 1
-        if last_kot:
-            try:
-                parts = last_kot.kot_number.split('-')
-                if len(parts) >= 3:
-                    kot_seq = int(parts[-1]) + 1
-            except (ValueError, IndexError):
-                pass
-        
-        new_kot_num = f"{kot_prefix}{kot_seq:04d}"
+        while True:
+            last_kot = db.query(KOT).filter(
+                KOT.kot_number.like(f"{kot_prefix}%")
+            ).order_by(KOT.kot_number.desc()).first()
+            
+            kot_seq = 1
+            if last_kot:
+                try:
+                    parts = last_kot.kot_number.split('-')
+                    if len(parts) >= 3:
+                        kot_seq = int(parts[-1]) + 1
+                except (ValueError, IndexError):
+                    pass
+            
+            new_kot_num = f"{kot_prefix}{kot_seq:04d}"
+            if not db.query(KOT).filter(KOT.kot_number == new_kot_num).first():
+                break
         
         kot = KOT(
             kot_number=new_kot_num,
@@ -691,21 +717,25 @@ async def add_order_items(
     # Create BOT
     if bot_items:
         today_str = datetime.now().strftime('%Y%m%d')
-        bot_prefix = f"BOT-{today_str}-"
-        last_bot = db.query(KOT).filter(
-            KOT.kot_number.like(f"{bot_prefix}%")
-        ).order_by(KOT.kot_number.desc()).first()
+        bot_prefix = f"#BOT-{today_str}-"
         
-        bot_seq = 1
-        if last_bot:
-            try:
-                parts = last_bot.kot_number.split('-')
-                if len(parts) >= 3:
-                    bot_seq = int(parts[-1]) + 1
-            except (ValueError, IndexError):
-                pass
-        
-        new_bot_num = f"{bot_prefix}{bot_seq:04d}"
+        while True:
+            last_bot = db.query(KOT).filter(
+                KOT.kot_number.like(f"{bot_prefix}%")
+            ).order_by(KOT.kot_number.desc()).first()
+            
+            bot_seq = 1
+            if last_bot:
+                try:
+                    parts = last_bot.kot_number.split('-')
+                    if len(parts) >= 3:
+                        bot_seq = int(parts[-1]) + 1
+                except (ValueError, IndexError):
+                    pass
+            
+            new_bot_num = f"{bot_prefix}{bot_seq:04d}"
+            if not db.query(KOT).filter(KOT.kot_number == new_bot_num).first():
+                break
         
         bot = KOT(
             kot_number=new_bot_num,

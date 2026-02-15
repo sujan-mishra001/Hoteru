@@ -4,7 +4,7 @@ Purchase management routes with branch isolation
 from fastapi import APIRouter, Depends, Body
 from sqlalchemy.orm import Session, joinedload
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user
@@ -193,11 +193,16 @@ async def create_bill(
     today_str = datetime.now().strftime('%Y%m%d')
     prefix = f"PO-{today_str}"
     
-    # Use total count of all bills for the sequence number
-    total_bills = db.query(PurchaseBill).count()
-    new_seq = total_bills + 1
+    while True:
+        # Use total count of all bills for the sequence number
+        total_bills = db.query(PurchaseBill).count()
+        new_seq = total_bills + 1
+        bill_number = f"{prefix}-{new_seq:04d}"
         
-    bill_data['bill_number'] = f"{prefix}-{new_seq:04d}"
+        # Double check uniqueness
+        if not db.query(PurchaseBill).filter(PurchaseBill.bill_number == bill_number).first():
+            bill_data['bill_number'] = bill_number
+            break
     
     # Create the bill
     new_bill = PurchaseBill(**bill_data)
@@ -337,20 +342,24 @@ async def create_return(
     # Generate sequential return number: RET-YYYYMMDD-XXXX
     today_str = datetime.now().strftime('%Y%m%d')
     prefix = f"RET-{today_str}"
-    last_return = db.query(PurchaseReturn).filter(
-        PurchaseReturn.return_number.like(f"{prefix}-%")
-    ).order_by(PurchaseReturn.return_number.desc()).first()
-    
-    if last_return:
-        try:
-            last_seq = int(last_return.return_number.split('-')[-1])
-            new_seq = last_seq + 1
-        except (ValueError, IndexError):
-            new_seq = 1
-    else:
-        new_seq = 1
+    while True:
+        last_return = db.query(PurchaseReturn).filter(
+            PurchaseReturn.return_number.like(f"{prefix}-%")
+        ).order_by(PurchaseReturn.return_number.desc()).first()
         
-    return_data['return_number'] = f"{prefix}-{new_seq:04d}"
+        if last_return:
+            try:
+                last_seq = int(last_return.return_number.split('-')[-1])
+                new_seq = last_seq + 1
+            except (ValueError, IndexError):
+                new_seq = 1
+        else:
+            new_seq = 1
+            
+        return_number = f"{prefix}-{new_seq:04d}"
+        if not db.query(PurchaseReturn).filter(PurchaseReturn.return_number == return_number).first():
+            return_data['return_number'] = return_number
+            break
     new_return = PurchaseReturn(**return_data)
     db.add(new_return)
     db.commit()

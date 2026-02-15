@@ -3,7 +3,7 @@ Order-related models (Floors, Tables, Sessions, Orders, Order Items, KOTs)
 """
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.database import Base
 
 
@@ -16,7 +16,7 @@ class Floor(Base):
     display_order = Column(Integer, default=0)  # For ordering floors in UI
     is_active = Column(Boolean, default=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     tables = relationship("Table", back_populates="floor_rel")
 
@@ -43,8 +43,8 @@ class Table(Base):
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     merged_to_id = Column(Integer, ForeignKey("tables.id"), nullable=True)
     merge_group_id = Column(String, nullable=True)  # e.g., "Merge_Table_1", "Merge_Table_2"
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     floor_rel = relationship("Floor", back_populates="tables")
 
@@ -62,7 +62,7 @@ class Session(Base):
     start_time = Column(String, nullable=False)  # e.g., "09:00"
     end_time = Column(String, nullable=False)  # e.g., "17:00"
     status = Column(String, default="Active")
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Order(Base):
@@ -99,8 +99,8 @@ class Order(Base):
     delivery_partner_id = Column(Integer, ForeignKey("delivery_partners.id"), nullable=True)
     
     created_by = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     table = relationship("Table")
     customer = relationship("Customer")
@@ -123,7 +123,7 @@ class OrderItem(Base):
     price = Column(Float, nullable=False)
     subtotal = Column(Float, nullable=False)
     notes = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     order = relationship("Order", back_populates="items")
     menu_item = relationship("MenuItem")
@@ -139,8 +139,8 @@ class KOT(Base):
     kot_type = Column(String, default="KOT")  # KOT or BOT
     status = Column(String, default="Pending")  # Pending, In Progress, Ready, Served
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     order = relationship("Order", back_populates="kots")
     user = relationship("User")
@@ -156,7 +156,7 @@ class KOTItem(Base):
     menu_item_id = Column(Integer, ForeignKey("menu_items.id"))
     quantity = Column(Integer, nullable=False)
     notes = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     kot = relationship("KOT", back_populates="items")
     menu_item = relationship("MenuItem")

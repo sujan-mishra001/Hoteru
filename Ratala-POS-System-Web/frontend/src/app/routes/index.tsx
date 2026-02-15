@@ -7,6 +7,7 @@ import AuthLayout from '../layouts/AuthLayout';
 import AdminLayout from '../layouts/AdminLayout';
 import POSLayout from '../layouts/POSLayout';
 import BranchSetupLayout from '../layouts/BranchSetupLayout';
+import PlatformLayout from '../layouts/PlatformLayout';
 
 // Guards
 import AuthGuard from '../guards/AuthGuard';
@@ -49,6 +50,7 @@ import PurchaseBill from '../../features/inventory/purchase_sub/PurchaseBill';
 import PurchaseReturn from '../../features/inventory/purchase_sub/PurchaseReturn';
 
 import UserManagement from '../../features/users/UserManagement';
+import AdminPanel from '../../features/users/AdminPanel';
 import Roles from '../../features/roles/Roles';
 import Reports from '../../features/reports/Reports';
 import SessionReport from '../../features/reports/SessionReport';
@@ -73,6 +75,15 @@ const AppRoutes: React.FC = () => {
 
             {/* View-Only Routes (Outside Layouts) */}
             <Route path="/digital-menu/:branchId" element={<DigitalMenu />} />
+
+            {/* Standalone Platform Admin Control Center */}
+            <Route element={<AuthGuard />}>
+                <Route element={<PermissionGuard allowedRoles={['platform_admin']} />}>
+                    <Route element={<PlatformLayout />}>
+                        <Route path="/admin" element={<AdminPanel />} />
+                    </Route>
+                </Route>
+            </Route>
 
             {/* Private Routes */}
             <Route element={<AuthGuard />}>

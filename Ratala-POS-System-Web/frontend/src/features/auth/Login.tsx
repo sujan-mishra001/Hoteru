@@ -22,7 +22,9 @@ const Login: React.FC = () => {
     useEffect(() => {
         if (isAuthenticated && user) {
             // Admin goes to dashboard, others go to POS tables
-            if (user.role === 'Admin') {
+            if (user.role.toLowerCase() === 'platform_admin') {
+                navigate('/admin', { replace: true });
+            } else if (user.role.toLowerCase() === 'admin') {
                 navigate('/dashboard', { replace: true });
             } else {
                 navigate('/pos/tables', { replace: true });
@@ -38,11 +40,16 @@ const Login: React.FC = () => {
         try {
             const response = await authAPI.login(username, password);
             const { access_token } = response.data;
-            await login(access_token);
+            const userData = await login(access_token);
             logActivity('User Login', `Logged in as ${username}`, 'auth');
 
-            // Workflow: Always go to select-branch, it will decide if redirection to create-branch is needed
-            navigate('/select-branch');
+            // Redirect based on role
+            if (userData.role.toLowerCase() === 'platform_admin') {
+                navigate('/admin', { replace: true });
+            } else {
+                // Workflow: Always go to select-branch, it will decide if redirection to create-branch is needed
+                navigate('/select-branch');
+            }
 
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Invalid credentials. Please try again.');

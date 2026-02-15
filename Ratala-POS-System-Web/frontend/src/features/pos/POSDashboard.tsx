@@ -78,17 +78,28 @@ const TableCard: React.FC<{
         if (!isOccupied || !table.order_start_time) return;
 
         const updateTimer = () => {
-            const start = new Date(table.order_start_time!).getTime();
+            // Safely parse order_start_time as UTC if no timezone is present
+            const startStr = table.order_start_time!;
+            const isoStart = (startStr.endsWith('Z') || startStr.includes('+'))
+                ? startStr
+                : `${startStr.replace(' ', 'T')}Z`;
+
+            const start = new Date(isoStart).getTime();
             const now = new Date().getTime();
             const diff = now - start;
 
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            if (diff > 0) {
+                const totalMinutes = Math.floor(diff / 60000);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
 
-            if (hours > 0) {
-                setDuration(`${hours} hr ${minutes} min`);
+                if (hours > 0) {
+                    setDuration(`${hours} hr ${minutes} min`);
+                } else {
+                    setDuration(`${minutes} min`);
+                }
             } else {
-                setDuration(`${minutes} min`);
+                setDuration('0 min');
             }
         };
 

@@ -15,6 +15,7 @@ class CustomerUpdate(BaseModel):
     email: Optional[str] = None
     address: Optional[str] = None
     customer_type: Optional[str] = None
+    due_amount: Optional[float] = None
 
 class CustomerResponse(BaseModel):
     id: int
