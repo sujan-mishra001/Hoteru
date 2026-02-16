@@ -161,9 +161,10 @@ async def login_for_access_token(
     
     if user.disabled:
         print(f"❌ Login failed: Account for {form_data.username} is disabled.")
+        message = "contact platform administrator for access" if user.role == "admin" else "Your account has been disabled. Please contact support."
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account has been disabled. Please contact support.",
+            detail=message,
         )
     
     if not verify_password(form_data.password, user.hashed_password):
@@ -234,11 +235,14 @@ async def read_users_me(
     user_role_name = current_user.role.lower()
     permissions = []
     
-    if user_role_name == 'admin':
+    if user_role_name in ['admin', 'platform_admin']:
         permissions = ["*"]
     else:
-        # 1. Try to fetch dynamic permissions from roles table
-        role = db.query(Role).filter(func.lower(Role.name) == user_role_name).first()
+        # 1. Try to fetch dynamic permissions from roles table for current branch
+        role = db.query(Role).filter(
+            func.lower(Role.name) == user_role_name,
+            Role.branch_id == current_user.current_branch_id
+        ).first()
         if role and role.permissions:
             permissions = role.permissions
             

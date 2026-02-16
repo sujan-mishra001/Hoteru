@@ -40,7 +40,10 @@ interface QRCode {
     updated_at: string;
 }
 
+import { useParams } from 'react-router-dom';
+
 const QRManagement: React.FC = () => {
+    const { branchSlug } = useParams();
     const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -54,7 +57,7 @@ const QRManagement: React.FC = () => {
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string>('');
-    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
     const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
         setSnackbar({ open: true, message, severity });
@@ -62,7 +65,7 @@ const QRManagement: React.FC = () => {
 
     useEffect(() => {
         loadQRCodes();
-    }, []);
+    }, [branchSlug]);
 
     const loadQRCodes = async () => {
         try {

@@ -193,13 +193,21 @@ const OrderTaking: React.FC = () => {
 
             if (activeOrder) {
                 setExistingOrder(activeOrder);
-                const mappedItems = activeOrder.items.map((item: any) => ({
-                    id: item.id,
-                    name: item.menu_item?.name || 'Unknown',
-                    price: item.price,
-                    quantity: item.quantity,
-                    item_id: item.menu_item_id
-                }));
+                const mappedItems = activeOrder.items.map((item: any) => {
+                    let price = item.price;
+                    // Fallback to current menu price if stored price is 0/missing
+                    if (!price || price === 0) {
+                        const menuInfo = activeItems.find((mi: any) => mi.id === item.menu_item_id);
+                        price = menuInfo?.price || 0;
+                    }
+                    return {
+                        id: item.id,
+                        name: item.menu_item?.name || 'Unknown',
+                        price: price,
+                        quantity: item.quantity,
+                        item_id: item.menu_item_id
+                    };
+                });
                 setOrderItems(mappedItems);
                 if (activeOrder.customer) {
                     setSelectedCustomer(activeOrder.customer);
@@ -331,7 +339,8 @@ const OrderTaking: React.FC = () => {
 
             logActivity('Draft Saved', `Order draft saved for ${table?.table_id || 'Table'}`, 'order');
             showAlert("Order saved as draft successfully!", "success");
-            navigate('/pos');
+            const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+            navigate(`/${branchPath}/pos`);
         } catch (error: any) {
             console.error("Error saving draft:", error);
             showAlert(error.response?.data?.detail || "Error saving draft", "error");
@@ -342,6 +351,13 @@ const OrderTaking: React.FC = () => {
 
     const handlePlaceOrder = async () => {
         if (orderItems.length === 0) return;
+
+        // Validate customer for Takeaway and Delivery orders
+        if ((orderType === 'Takeaway' || orderType === 'Delivery') && !selectedCustomer) {
+            showAlert('Please select or add a customer for Takeaway/Delivery orders', 'warning');
+            setLoading(false);
+            return;
+        }
 
         try {
             setLoading(true);
@@ -377,53 +393,60 @@ const OrderTaking: React.FC = () => {
                 orderId = orderRes.data.id;
             }
 
-            // 2. Create KOT/BOT only for NEW items or changed quantities
-            const itemsToSentToKot = orderItems.filter(item => {
-                const existingItem = existingOrder?.items.find((ei: any) => ei.menu_item_id === item.item_id);
-                return !existingItem || item.quantity > existingItem.quantity;
-            }).map(item => {
-                const existingItem = existingOrder?.items.find((ei: any) => ei.menu_item_id === item.item_id);
-                return {
-                    ...item,
-                    quantity: existingItem ? item.quantity - existingItem.quantity : item.quantity
-                };
-            });
+            // 2. Create KOT/BOT only for EXISTING orders (Backend handles it for new orders)
+            if (existingOrder) {
+                const itemsToSentToKot = orderItems.filter(item => {
+                    // If the existing order was a Draft, we send ALL items to KOT when placing it
+                    if (existingOrder.status === 'Draft') return true;
 
-            if (itemsToSentToKot.length > 0) {
-                const kotItems = itemsToSentToKot.filter(item => {
-                    const menuItem = allItems.find(i => i.id === item.item_id);
-                    const category = categories.find(c => c.id === menuItem?.category_id);
-                    return category?.type === 'KOT';
+                    const existingItem = existingOrder?.items.find((ei: any) => ei.menu_item_id === item.item_id);
+                    return !existingItem || item.quantity > existingItem.quantity;
+                }).map(item => {
+                    const existingItem = existingOrder?.items.find((ei: any) => ei.menu_item_id === item.item_id);
+                    // If it was draft, send full quantity. Otherwise, send the difference.
+                    const diffQuantity = (existingOrder.status === 'Draft') ? item.quantity : (existingItem ? item.quantity - existingItem.quantity : item.quantity);
+                    return {
+                        ...item,
+                        quantity: diffQuantity
+                    };
                 });
 
-                const botItems = itemsToSentToKot.filter(item => {
-                    const menuItem = allItems.find(i => i.id === item.item_id);
-                    const category = categories.find(c => c.id === menuItem?.category_id);
-                    return category?.type === 'BOT';
-                });
-
-                if (kotItems.length > 0) {
-                    await kotAPI.create({
-                        order_id: orderId,
-                        kot_type: 'KOT',
-                        items: kotItems.map(item => ({
-                            menu_item_id: item.item_id,
-                            quantity: item.quantity,
-                            notes: ''
-                        }))
+                if (itemsToSentToKot.length > 0) {
+                    const kotItems = itemsToSentToKot.filter(item => {
+                        const menuItem = allItems.find(i => i.id === item.item_id);
+                        const category = categories.find(c => c.id === menuItem?.category_id);
+                        return category?.type === 'KOT';
                     });
-                }
 
-                if (botItems.length > 0) {
-                    await kotAPI.create({
-                        order_id: orderId,
-                        kot_type: 'BOT',
-                        items: botItems.map(item => ({
-                            menu_item_id: item.item_id,
-                            quantity: item.quantity,
-                            notes: ''
-                        }))
+                    const botItems = itemsToSentToKot.filter(item => {
+                        const menuItem = allItems.find(i => i.id === item.item_id);
+                        const category = categories.find(c => c.id === menuItem?.category_id);
+                        return category?.type === 'BOT';
                     });
+
+                    if (kotItems.length > 0) {
+                        await kotAPI.create({
+                            order_id: orderId,
+                            kot_type: 'KOT',
+                            items: kotItems.map(item => ({
+                                menu_item_id: item.item_id,
+                                quantity: item.quantity,
+                                notes: ''
+                            }))
+                        });
+                    }
+
+                    if (botItems.length > 0) {
+                        await kotAPI.create({
+                            order_id: orderId,
+                            kot_type: 'BOT',
+                            items: botItems.map(item => ({
+                                menu_item_id: item.item_id,
+                                quantity: item.quantity,
+                                notes: ''
+                            }))
+                        });
+                    }
                 }
             }
 
@@ -438,7 +461,8 @@ const OrderTaking: React.FC = () => {
             logActivity(existingOrder ? 'Order Updated' : 'New Order',
                 `${existingOrder ? 'Updated' : 'Placed'} order for ${table?.table_id || 'Table'} - Rs. ${total}`, 'order');
             showAlert(existingOrder ? "Order updated successfully!" : "Order placed successfully!", "success");
-            navigate('/pos');
+            const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+            navigate(`/${branchPath}/pos`);
         } catch (error: any) {
             console.error("Error placing order:", error);
             showAlert(error.response?.data?.detail || "Error placing order", "error");
@@ -743,6 +767,11 @@ const OrderTaking: React.FC = () => {
 
                     {/* Customer Selection */}
                     <Box sx={{ mb: 2, position: 'relative' }}>
+                        {(orderType === 'Takeaway' || orderType === 'Delivery') && (
+                            <Typography variant="caption" color="error" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+                                * Customer required for {orderType} orders
+                            </Typography>
+                        )}
                         {selectedCustomer ? (
                             <Box sx={{
                                 p: 1.5,
@@ -849,6 +878,7 @@ const OrderTaking: React.FC = () => {
                             <Chip
                                 label="Dine In"
                                 icon={<Armchair size={16} />}
+                                onClick={() => setOrderType('Table')}
                                 sx={{
                                     height: 32,
                                     bgcolor: orderType === 'Table' ? '#fff7ed' : '#f8fafc',
@@ -857,12 +887,15 @@ const OrderTaking: React.FC = () => {
                                     border: '1px solid',
                                     borderColor: orderType === 'Table' ? '#FFC107' : '#e2e8f0',
                                     borderRadius: '8px',
-                                    '& .MuiChip-icon': { color: 'inherit' }
+                                    cursor: 'pointer',
+                                    '& .MuiChip-icon': { color: 'inherit' },
+                                    '&:hover': { opacity: 0.8 }
                                 }}
                             />
                             <Chip
                                 label="Takeaway"
                                 icon={<ShoppingBag size={16} />}
+                                onClick={() => setOrderType('Takeaway')}
                                 sx={{
                                     height: 32,
                                     bgcolor: orderType === 'Takeaway' ? '#fff7ed' : '#f8fafc',
@@ -871,12 +904,15 @@ const OrderTaking: React.FC = () => {
                                     border: '1px solid',
                                     borderColor: orderType === 'Takeaway' ? '#FFC107' : '#e2e8f0',
                                     borderRadius: '8px',
-                                    '& .MuiChip-icon': { color: 'inherit' }
+                                    cursor: 'pointer',
+                                    '& .MuiChip-icon': { color: 'inherit' },
+                                    '&:hover': { opacity: 0.8 }
                                 }}
                             />
                             <Chip
                                 label="Delivery"
                                 icon={<Bike size={16} />}
+                                onClick={() => setOrderType('Delivery')}
                                 sx={{
                                     height: 32,
                                     bgcolor: orderType === 'Delivery' ? '#fff7ed' : '#f8fafc',
@@ -885,7 +921,9 @@ const OrderTaking: React.FC = () => {
                                     border: '1px solid',
                                     borderColor: orderType === 'Delivery' ? '#FFC107' : '#e2e8f0',
                                     borderRadius: '8px',
-                                    '& .MuiChip-icon': { color: 'inherit' }
+                                    cursor: 'pointer',
+                                    '& .MuiChip-icon': { color: 'inherit' },
+                                    '&:hover': { opacity: 0.8 }
                                 }}
                             />
                         </Box>

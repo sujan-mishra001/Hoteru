@@ -59,9 +59,11 @@ import FloorTableSettings from './FloorTableSettings';
 import PrinterSettings from './PrinterSettings';
 import { menuAPI, settingsAPI, branchAPI, authAPI, deliveryAPI, reportsAPI, qrAPI, API_BASE_URL } from '../../services/api';
 import { useAuth } from '../../app/providers/AuthProvider';
+import { useBranch } from '../../app/providers/BranchProvider';
 
 const Settings: React.FC = () => {
     const navigate = useNavigate();
+    const { currentBranch } = useBranch();
     const [mainTab, setMainTab] = useState(0); // 0: General, 1: Restaurant
     const [subTab, setSubTab] = useState('company-profile');
     const [loading, setLoading] = useState(false);
@@ -263,11 +265,8 @@ const Settings: React.FC = () => {
     const loadCurrentBranch = async () => {
         try {
             setLoading(true);
-            const branchId = user?.current_branch_id;
-            if (branchId) {
-                const res = await branchAPI.getById(branchId);
-                setCurrentBranchSettings(res.data);
-            }
+            const res = await branchAPI.getCurrent();
+            setCurrentBranchSettings(res.data);
         } catch (error) {
             console.error('Error loading current branch:', error);
         } finally {
@@ -772,6 +771,7 @@ const Settings: React.FC = () => {
                                 onChange={(e) => setCurrentBranchSettings({ ...currentBranchSettings, facebook_url: e.target.value })}
                                 InputProps={{ startAdornment: <InputAdornment position="start"><Facebook size={18} /></InputAdornment> }}
                             />
+
                         </Grid>
                     </Grid>
                 </Paper>
@@ -1044,10 +1044,10 @@ const Settings: React.FC = () => {
                         mt: 1, mb: 2, p: 1, bgcolor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1',
                         cursor: 'pointer', '&:hover': { bgcolor: '#f1f5f9' }
                     }}
-                    onClick={() => window.open(`${window.location.origin}/digital-menu/${user?.current_branch_id}`, '_blank')}
+                    onClick={() => window.open(`${window.location.origin}/digital-menu/${currentBranch?.slug || currentBranch?.code}`, '_blank')}
                 >
                     <Typography variant="caption" sx={{ color: '#4f46e5', fontWeight: 700, fontFamily: 'monospace' }}>
-                        {window.location.origin}/digital-menu/{user?.current_branch_id}
+                        {window.location.origin}/digital-menu/{currentBranch?.slug || currentBranch?.code}
                     </Typography>
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3 }}>
@@ -1057,7 +1057,7 @@ const Settings: React.FC = () => {
                     <Button
                         fullWidth variant="outlined" startIcon={<Monitor size={18} />}
                         sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, borderColor: '#e2e8f0', color: '#1e293b' }}
-                        onClick={() => window.open(`/digital-menu/${user?.current_branch_id}`, '_blank')}
+                        onClick={() => window.open(`/digital-menu/${currentBranch?.slug || currentBranch?.code}`, '_blank')}
                     >
                         View Menu
                     </Button>

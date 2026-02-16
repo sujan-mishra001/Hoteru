@@ -45,6 +45,15 @@ const AdminLayout: React.FC = () => {
     const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
     const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
+    const getPath = (path: string) => {
+        if (!currentBranch) return path;
+        const target = currentBranch.slug || currentBranch.code;
+        if (path.startsWith('/')) {
+            return `/${target}${path}`;
+        }
+        return `/${target}/${path}`;
+    };
+
     useEffect(() => {
         const fetchLogo = async () => {
             try {
@@ -138,7 +147,7 @@ const AdminLayout: React.FC = () => {
                 { text: 'Units', path: '/inventory/units' },
                 { text: 'Stock Management', path: '/inventory/add' },
                 { text: 'Counts', path: '/inventory/count' },
-                { text: 'BOM', path: '/inventory/bom' },
+                { text: 'BOM/Recipe', path: '/inventory/bom' },
                 { text: 'Production', path: '/inventory/production' },
                 { text: 'Production Count', path: '/inventory/production-count' }
             ]
@@ -168,14 +177,14 @@ const AdminLayout: React.FC = () => {
             return true;
         }).map((item) => {
             // Check if any subitem is active to auto-expand or highlight parent
-            const isSubActive = item.subItems?.some((sub: any) => location.pathname === sub.path);
-            const isActive = location.pathname === item.path;
+            const isSubActive = item.subItems?.some((sub: any) => location.pathname === getPath(sub.path));
+            const isActive = location.pathname === getPath(item.path);
 
             return (
                 <React.Fragment key={item.text}>
                     <ListItem disablePadding sx={{ mb: 0.5 }}>
                         <ListItemButton
-                            onClick={() => item.hasSub ? toggleMenu(item.text) : navigate(item.path)}
+                            onClick={() => item.hasSub ? toggleMenu(item.text) : navigate(getPath(item.path))}
                             selected={isActive || isSubActive}
                             sx={{
                                 borderRadius: '10px',
@@ -197,8 +206,8 @@ const AdminLayout: React.FC = () => {
                             {item.subItems.filter((sub: any) => !sub.adminOnly || user?.role === 'admin' || user?.role === 'Admin').map((sub: any) => (
                                 <ListItem key={sub.text} disablePadding sx={{ mb: 0.2 }}>
                                     <ListItemButton
-                                        onClick={() => navigate(sub.path)}
-                                        selected={location.pathname === sub.path}
+                                        onClick={() => navigate(getPath(sub.path))}
+                                        selected={location.pathname === getPath(sub.path)}
                                         sx={{
                                             borderRadius: '8px',
                                             py: 0.5,
@@ -208,7 +217,7 @@ const AdminLayout: React.FC = () => {
                                             '&:hover': { color: '#FFC107', bgcolor: 'transparent' }
                                         }}
                                     >
-                                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: location.pathname === sub.path ? '#FFC107' : '#cbd5e1', mr: 2 }} />
+                                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: location.pathname === getPath(sub.path) ? '#FFC107' : '#cbd5e1', mr: 2 }} />
                                         <ListItemText
                                             primary={sub.text}
                                             primaryTypographyProps={{ fontSize: '0.85rem', fontWeight: 500 }}
@@ -315,7 +324,7 @@ const AdminLayout: React.FC = () => {
                         {/* Low Stock Alert */}
                         {hasLowStock && (
                             <Box
-                                onClick={() => navigate('/inventory/add')}
+                                onClick={() => navigate(getPath('/inventory/add'))}
                                 sx={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -376,7 +385,15 @@ const AdminLayout: React.FC = () => {
                             {accessibleBranches.map((branch) => (
                                 <MenuItem
                                     key={branch.id}
-                                    onClick={() => { selectBranch(branch.id); handleClose(); }}
+                                    onClick={() => {
+                                        selectBranch(branch.id);
+                                        handleClose();
+                                        // Update URL to the new branch
+                                        const pathParts = location.pathname.split('/');
+                                        const currentPathWithoutBranch = pathParts.slice(2).join('/');
+                                        const target = branch.slug || branch.code;
+                                        navigate(`/${target}/${currentPathWithoutBranch}`);
+                                    }}
                                     selected={currentBranch?.id === branch.id}
                                 >
                                     {branch.name}
@@ -393,7 +410,7 @@ const AdminLayout: React.FC = () => {
                         <Tooltip title="Open POS">
                             <Button
                                 variant="contained"
-                                onClick={() => navigate('/pos')}
+                                onClick={() => navigate(getPath('/pos'))}
                                 startIcon={<MonitorDot size={18} />}
                                 sx={{
                                     bgcolor: '#FFC107',

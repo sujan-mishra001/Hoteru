@@ -21,14 +21,16 @@ const Login: React.FC = () => {
     // Redirect if already logged in
     useEffect(() => {
         if (isAuthenticated && user) {
-            // Admin goes to dashboard, others go to POS tables
+            // Platform admin goes to platform admin panel
             if (user.role.toLowerCase() === 'platform_admin') {
                 navigate('/admin', { replace: true });
-            } else if (user.role.toLowerCase() === 'admin') {
-                navigate('/dashboard', { replace: true });
-            } else {
-                navigate('/pos/tables', { replace: true });
+                return;
             }
+
+            // For all others, go to select-branch. 
+            // The SelectBranch component will redirect to create-branch if needed,
+            // or let the user pick a branch.
+            navigate('/select-branch', { replace: true });
         }
     }, [isAuthenticated, user, navigate]);
 

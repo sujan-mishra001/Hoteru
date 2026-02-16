@@ -34,6 +34,7 @@ const Adjustment: React.FC = () => {
         notes: ''
     });
     const { checkLowStock } = useInventory();
+    const [adjustType, setAdjustType] = useState('+');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
     const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
@@ -64,6 +65,7 @@ const Adjustment: React.FC = () => {
 
     const handleOpenDialog = () => {
         setFormData({ product_id: '', quantity: 0, notes: '' });
+        setAdjustType('+');
         setOpenDialog(true);
     };
 
@@ -74,8 +76,10 @@ const Adjustment: React.FC = () => {
 
     const handleSubmit = async () => {
         try {
+            const finalQuantity = adjustType === '+' ? Math.abs(formData.quantity) : -Math.abs(formData.quantity);
             await inventoryAPI.createAdjustment({
                 ...formData,
+                quantity: finalQuantity,
                 transaction_type: 'Adjustment'
             });
             checkLowStock();
@@ -158,15 +162,28 @@ const Adjustment: React.FC = () => {
                                 </MenuItem>
                             ))}
                         </TextField>
-                        <TextField
-                            label="Adjustment Quantity"
-                            type="number"
-                            fullWidth
-                            value={formData.quantity}
-                            onChange={(e) => setFormData({ ...formData, quantity: parseFloat(e.target.value) || 0 })}
-                            helperText="Use positive for increase, negative for decrease"
-                            required
-                        />
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <TextField
+                                select
+                                label="Operation"
+                                value={adjustType}
+                                onChange={(e) => setAdjustType(e.target.value)}
+                                sx={{ width: 140 }}
+                            >
+                                <MenuItem value="+">Add (+)</MenuItem>
+                                <MenuItem value="-">Deduct (-)</MenuItem>
+                            </TextField>
+                            <TextField
+                                label="Quantity"
+                                type="number"
+                                fullWidth
+                                value={formData.quantity}
+                                onChange={(e) => setFormData({ ...formData, quantity: Math.abs(parseFloat(e.target.value)) || 0 })}
+                                helperText="Enter absolute quantity"
+                                required
+                                InputProps={{ inputProps: { min: 0 } }}
+                            />
+                        </Box>
                         <TextField
                             label="Notes"
                             multiline

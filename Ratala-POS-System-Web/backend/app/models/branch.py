@@ -1,7 +1,7 @@
 """
 Branch model for multi-location support
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.database import Base
@@ -16,6 +16,7 @@ class Branch(Base):
     
     # Branch details
     name = Column(String, nullable=False)
+    slug = Column(String, nullable=True, index=True) # URL-friendly name
     code = Column(String, unique=True, nullable=False, index=True)  # e.g., "DA001", "DA002"
     location = Column(String, nullable=True)
     address = Column(String, nullable=True)
@@ -29,6 +30,11 @@ class Branch(Base):
     
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Financial Settings (Branch Specific)
+    tax_rate = Column(Float, default=13.0, nullable=True)
+    service_charge_rate = Column(Float, default=10.0, nullable=True)
+    discount_rate = Column(Float, default=0.0, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

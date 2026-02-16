@@ -21,7 +21,7 @@ import { Search, MapPin, Phone, Instagram, Facebook } from 'lucide-react';
 import { menuAPI, settingsAPI, API_BASE_URL } from '../../services/api';
 
 const DigitalMenu: React.FC = () => {
-    const { branchId } = useParams<{ branchId: string }>();
+    const { branchSlug } = useParams<{ branchSlug: string }>();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const [loading, setLoading] = useState(true);
@@ -46,22 +46,35 @@ const DigitalMenu: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [branchId]);
+    }, [branchSlug]);
 
     const fetchData = async () => {
-        const cleanBranchId = branchId?.replace(/^:/, '');
-        const branchParam = cleanBranchId ? parseInt(cleanBranchId) : NaN;
-
-        if (isNaN(branchParam)) {
+        if (!branchSlug) {
             setLoading(false);
             return;
         }
+
         try {
             setLoading(true);
-            const [itemsRes, catRes, settingsRes] = await Promise.all([
-                menuAPI.getPublicItems(branchParam),
-                menuAPI.getPublicCategories(branchParam),
-                settingsAPI.getPublicCompanySettings(branchParam)
+
+            // First resolve branch slug to get branch settings and ID
+            const settingsRes = await settingsAPI.getPublicCompanySettings(undefined, undefined, branchSlug);
+            const settings = settingsRes.data;
+            setCompanySettings(settings);
+
+            if (!settings || !settings.branch_id) {
+                // If branch_id not found, it might be an invalid branch code
+                setMenuItems([]);
+                setCategories([{ id: 0, name: 'Our Specialties' }]);
+                setLoading(false);
+                return;
+            }
+
+            const branchId = settings.branch_id;
+
+            const [itemsRes, catRes] = await Promise.all([
+                menuAPI.getPublicItems(branchId),
+                menuAPI.getPublicCategories(branchId)
             ]);
 
             const activeItems = (itemsRes.data || []).filter((item: any) => item.is_active);
@@ -69,9 +82,9 @@ const DigitalMenu: React.FC = () => {
 
             setMenuItems(activeItems);
             setCategories([{ id: 0, name: 'Our Specialties' }, ...activeCats]);
-            setCompanySettings(settingsRes.data);
         } catch (error) {
             console.error('Error fetching digital menu data:', error);
+            showSnackbar('Could not load menu. Invalid branch code.', 'error');
         } finally {
             setLoading(false);
         }

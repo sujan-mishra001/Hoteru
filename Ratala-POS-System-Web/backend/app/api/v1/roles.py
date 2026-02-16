@@ -21,8 +21,13 @@ def list_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List all available roles"""
-    return roles_service.get_roles(db, skip=skip, limit=limit)
+    """List all available roles for the current branch"""
+    return roles_service.get_roles(
+        db, 
+        branch_id=current_user.current_branch_id, 
+        skip=skip, 
+        limit=limit
+    )
 
 
 @router.get("/permissions", response_model=List[str])
@@ -39,14 +44,18 @@ def create_role(
     db: Session = Depends(get_db),
     current_user: User = Depends(check_admin_role)
 ):
-    """Create a new dynamic role (Admin only)"""
-    existing = roles_service.get_role_by_name(db, role_data.name)
+    """Create a new dynamic role for the current branch (Admin only)"""
+    existing = roles_service.get_role_by_name(
+        db, 
+        role_data.name, 
+        branch_id=current_user.current_branch_id
+    )
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Role with this name already exists"
+            detail="Role with this name already exists in this branch"
         )
-    return roles_service.create_role(db, role_data)
+    return roles_service.create_role(db, role_data, branch_id=current_user.current_branch_id)
 
 
 @router.get("/{role_id}", response_model=RoleResponse)

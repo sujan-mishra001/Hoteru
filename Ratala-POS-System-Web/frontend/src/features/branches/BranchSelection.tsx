@@ -26,14 +26,19 @@ const BranchSelection: React.FC = () => {
         setIsLoading(true);
         setError('');
         try {
+            const branch = accessibleBranches.find(b => b.id === branchId);
+            if (!branch) throw new Error('Branch not found');
+
             await selectBranch(branchId);
+            const target = branch.slug || branch.code;
+
             // Workflow: "When user selects a branch -> Redirect to Selected Branch Admin Panel"
             // For managers/admins go to dashboard, others go to POS
             // Logic: Land on POS only if they don't have dashboard access
             if (hasPermission('dashboard.view')) {
-                navigate('/dashboard');
+                navigate(`/${target}/dashboard`);
             } else {
-                navigate('/pos');
+                navigate(`/${target}/pos`);
             }
         } catch (err: any) {
             setError('Failed to select branch. Please try again.');

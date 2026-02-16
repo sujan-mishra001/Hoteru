@@ -22,7 +22,6 @@ import {
     Alert
 } from '@mui/material';
 import {
-    Plus,
     RefreshCw,
     History,
     Package,
@@ -58,12 +57,12 @@ const Inventory: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [adjustType, setAdjustType] = useState('+');
 
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
     const { checkLowStock } = useInventory();
 
     // Forms State
-    const [addForm, setAddForm] = useState({ product_id: '', quantity: 0, notes: '' });
     const [adjustForm, setAdjustForm] = useState({ product_id: '', quantity: 0, notes: '' });
 
     useEffect(() => {
@@ -88,22 +87,7 @@ const Inventory: React.FC = () => {
         }
     };
 
-    const handleAddSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!addForm.product_id || addForm.quantity <= 0) return;
-        try {
-            setSubmitting(true);
-            await inventoryAPI.createTransaction({ ...addForm, transaction_type: 'IN' });
-            setSnackbar({ open: true, message: 'Stock added successfully', severity: 'success' });
-            checkLowStock();
-            setAddForm({ product_id: '', quantity: 0, notes: '' });
-            loadData();
-        } catch (error) {
-            setSnackbar({ open: true, message: 'Failed to add stock', severity: 'error' });
-        } finally {
-            setSubmitting(false);
-        }
-    };
+
 
     const handleAdjustSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -113,10 +97,12 @@ const Inventory: React.FC = () => {
         }
         try {
             setSubmitting(true);
-            await inventoryAPI.createAdjustment(adjustForm);
+            const finalQuantity = adjustType === '+' ? Math.abs(adjustForm.quantity) : -Math.abs(adjustForm.quantity);
+            await inventoryAPI.createAdjustment({ ...adjustForm, quantity: finalQuantity });
             setSnackbar({ open: true, message: 'Adjustment recorded successfully', severity: 'success' });
             checkLowStock();
             setAdjustForm({ product_id: '', quantity: 0, notes: '' });
+            setAdjustType('+');
             loadData();
         } catch (error) {
             setSnackbar({ open: true, message: 'Failed to adjust stock', severity: 'error' });
@@ -157,67 +143,17 @@ const Inventory: React.FC = () => {
                         '& .MuiTabs-indicator': { bgcolor: '#FFC107', height: 3, borderRadius: '3px 3px 0 0' }
                     }}
                 >
-                    <Tab icon={<Plus size={18} />} iconPosition="start" label="Add Stock" />
                     <Tab icon={<RefreshCw size={18} />} iconPosition="start" label="Adjust Stock" />
                     <Tab icon={<Package size={18} />} iconPosition="start" label="Show Stock" />
                     <Tab icon={<History size={18} />} iconPosition="start" label="Recent Transactions" />
                 </Tabs>
 
                 <Box sx={{ p: 3 }}>
-                    {/* Add Stock Tab */}
-                    <TabPanel value={tabValue} index={0}>
-                        <Box sx={{ maxWidth: 800, mx: 'auto' }}>
-                            <form onSubmit={handleAddSubmit}>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                                    <TextField
-                                        select
-                                        label="Select Product"
-                                        fullWidth
-                                        value={addForm.product_id}
-                                        onChange={(e) => setAddForm({ ...addForm, product_id: e.target.value })}
-                                        required
-                                    >
-                                        {products.map((p) => (
-                                            <MenuItem key={p.id} value={p.id}>{p.name} ({Number(p.current_stock).toFixed(2)} {p.unit?.abbreviation} available)</MenuItem>
-                                        ))}
-                                    </TextField>
-                                    <TextField
-                                        label="Quantity to Add"
-                                        type="number"
-                                        fullWidth
-                                        value={addForm.quantity || ''}
-                                        onChange={(e) => setAddForm({ ...addForm, quantity: parseFloat(e.target.value) || 0 })}
-                                        required
-                                        InputProps={{ inputProps: { min: 0.01, step: 0.01 } }}
-                                    />
-                                    <Box sx={{ gridColumn: { md: 'span 2' } }}>
-                                        <TextField
-                                            label="Notes / Reference Number"
-                                            fullWidth
-                                            multiline
-                                            rows={2}
-                                            value={addForm.notes}
-                                            onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
-                                            placeholder="e.g. Invoice #1234, Batch XYZ"
-                                        />
-                                    </Box>
-                                    <Box sx={{ gridColumn: { md: 'span 2' }, textAlign: 'right' }}>
-                                        <Button
-                                            variant="contained"
-                                            type="submit"
-                                            disabled={submitting}
-                                            sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' }, minWidth: 200, py: 1.5, borderRadius: '12px', fontWeight: 700 }}
-                                        >
-                                            {submitting ? <CircularProgress size={20} color="inherit" /> : 'Confirm Add Stock'}
-                                        </Button>
-                                    </Box>
-                                </Box>
-                            </form>
-                        </Box>
-                    </TabPanel>
+
 
                     {/* Adjust Stock Tab */}
-                    <TabPanel value={tabValue} index={1}>
+                    {/* Adjust Stock Tab */}
+                    <TabPanel value={tabValue} index={0}>
                         <Box sx={{ maxWidth: 800, mx: 'auto' }}>
                             <form onSubmit={handleAdjustSubmit}>
                                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
@@ -233,15 +169,28 @@ const Inventory: React.FC = () => {
                                             <MenuItem key={p.id} value={p.id}>{p.name} ({Number(p.current_stock).toFixed(2)} {p.unit?.abbreviation} current)</MenuItem>
                                         ))}
                                     </TextField>
-                                    <TextField
-                                        label="Adjustment Quantity"
-                                        type="number"
-                                        fullWidth
-                                        value={adjustForm.quantity || ''}
-                                        onChange={(e) => setAdjustForm({ ...adjustForm, quantity: parseFloat(e.target.value) || 0 })}
-                                        required
-                                        helperText="Positive for gains (+), negative for losses (-)"
-                                    />
+                                    <Box sx={{ display: 'flex', gap: 2 }}>
+                                        <TextField
+                                            select
+                                            label="Operation"
+                                            value={adjustType}
+                                            onChange={(e) => setAdjustType(e.target.value)}
+                                            sx={{ width: 140 }}
+                                        >
+                                            <MenuItem value="+">Add (+)</MenuItem>
+                                            <MenuItem value="-">Deduct (-)</MenuItem>
+                                        </TextField>
+                                        <TextField
+                                            label="Quantity"
+                                            type="number"
+                                            fullWidth
+                                            value={adjustForm.quantity || ''}
+                                            onChange={(e) => setAdjustForm({ ...adjustForm, quantity: Math.abs(parseFloat(e.target.value)) || 0 })}
+                                            required
+                                            helperText="Enter absolute quantity"
+                                            InputProps={{ inputProps: { min: 0 } }}
+                                        />
+                                    </Box>
                                     <Box sx={{ gridColumn: { md: 'span 2' } }}>
                                         <TextField
                                             label="Reason for Adjustment"
@@ -251,7 +200,7 @@ const Inventory: React.FC = () => {
                                             required
                                             value={adjustForm.notes}
                                             onChange={(e) => setAdjustForm({ ...adjustForm, notes: e.target.value })}
-                                            placeholder="e.g. Spillage, Found extra unit, Damaged in transport"
+                                            placeholder="e.g. New stock arrived, Spillage, Found extra unit, Damaged in transport"
                                         />
                                     </Box>
                                     <Box sx={{ gridColumn: { md: 'span 2' }, textAlign: 'right' }}>
@@ -270,7 +219,7 @@ const Inventory: React.FC = () => {
                     </TabPanel>
 
                     {/* Show Stock Tab */}
-                    <TabPanel value={tabValue} index={2}>
+                    <TabPanel value={tabValue} index={1}>
                         <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
                             <TextField
                                 fullWidth
@@ -330,7 +279,7 @@ const Inventory: React.FC = () => {
                     </TabPanel>
 
                     {/* Recent Transactions Tab */}
-                    <TabPanel value={tabValue} index={3}>
+                    <TabPanel value={tabValue} index={2}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h6" sx={{ fontWeight: 700 }}>Last 10 Movements</Typography>
                         </Box>

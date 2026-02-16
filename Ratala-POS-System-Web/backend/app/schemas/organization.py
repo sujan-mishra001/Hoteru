@@ -58,6 +58,9 @@ class BranchUpdate(BaseModel):
     instagram_url: Optional[str] = None
     slogan: Optional[str] = None
     is_active: Optional[bool] = None
+    tax_rate: Optional[float] = None
+    service_charge_rate: Optional[float] = None
+    discount_rate: Optional[float] = None
 
 class BranchResponse(BaseModel):
     id: int
@@ -71,7 +74,11 @@ class BranchResponse(BaseModel):
     facebook_url: Optional[str] = None
     instagram_url: Optional[str] = None
     slogan: Optional[str] = None
+    slug: Optional[str] = None
     is_active: bool
+    tax_rate: Optional[float] = 13.0
+    service_charge_rate: Optional[float] = 10.0
+    discount_rate: Optional[float] = 0.0
     created_at: datetime
     updated_at: datetime
 
@@ -86,6 +93,7 @@ class BranchBasicResponse(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    slug: Optional[str] = None
     is_active: bool
 
     class Config:

@@ -62,6 +62,7 @@ class Session(Base):
     start_time = Column(String, nullable=False)  # e.g., "09:00"
     end_time = Column(String, nullable=False)  # e.g., "17:00"
     status = Column(String, default="Active")
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -107,9 +108,9 @@ class Order(Base):
     delivery_partner = relationship("DeliveryPartner")
     session = relationship("Session")
     pos_session = relationship("POSSession")
-    user = relationship("User")
+    user = relationship("User", backref="created_orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-    kots = relationship("KOT", back_populates="order")
+    kots = relationship("KOT", back_populates="order", cascade="all, delete-orphan")
 
 
 class OrderItem(Base):
@@ -136,6 +137,7 @@ class KOT(Base):
     id = Column(Integer, primary_key=True, index=True)
     kot_number = Column(String, unique=True, nullable=False)
     order_id = Column(Integer, ForeignKey("orders.id"))
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     kot_type = Column(String, default="KOT")  # KOT or BOT
     status = Column(String, default="Pending")  # Pending, In Progress, Ready, Served
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -143,7 +145,7 @@ class KOT(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     order = relationship("Order", back_populates="kots")
-    user = relationship("User")
+    user = relationship("User", backref="created_kots")
     items = relationship("KOTItem", back_populates="kot", cascade="all, delete-orphan")
 
 

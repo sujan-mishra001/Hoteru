@@ -29,7 +29,15 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             if (Array.isArray(user.permissions)) {
                 return { permissions: user.permissions, loading: false };
             }
-            return { permissions: [], loading: true };
+
+            // Fallback for when currentBranch is null but we need to render something (like AdminLayout skeleton)
+            // returning loading: false with basic permissions allows guards to proceed
+            const userRole = user.role.toLowerCase();
+            if (userRole === 'admin') {
+                return { permissions: ['*'], loading: false };
+            } else {
+                return { permissions: ['pos.access'], loading: false };
+            }
         }
 
         let derivedPermissions: string[] = [];

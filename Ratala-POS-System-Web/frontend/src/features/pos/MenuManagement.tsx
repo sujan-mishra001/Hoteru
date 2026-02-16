@@ -28,6 +28,7 @@ import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { menuAPI, inventoryAPI, API_BASE_URL } from '../../services/api';
 
 const MenuManagement: React.FC = () => {
+    // 0: Categories, 1: Groups, 2: Items
     const [tab, setTab] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -91,7 +92,7 @@ const MenuManagement: React.FC = () => {
 
     const handleOpenDialog = (item?: any) => {
         setEditingItem(item || null);
-        if (tab === 0) { // Items
+        if (tab === 2) { // Items
             if (item) {
                 setItemForm({
                     name: item.name,
@@ -106,13 +107,13 @@ const MenuManagement: React.FC = () => {
             } else {
                 setItemForm({ name: '', price: '', category_id: '', group_id: '', bom_id: '', description: '', is_active: true, image: '' });
             }
-        } else if (tab === 1) { // Categories
+        } else if (tab === 0) { // Categories
             if (item) {
                 setCategoryForm({ name: item.name, type: item.type || 'KOT', is_active: !!item.is_active });
             } else {
                 setCategoryForm({ name: '', type: 'KOT', is_active: true });
             }
-        } else { // Groups
+        } else { // Groups (tab === 1)
             if (item) {
                 setGroupForm({ name: item.name, category_id: item.category_id || '', is_active: !!item.is_active });
             } else {
@@ -134,7 +135,7 @@ const MenuManagement: React.FC = () => {
 
     const handleSave = async () => {
         try {
-            if (tab === 0) { // Items
+            if (tab === 2) { // Items
                 const payload = {
                     name: itemForm.name,
                     price: parseFloat(itemForm.price as any),
@@ -156,7 +157,7 @@ const MenuManagement: React.FC = () => {
                     formData.append('file', selectedFile);
                     await menuAPI.uploadItemImage(itemId, formData);
                 }
-            } else if (tab === 1) { // Categories
+            } else if (tab === 0) { // Categories
                 const payload = {
                     name: categoryForm.name,
                     type: categoryForm.type,
@@ -164,7 +165,7 @@ const MenuManagement: React.FC = () => {
                 };
                 if (editingItem) await menuAPI.updateCategory(editingItem.id, payload);
                 else await menuAPI.createCategory(payload);
-            } else { // Groups
+            } else { // Groups (tab === 1)
                 const payload = {
                     name: groupForm.name,
                     category_id: Number(groupForm.category_id),
@@ -175,7 +176,7 @@ const MenuManagement: React.FC = () => {
             }
             setOpenAddItem(false);
             loadData();
-            showSnackbar(`${tab === 0 ? 'Item' : tab === 1 ? 'Category' : 'Group'} ${editingItem ? 'updated' : 'created'} successfully`);
+            showSnackbar(`${tab === 2 ? 'Item' : tab === 0 ? 'Category' : 'Group'} ${editingItem ? 'updated' : 'created'} successfully`);
         } catch (error: any) {
             console.error('Error saving:', error);
             showSnackbar(error.response?.data?.detail || 'Failed to save', 'error');
@@ -185,11 +186,11 @@ const MenuManagement: React.FC = () => {
     const handleDelete = async (id: number) => {
         if (!confirm('Are you sure?')) return;
         try {
-            if (tab === 0) await menuAPI.deleteItem(id);
-            else if (tab === 1) await menuAPI.deleteCategory(id);
+            if (tab === 2) await menuAPI.deleteItem(id);
+            else if (tab === 0) await menuAPI.deleteCategory(id);
             else await menuAPI.deleteGroup(id);
             loadData();
-            showSnackbar(`${tab === 0 ? 'Item' : tab === 1 ? 'Category' : 'Group'} deleted successfully`);
+            showSnackbar(`${tab === 2 ? 'Item' : tab === 0 ? 'Category' : 'Group'} deleted successfully`);
         } catch (error: any) {
             console.error('Error deleting:', error);
             showSnackbar('Failed to delete item', 'error');
@@ -198,15 +199,16 @@ const MenuManagement: React.FC = () => {
 
     const filteredContent = () => {
         const lowerSearch = searchTerm.toLowerCase();
-        if (tab === 0) return menuItems.filter(i => i.name.toLowerCase().includes(lowerSearch));
-        if (tab === 1) return categories.filter(c => c.name.toLowerCase().includes(lowerSearch));
+        if (tab === 2) return menuItems.filter(i => i.name.toLowerCase().includes(lowerSearch));
+        if (tab === 0) return categories.filter(c => c.name.toLowerCase().includes(lowerSearch));
+        // tab === 1
         return groups.filter(g => g.name.toLowerCase().includes(lowerSearch));
     };
 
     const getDialogTitle = () => {
         const action = editingItem ? 'EDIT' : 'ADD NEW';
-        if (tab === 0) return `${action} MENU ITEM`;
-        if (tab === 1) return `${action} CATEGORY`;
+        if (tab === 2) return `${action} MENU ITEM`;
+        if (tab === 0) return `${action} CATEGORY`;
         return `${action} GROUP`;
     };
 
@@ -215,15 +217,15 @@ const MenuManagement: React.FC = () => {
             <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h5" fontWeight={800}>Menu Management</Typography>
                 <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => handleOpenDialog()} sx={{ bgcolor: '#FFC107', '&:hover': { bgcolor: '#FF7700' } }}>
-                    Add {tab === 0 ? 'Item' : tab === 1 ? 'Category' : 'Group'}
+                    Add {tab === 2 ? 'Item' : tab === 0 ? 'Category' : 'Group'}
                 </Button>
             </Box>
 
             <Paper sx={{ borderRadius: '16px', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
                 <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2, borderBottom: '1px solid #f1f5f9' }}>
-                    <Tab label="MENU ITEMS" />
                     <Tab label="CATEGORIES" />
                     <Tab label="GROUPS" />
+                    <Tab label="MENU ITEMS" />
                 </Tabs>
 
                 <Box sx={{ p: 3 }}>
@@ -241,12 +243,12 @@ const MenuManagement: React.FC = () => {
                         <Table>
                             <TableHead sx={{ bgcolor: '#f8fafc' }}>
                                 <TableRow>
-                                    {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>IMAGE</TableCell>}
+                                    {tab === 2 && <TableCell sx={{ fontWeight: 700 }}>IMAGE</TableCell>}
                                     <TableCell sx={{ fontWeight: 700 }}>NAME</TableCell>
-                                    {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>CATEGORY</TableCell>}
-                                    {tab === 1 && <TableCell sx={{ fontWeight: 700 }}>TYPE (KOT/BOT)</TableCell>}
                                     {tab === 2 && <TableCell sx={{ fontWeight: 700 }}>CATEGORY</TableCell>}
-                                    {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>PRICE</TableCell>}
+                                    {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>TYPE (KOT/BOT)</TableCell>}
+                                    {tab === 1 && <TableCell sx={{ fontWeight: 700 }}>CATEGORY</TableCell>}
+                                    {tab === 2 && <TableCell sx={{ fontWeight: 700 }}>PRICE</TableCell>}
                                     <TableCell sx={{ fontWeight: 700 }}>STATUS</TableCell>
                                     <TableCell sx={{ fontWeight: 700 }}>ACTIONS</TableCell>
                                 </TableRow>
@@ -259,16 +261,16 @@ const MenuManagement: React.FC = () => {
                                 ) : (
                                     filteredContent().map((item: any) => (
                                         <TableRow key={item.id} hover>
-                                            {tab === 0 && (
+                                            {tab === 2 && (
                                                 <TableCell>
                                                     <Avatar src={item.image ? (item.image.startsWith('http') ? item.image : `${API_BASE_URL}${item.image}`) : ''} variant="rounded" sx={{ width: 40, height: 40, bgcolor: '#f1f5f9', color: '#64748b' }}>{item.name.charAt(0)}</Avatar>
                                                 </TableCell>
                                             )}
                                             <TableCell sx={{ fontWeight: 600 }}>{item.name}</TableCell>
-                                            {tab === 0 && <TableCell>{categories.find(c => c.id === item.category_id)?.name || '-'}</TableCell>}
-                                            {tab === 1 && <TableCell>{item.type || 'KOT'}</TableCell>}
                                             {tab === 2 && <TableCell>{categories.find(c => c.id === item.category_id)?.name || '-'}</TableCell>}
-                                            {tab === 0 && <TableCell sx={{ fontWeight: 700 }}>NPRs. {item.price}</TableCell>}
+                                            {tab === 0 && <TableCell>{item.type || 'KOT'}</TableCell>}
+                                            {tab === 1 && <TableCell>{categories.find(c => c.id === item.category_id)?.name || '-'}</TableCell>}
+                                            {tab === 2 && <TableCell sx={{ fontWeight: 700 }}>NPRs. {item.price}</TableCell>}
                                             <TableCell>
                                                 <Box sx={{
                                                     display: 'inline-block', px: 1, py: 0.5, borderRadius: '4px',
@@ -299,7 +301,7 @@ const MenuManagement: React.FC = () => {
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-                        {tab === 0 ? (
+                        {tab === 2 ? (
                             <>
                                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
                                     <input
@@ -385,7 +387,7 @@ const MenuManagement: React.FC = () => {
                                     <label htmlFor="is_active_item" style={{ cursor: 'pointer', fontWeight: 600 }}>Active Status</label>
                                 </Box>
                             </>
-                        ) : tab === 1 ? (
+                        ) : tab === 0 ? (
                             <>
                                 <TextField label="Category Name" fullWidth required value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} />
                                 <TextField select label="Type (KOT/BOT)" fullWidth required value={categoryForm.type} onChange={(e) => setCategoryForm({ ...categoryForm, type: e.target.value })}>
@@ -430,4 +432,3 @@ const MenuManagement: React.FC = () => {
 };
 
 export default MenuManagement;
-

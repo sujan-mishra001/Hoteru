@@ -2,7 +2,7 @@
 Inventory-related models (Products, Units, Transactions, BOM, Production)
 Transaction-based inventory system - stock is ALWAYS derived
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, select, func
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, select, func, UniqueConstraint
 from sqlalchemy.orm import relationship, column_property
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime
@@ -14,13 +14,18 @@ class UnitOfMeasurement(Base):
     __tablename__ = "units_of_measurement"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
     abbreviation = Column(String, nullable=True)
     base_unit_id = Column(Integer, ForeignKey("units_of_measurement.id"), nullable=True)
     conversion_factor = Column(Float, default=1.0)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     base_unit = relationship("UnitOfMeasurement", remote_side=[id])
+
+    __table_args__ = (
+        UniqueConstraint('name', 'branch_id', name='uq_unit_name_branch'),
+    )
 
 
 class Product(Base):
@@ -35,11 +40,16 @@ class Product(Base):
     category = Column(String, nullable=True)
     unit_id = Column(Integer, ForeignKey("units_of_measurement.id"))
     min_stock = Column(Float, default=0)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     unit = relationship("UnitOfMeasurement")
     transactions = relationship("InventoryTransaction", back_populates="product", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint('name', 'branch_id', name='uq_product_name_branch'),
+    )
 
     @hybrid_property
     def current_stock(self):
@@ -91,6 +101,7 @@ class InventoryTransaction(Base):
     quantity = Column(Float, nullable=False)
     reference_number = Column(String, nullable=True)
     reference_id = Column(Integer, nullable=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     pos_session_id = Column(Integer, ForeignKey("pos_sessions.id"), nullable=True)
     notes = Column(Text, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"))
@@ -142,6 +153,7 @@ class BatchProduction(Base):
     bom_id = Column(Integer, ForeignKey("bills_of_materials.id"), nullable=False)
     quantity = Column(Float, nullable=False)
     status = Column(String, default="Pending")
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     pos_session_id = Column(Integer, ForeignKey("pos_sessions.id"), nullable=True)
     production_cost = Column(Float, default=0.0)
     notes = Column(Text, nullable=True)

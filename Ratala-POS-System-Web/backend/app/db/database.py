@@ -120,7 +120,17 @@ def init_db():
                     ("menu_groups", "image_data", "BYTEA"),
                     ("menu_items", "image_data", "BYTEA"),
                     ("company_settings", "logo_url", "VARCHAR"),
-                    ("company_settings", "logo_data", "BYTEA")
+                    ("company_settings", "logo_data", "BYTEA"),
+                    ("payment_modes", "branch_id", "INTEGER"),
+                    ("storage_areas", "branch_id", "INTEGER"),
+                    ("discount_rules", "branch_id", "INTEGER"),
+                    ("tables", "merged_to_id", "INTEGER"),
+                    ("tables", "merge_group_id", "VARCHAR"),
+                    ("branches", "tax_rate", "FLOAT"),
+                    ("branches", "service_charge_rate", "FLOAT"),
+                    ("branches", "discount_rate", "FLOAT"),
+                    ("branches", "slug", "VARCHAR"),
+                    ("roles", "branch_id", "INTEGER")
                 ]
                 
                 for table, col, dtype in updates:
@@ -131,6 +141,16 @@ def init_db():
                         print(f"  ⚠ Error checking {table}.{col}: {e}")
                 
                 print("✓ Schema verified")
+                
+                # Migrations: Populate missing slugs for branches
+                from app.services.branch_service import slugify
+                from app.models.branch import Branch
+                
+                branches_to_update = conn.execute(text("SELECT id, name FROM branches WHERE slug IS NULL")).fetchall()
+                for row in branches_to_update:
+                    new_slug = slugify(row[1])
+                    conn.execute(text("UPDATE branches SET slug = :slug WHERE id = :id"), {"slug": new_slug, "id": row[0]})
+                    print(f"  → Populated slug '{new_slug}' for branch ID {row[0]}")
         except Exception as e:
             print(f"⚠ Schema check failed: {e}")
 

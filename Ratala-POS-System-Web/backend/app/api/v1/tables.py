@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user, check_admin_role
-from app.models import Table, Floor, Order, KOT
+from app.core.dependencies import get_current_user, check_admin_role, get_branch_id
+from app.models import Table, Floor, Order, KOT, Branch
 
 router = APIRouter()
 
@@ -32,14 +32,11 @@ async def get_tables(
     floor_id: Optional[int] = None,
     include_inactive: bool = False,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all tables for the current user's branch with KOT/BOT counts, optionally filtered by floor"""
-    branch_id = current_user.current_branch_id
-    query = db.query(Table)
-    
-    # Apply branch filter
-    query = apply_branch_filter_table(db, query, branch_id)
+    """Get all tables for the branch with KOT/BOT counts, optionally filtered by floor"""
+    query = db.query(Table).filter(Table.branch_id == branch_id)
     
     if not include_inactive:
         query = query.filter(Table.is_active == True)
@@ -77,7 +74,7 @@ async def get_tables(
         # Get active order for this table
         active_order = db.query(Order).filter(
             Order.table_id == table.id,
-            Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
+            Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft", "Completed"])
         ).first()
         
         if active_order:
@@ -108,20 +105,21 @@ async def get_tables(
 @router.get("/with-stats")
 async def get_tables_with_stats(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get tables with order statistics grouped by floor for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
+    """Get tables with order statistics grouped by floor for the branch"""
     # Get floors filtered by branch
-    floor_query = db.query(Floor).filter(Floor.is_active == True)
-    floor_query = apply_branch_filter_floor(db, floor_query, branch_id)
-    floors = floor_query.order_by(Floor.display_order).all()
+    floors = db.query(Floor).filter(
+        Floor.is_active == True,
+        Floor.branch_id == branch_id
+    ).order_by(Floor.display_order).all()
     
     result = []
     for floor in floors:
         tables = db.query(Table).filter(
             Table.floor_id == floor.id,
+            Table.branch_id == branch_id,
             Table.is_active == True
         ).order_by(Table.display_order).all()
         
@@ -146,11 +144,11 @@ async def get_tables_with_stats(
                 "active_order_id": None
             }
             
-            # Get active order
+            # Get active order (Filtered by branch_id for safety)
             active_order = db.query(Order).filter(
                 Order.table_id == table.id,
-                # Include Draft orders too
-                Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
+                Order.branch_id == branch_id,
+                Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft", "Completed"])
             ).first()
             
             if active_order:
@@ -181,10 +179,11 @@ async def get_tables_with_stats(
 async def merge_tables_bulk(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Merge multiple tables"""
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     primary_table_id = payload.get("primary_table_id")
     table_ids = payload.get("table_ids", [])
     
@@ -239,10 +238,11 @@ async def merge_tables_bulk(
 async def unmerge_tables_bulk(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Unmerge tables by Group ID with branch isolation"""
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     merge_group_id = payload.get("merge_group_id")
     
     if not merge_group_id:
@@ -279,36 +279,35 @@ async def merge_tables(
     table_id: int,
     target_table_id: int = Body(..., embed=True),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Merge two tables into a merge group"""
-    branch_id = current_user.current_branch_id
-    
     # Get source table
-    source_query = db.query(Table).filter(Table.id == table_id)
-    source_query = apply_branch_filter_table(db, source_query, branch_id)
-    source_table = source_query.first()
+    source_table = db.query(Table).filter(
+        Table.id == table_id,
+        Table.branch_id == branch_id
+    ).first()
     if not source_table:
         raise HTTPException(status_code=404, detail="Source table not found or access denied")
     
     # Get target table
-    target_query = db.query(Table).filter(Table.id == target_table_id)
-    target_query = apply_branch_filter_table(db, target_query, branch_id)
-    target_table = target_query.first()
+    target_table = db.query(Table).filter(
+        Table.id == target_table_id,
+        Table.branch_id == branch_id
+    ).first()
     if not target_table:
         raise HTTPException(status_code=404, detail="Target table not found or access denied")
     
-    # Check if either table is already in a merge group
     if source_table.merge_group_id or target_table.merge_group_id:
         # If one has a group, add the other to that group
         merge_group_id = source_table.merge_group_id or target_table.merge_group_id
     else:
         # Create new merge group - find next available number
         existing_groups = db.query(Table).filter(
-            Table.merge_group_id.isnot(None)
-        )
-        existing_groups = apply_branch_filter_table(db, existing_groups, branch_id)
-        existing_groups = existing_groups.all()
+            Table.merge_group_id.isnot(None),
+            Table.branch_id == branch_id
+        ).all()
         
         group_numbers = []
         for t in existing_groups:
@@ -343,15 +342,15 @@ async def merge_tables(
 async def unmerge_table(
     table_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Remove a table from its merge group"""
-    branch_id = current_user.current_branch_id
-    
     # Get table
-    query = db.query(Table).filter(Table.id == table_id)
-    query = apply_branch_filter_table(db, query, branch_id)
-    table = query.first()
+    table = db.query(Table).filter(
+        Table.id == table_id,
+        Table.branch_id == branch_id
+    ).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found or access denied")
     
@@ -367,6 +366,7 @@ async def unmerge_table(
     # Check if table has active order
     active_order = db.query(Order).filter(
         Order.table_id == table.id,
+        Order.branch_id == branch_id,
         Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft"])
     ).first()
     
@@ -374,9 +374,10 @@ async def unmerge_table(
         table.status = "Available"
     
     # Check if any other tables are still in this group
-    remaining_query = db.query(Table).filter(Table.merge_group_id == merge_group_id)
-    remaining_query = apply_branch_filter_table(db, remaining_query, branch_id)
-    remaining_tables = remaining_query.all()
+    remaining_tables = db.query(Table).filter(
+        Table.merge_group_id == merge_group_id,
+        Table.branch_id == branch_id
+    ).all()
     
     # If only one table left, remove it from the group too
     if len(remaining_tables) == 1:
@@ -402,14 +403,14 @@ async def unmerge_table(
 async def get_table(
     table_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get table by ID with active order info, filtered by user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Table).filter(Table.id == table_id)
-    query = apply_branch_filter_table(db, query, branch_id)
-    table = query.first()
+    """Get table by ID with active order info, filtered by branch"""
+    table = db.query(Table).filter(
+        Table.id == table_id,
+        Table.branch_id == branch_id
+    ).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found or access denied")
     
@@ -431,7 +432,7 @@ async def get_table(
     # Get active order
     active_order = db.query(Order).filter(
         Order.table_id == table.id,
-        Order.status.in_(["Pending", "In Progress", "BillRequested"])
+        Order.status.in_(["Pending", "In Progress", "BillRequested", "Draft", "Completed"])
     ).first()
     
     if active_order:
@@ -449,35 +450,38 @@ async def get_table(
 async def create_table(
     table_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)  # Allow managers too
+    current_user = Depends(get_current_user),  # Allow managers too
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create a new table in the user's current branch"""
-    branch_id = current_user.current_branch_id
-    
+    """Create a new table in the branch"""
     # Check if table_id already exists in the branch
-    query = db.query(Table).filter(Table.table_id == table_data.get('table_id'))
-    query = apply_branch_filter_table(db, query, branch_id)
-    existing = query.first()
+    existing = db.query(Table).filter(
+        Table.table_id == table_data.get('table_id'),
+        Table.branch_id == branch_id
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Table ID already exists in this branch")
     
     # 1. Handle Display Order
     floor_id = table_data.get('floor_id')
-    max_order_query = db.query(Table).filter(Table.floor_id == floor_id)
-    max_order_query = apply_branch_filter_table(db, max_order_query, branch_id)
-    max_order = max_order_query.order_by(Table.display_order.desc()).first()
+    max_order = db.query(Table).filter(
+        Table.floor_id == floor_id,
+        Table.branch_id == branch_id
+    ).order_by(Table.display_order.desc()).first()
     
     table_data['display_order'] = (max_order.display_order + 1) if max_order else 0
     
     # 2. Set Floor Name if missing but ID provided
     if floor_id and 'floor' not in table_data:
-        floor_obj = db.query(Floor).filter(Floor.id == floor_id).first()
+        floor_obj = db.query(Floor).filter(
+            Floor.id == floor_id,
+            Floor.branch_id == branch_id
+        ).first()
         if floor_obj:
             table_data['floor'] = floor_obj.name
             
     # 3. Explicitly set branch_id
-    if branch_id:
-        table_data['branch_id'] = branch_id
+    table_data['branch_id'] = branch_id
 
     # 4. Create and add
     try:
@@ -508,31 +512,33 @@ async def update_table(
     table_id: int,
     table_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update a table in the user's current branch"""
-    branch_id = current_user.current_branch_id
-    
+    """Update a table in the branch"""
     # Get table filtered by branch
-    query = db.query(Table).filter(Table.id == table_id)
-    query = apply_branch_filter_table(db, query, branch_id)
-    table = query.first()
+    table = db.query(Table).filter(
+        Table.id == table_id,
+        Table.branch_id == branch_id
+    ).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found or access denied")
     
     # Check if new table_id conflicts with existing in the branch
     if 'table_id' in table_data and table_data['table_id'] != table.table_id:
-        query = db.query(Table).filter(Table.table_id == table_data['table_id'])
-        query = apply_branch_filter_table(db, query, branch_id)
-        existing = query.first()
+        existing = db.query(Table).filter(
+            Table.table_id == table_data['table_id'],
+            Table.branch_id == branch_id
+        ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Table ID already exists in this branch")
     
     # Update floor name if floor_id changed
     if 'floor_id' in table_data and table_data['floor_id'] != table.floor_id:
-        floor_query = db.query(Floor).filter(Floor.id == table_data['floor_id'])
-        floor_query = apply_branch_filter_floor(db, floor_query, branch_id)
-        floor = floor_query.first()
+        floor = db.query(Floor).filter(
+            Floor.id == table_data['floor_id'],
+            Floor.branch_id == branch_id
+        ).first()
         if floor:
             table_data['floor'] = floor.name
     
@@ -551,10 +557,11 @@ async def update_table_status(
     table_id: int,
     status: str = Body(..., embed=True),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update table status in the user's current branch"""
-    branch_id = current_user.current_branch_id
+    """Update table status in the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(Table).filter(Table.id == table_id)
     query = apply_branch_filter_table(db, query, branch_id)
@@ -576,14 +583,15 @@ async def update_table_status(
 async def delete_table(
     table_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(check_admin_role)
+    current_user = Depends(check_admin_role),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Delete a table in the user's current branch (Admin only) - sets is_active to False"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Table).filter(Table.id == table_id)
-    query = apply_branch_filter_table(db, query, branch_id)
-    table = query.first()
+    """Delete a table in the branch (Admin only)"""
+    # Get table filtered by branch
+    table = db.query(Table).filter(
+        Table.id == table_id,
+        Table.branch_id == branch_id
+    ).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found or access denied")
     
@@ -613,14 +621,15 @@ async def reorder_table(
     table_id: int,
     new_order: int = Body(..., embed=True),
     db: Session = Depends(get_db),
-    current_user = Depends(check_admin_role)
+    current_user = Depends(check_admin_role),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Reorder a table in the user's current branch (Admin only)"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Table).filter(Table.id == table_id)
-    query = apply_branch_filter_table(db, query, branch_id)
-    table = query.first()
+    """Reorder a table in the branch (Admin only)"""
+    # Get table filtered by branch
+    table = db.query(Table).filter(
+        Table.id == table_id,
+        Table.branch_id == branch_id
+    ).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found or access denied")
     

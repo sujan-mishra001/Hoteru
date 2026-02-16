@@ -7,30 +7,22 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models import Customer
 from app.schemas import CustomerCreate, CustomerUpdate, CustomerResponse
 
 router = APIRouter()
 
 
-def apply_branch_filter_customer(query, branch_id):
-    """Apply branch_id filter to Customer queries"""
-    if branch_id is not None and hasattr(Customer, 'branch_id'):
-        query = query.filter(Customer.branch_id == branch_id)
-    return query
-
-
 @router.get("", response_model=list[CustomerResponse])
 async def get_customers(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all customers for the current user's branch, optionally filtered by search (name or phone)"""
-    branch_id = current_user.current_branch_id
-    query = db.query(Customer)
-    query = apply_branch_filter_customer(query, branch_id)
+    """Get all customers for the branch, optionally filtered by search (name or phone)"""
+    query = db.query(Customer).filter(Customer.branch_id == branch_id)
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(or_(
@@ -45,15 +37,12 @@ async def get_customers(
 async def create_customer(
     customer_data: CustomerCreate = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create a new customer in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Create a new customer in the branch"""
     customer_dict = customer_data.dict()
-    
-    # Set branch_id for the new customer
-    if branch_id is not None and hasattr(Customer, 'branch_id'):
-        customer_dict['branch_id'] = branch_id
+    customer_dict['branch_id'] = branch_id
     
     new_customer = Customer(**customer_dict)
     db.add(new_customer)
@@ -66,14 +55,14 @@ async def create_customer(
 async def get_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get customer by ID, filtered by user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Customer).filter(Customer.id == customer_id)
-    query = apply_branch_filter_customer(query, branch_id)
-    customer = query.first()
+    """Get customer by ID, filtered by branch"""
+    customer = db.query(Customer).filter(
+        Customer.id == customer_id,
+        Customer.branch_id == branch_id
+    ).first()
     
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found or access denied")
@@ -86,14 +75,14 @@ async def update_customer(
     customer_id: int,
     customer_data: CustomerUpdate = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update customer in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Customer).filter(Customer.id == customer_id)
-    query = apply_branch_filter_customer(query, branch_id)
-    customer = query.first()
+    """Update customer in the branch"""
+    customer = db.query(Customer).filter(
+        Customer.id == customer_id,
+        Customer.branch_id == branch_id
+    ).first()
     
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found or access denied")
@@ -112,14 +101,14 @@ async def update_customer(
 async def delete_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Delete customer in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Customer).filter(Customer.id == customer_id)
-    query = apply_branch_filter_customer(query, branch_id)
-    customer = query.first()
+    """Delete customer in the branch"""
+    customer = db.query(Customer).filter(
+        Customer.id == customer_id,
+        Customer.branch_id == branch_id
+    ).first()
     
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found or access denied")

@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 import random
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models import (
     Product, UnitOfMeasurement, InventoryTransaction,
-    BillOfMaterials, BOMItem, BatchProduction, POSSession
+    BillOfMaterials, BOMItem, BatchProduction, POSSession, Branch
 )
 from app.services.inventory_service import InventoryService
 
@@ -73,13 +73,12 @@ def get_product_status(stock: float, min_stock: float) -> str:
 @router.get("/products")
 async def get_products(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all products with DERIVED stock for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
+    """Get all products with DERIVED stock for the branch"""
     query = db.query(Product).options(joinedload(Product.unit))
-    query = apply_branch_filter_inventory(query, Product, branch_id)
+    query = query.filter(Product.branch_id == branch_id)
     products = query.all()
     
     result = []
@@ -105,18 +104,14 @@ async def get_products(
 async def create_product(
     product_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create a new product in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
+    """Create a new product in the branch"""
     # Strip non-model fields
     allowed_fields = ['name', 'category', 'unit_id', 'min_stock']
     data = {k: v for k, v in product_data.items() if k in allowed_fields}
-    
-    # Set branch_id if the column exists
-    if branch_id is not None and hasattr(Product, 'branch_id'):
-        data['branch_id'] = branch_id
+    data['branch_id'] = branch_id
     
     new_product = Product(**data)
     db.add(new_product)
@@ -160,13 +155,14 @@ async def update_product(
     product_id: int,
     product_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update a product in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Product).filter(Product.id == product_id)
-    query = apply_branch_filter_inventory(query, Product, branch_id)
+    """Update a product in the branch"""
+    query = db.query(Product).filter(
+        Product.id == product_id,
+        Product.branch_id == branch_id
+    )
     db_product = query.first()
     
     if not db_product:
@@ -215,13 +211,14 @@ async def update_product(
 async def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Delete a product in the current user's branch - ONLY if no transactions exist"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Product).filter(Product.id == product_id)
-    query = apply_branch_filter_inventory(query, Product, branch_id)
+    """Delete a product in the branch - ONLY if no transactions exist"""
+    query = db.query(Product).filter(
+        Product.id == product_id,
+        Product.branch_id == branch_id
+    )
     db_product = query.first()
     
     if not db_product:
@@ -249,10 +246,11 @@ async def delete_product(
 @router.get("/units")
 async def get_units(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all units"""
-    units = db.query(UnitOfMeasurement).all()
+    """Get all units for the branch"""
+    units = db.query(UnitOfMeasurement).filter(UnitOfMeasurement.branch_id == branch_id).all()
     return units
 
 
@@ -260,8 +258,10 @@ async def get_units(
 async def create_unit(
     unit_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
+    unit_data['branch_id'] = branch_id
     new_unit = UnitOfMeasurement(**unit_data)
     db.add(new_unit)
     db.commit()
@@ -317,10 +317,12 @@ async def delete_unit(
 async def create_transaction(
     txn_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Create IN transaction for adding stock"""
     txn_data['created_by'] = current_user.id
+    txn_data['branch_id'] = branch_id
     txn_data['transaction_type'] = 'IN'
     
     # Tie to active POS Session
@@ -344,15 +346,15 @@ async def create_transaction(
 @router.get("/transactions")
 async def get_transactions(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all inventory transactions for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(InventoryTransaction).options(
+    """Get all inventory transactions for the branch"""
+    query = db.query(InventoryTransaction).filter(
+        InventoryTransaction.branch_id == branch_id
+    ).options(
         joinedload(InventoryTransaction.product).joinedload(Product.unit)
     )
-    query = apply_branch_filter_inventory(query, InventoryTransaction, branch_id)
     return query.order_by(InventoryTransaction.created_at.desc()).all()
 
 
@@ -364,10 +366,11 @@ async def get_transactions(
 async def create_adjustment(
     adj_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create Adjustment transaction (signed quantity) in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Create Adjustment transaction (signed quantity) in the branch"""
+    # branch_id is now provided by dependency
     
     if not adj_data.get('notes'):
         raise HTTPException(status_code=400, detail="Reason is required for adjustments")
@@ -397,10 +400,11 @@ async def create_adjustment(
 @router.get("/adjustments")
 async def get_adjustments(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all adjustments for the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Get all adjustments for the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(InventoryTransaction).filter(
         InventoryTransaction.transaction_type == 'Adjustment'
@@ -419,7 +423,8 @@ async def get_adjustments(
 async def create_count(
     count_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Compares system stock vs physical count and creates adjustment"""
     product_id = count_data.get('product_id')
@@ -444,7 +449,8 @@ async def create_count(
         quantity=difference,
         pos_session_id=active_session.id if active_session else None,
         notes=f"Physical count: {counted_qty} (System: {current_stock}, Diff: {difference}). " + count_data.get('notes', ''),
-        created_by=current_user.id
+        created_by=current_user.id,
+        branch_id=branch_id
     )
     db.add(txn)
     db.commit()
@@ -455,10 +461,11 @@ async def create_count(
 @router.get("/counts")
 async def get_counts(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all inventory counts for the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Get all inventory counts for the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(InventoryTransaction).filter(
         InventoryTransaction.transaction_type == 'Count'
@@ -476,10 +483,11 @@ async def get_counts(
 @router.get("/boms")
 async def get_boms(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all BOMs with real-time component stock for the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Get all BOMs with real-time component stock for the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(BillOfMaterials).options(
         joinedload(BillOfMaterials.components).joinedload(BOMItem.product).joinedload(Product.unit),
@@ -546,10 +554,11 @@ async def get_boms(
 async def create_bom(
     bom_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create a new BOM in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Create a new BOM in the branch"""
+    # branch_id is now provided by dependency
     components = bom_data.pop('components', [])
     
     # Set branch_id if the column exists
@@ -586,9 +595,10 @@ async def update_bom(
     bom_id: int,
     bom_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    db_bom = db.query(BillOfMaterials).filter(BillOfMaterials.id == bom_id).first()
+    db_bom = db.query(BillOfMaterials).filter(BillOfMaterials.id == bom_id, BillOfMaterials.branch_id == branch_id).first()
     if not db_bom:
         raise HTTPException(status_code=404, detail="BOM not found")
         
@@ -626,7 +636,8 @@ async def update_bom(
 async def create_production(
     prod_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Atomic Production operation"""
     bom_id = prod_data.get('bom_id')
@@ -634,7 +645,7 @@ async def create_production(
     
     bom = db.query(BillOfMaterials).options(
         joinedload(BillOfMaterials.components)
-    ).filter(BillOfMaterials.id == bom_id).first()
+    ).filter(BillOfMaterials.id == bom_id, BillOfMaterials.branch_id == branch_id).first()
     
     if not bom or not bom.is_active:
         raise HTTPException(status_code=400, detail="Active BOM required")
@@ -642,10 +653,23 @@ async def create_production(
     # Check availability
     insufficient = []
     for comp in bom.components:
-        required = comp.quantity * quantity
+        # Total component quantity required = component.quantity * quantity (batches)
+        raw_req = comp.quantity * quantity
+        
+        # Convert required quantity to product's base unit for accurate comparison
+        required_in_base = InventoryService.convert_quantity(
+            db, raw_req, comp.unit_id, comp.product.unit_id
+        )
+        
         available = calculate_product_stock(db, comp.product_id)
-        if available < required:
-            insufficient.append({"item": comp.product.name, "req": required, "avail": available})
+        if available < required_in_base:
+            insufficient.append({
+                "item": comp.product.name, 
+                "req": raw_req, 
+                "req_base": required_in_base,
+                "avail": available,
+                "unit": comp.unit.abbreviation if comp.unit else comp.product.unit.abbreviation
+            })
             
     if insufficient:
         raise HTTPException(status_code=400, detail={"msg": "Insufficient materials", "items": insufficient})
@@ -675,7 +699,8 @@ async def create_production(
         created_by=current_user.id,
         completed_at=datetime.utcnow(),
         notes=prod_data.get('notes'),
-        finished_product_id=bom.finished_product_id
+        finished_product_id=bom.finished_product_id,
+        branch_id=branch_id
     )
     db.add(production)
     db.flush()
@@ -690,7 +715,8 @@ async def create_production(
             reference_id=production.id,
             pos_session_id=active_session.id if active_session else None,
             notes=f"Produced from BOM: {bom.name} ({prod_num})",
-            created_by=current_user.id
+            created_by=current_user.id,
+            branch_id=branch_id
         )
         db.add(in_txn)
     
@@ -712,7 +738,8 @@ async def create_production(
             reference_id=production.id,
             pos_session_id=active_session.id if active_session else None,
             notes=f"Consumed for production: {bom.name} ({prod_num})",
-            created_by=current_user.id
+            created_by=current_user.id,
+            branch_id=branch_id
         )
         db.add(out_txn)
         
@@ -724,10 +751,11 @@ async def create_production(
 @router.get("/productions")
 async def get_productions(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all productions for the current user's branch with detailed info"""
-    branch_id = current_user.current_branch_id
+    """Get all productions for the branch with detailed info"""
+    # branch_id is now provided by dependency
     query = db.query(BatchProduction).options(
         joinedload(BatchProduction.bom).joinedload(BillOfMaterials.menu_items)
     )

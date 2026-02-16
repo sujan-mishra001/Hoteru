@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import func
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models import Order, Product, Customer, User, Branch, Table, Floor, MenuItem, OrderItem
 from app.models.purchase import PurchaseBill, PurchaseReturn, Supplier, PurchaseBillItem
 
@@ -19,10 +19,10 @@ from app.utils.pdf_generator import generate_pdf_report, generate_invoice_pdf, g
 
 from app.utils.excel_generator import generate_excel_report
 
-def get_branch_metadata(current_user, db):
+def get_branch_metadata(branch_id, db):
     """Helper to get branch info for current session"""
-    if current_user.current_branch_id:
-        branch = db.query(Branch).filter(Branch.id == current_user.current_branch_id).first()
+    if branch_id:
+        branch = db.query(Branch).filter(Branch.id == branch_id).first()
         if branch:
             return {
                 "branch_name": branch.name,
@@ -33,9 +33,9 @@ def get_branch_metadata(current_user, db):
     return None
 
 
-def get_branch_filter(current_user):
+def get_branch_filter(branch_id):
     """Helper to get branch_id filter for queries"""
-    return current_user.current_branch_id
+    return branch_id
 
 
 def apply_branch_filter_order(query, branch_id):
@@ -67,12 +67,13 @@ async def get_dashboard_summary(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Get summarized data for the admin dashboard with branch isolation and optional date range"""
-    from datetime import datetime, time, timedelta
+    from datetime import datetime, time, timedelta, timezone
     
-    branch_id = get_branch_filter(current_user)
+    # branch_id is now provided by dependency
     
     # Apply branch filter to tables
     table_query = db.query(Table)
@@ -84,31 +85,26 @@ async def get_dashboard_summary(
     # Date filtering logic with branch isolation
     if start_date and end_date:
         try:
-            start_dt = datetime.combine(datetime.strptime(start_date, '%Y-%m-%d').date(), time.min)
-            end_dt = datetime.combine(datetime.strptime(end_date, '%Y-%m-%d').date(), time.max)
-            order_query = db.query(Order).filter(Order.created_at.between(start_dt, end_dt))
-            order_query = apply_branch_filter_order(order_query, branch_id)
+            start_dt = datetime.combine(datetime.strptime(start_date, '%Y-%m-%d').date(), time.min).replace(tzinfo=timezone.utc)
+            end_dt = datetime.combine(datetime.strptime(end_date, '%Y-%m-%d').date(), time.max).replace(tzinfo=timezone.utc)
+            order_query = db.query(Order).filter(Order.created_at.between(start_dt, end_dt), Order.branch_id == branch_id)
             orders_list = order_query.all()
             period_label = f"{start_date} to {end_date}"
-            
-            # For peak time data relative to the selected start date
-            base_time = end_dt 
         except ValueError:
-            # Fallback to 24h if date parsing fails
-            base_time = datetime.now(timezone.utc)
-            start_dt = base_time - timedelta(hours=24)
-            order_query = db.query(Order).filter(Order.created_at >= start_dt)
-            order_query = apply_branch_filter_order(order_query, branch_id)
+            # Fallback to Today if date parsing fails
+            now_utc = datetime.now(timezone.utc)
+            start_dt = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            order_query = db.query(Order).filter(Order.created_at >= start_dt, Order.branch_id == branch_id)
             orders_list = order_query.all()
-            period_label = "Last 24 Hours"
+            period_label = "Today"
     else:
-        # Default to last 24 hours
-        base_time = datetime.now(timezone.utc)
-        start_dt = base_time - timedelta(hours=24)
-        order_query = db.query(Order).filter(Order.created_at >= start_dt)
-        order_query = apply_branch_filter_order(order_query, branch_id)
+        # Default to Today (Since midnight UTC)
+        now_utc = datetime.now(timezone.utc)
+        start_dt = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        order_query = db.query(Order).filter(Order.created_at >= start_dt, Order.branch_id == branch_id)
         orders_list = order_query.all()
-        period_label = "Last 24 Hours"
+        period_label = "Today"
     
     # Sales breakdown
     sales_total = sum(order.net_amount or 0 for order in orders_list)
@@ -122,21 +118,23 @@ async def get_dashboard_summary(
     delivery_count = len([o for o in orders_list if o.order_type == 'Delivery'])
 
     # Outstanding revenue (all time credit, branch filtered)
-    outstanding_query = db.query(Order)
-    outstanding_query = apply_branch_filter_order(outstanding_query, branch_id)
-    outstanding_revenue = sum(order.credit_amount or 0 for order in outstanding_query.all())
+    outstanding_revenue = db.query(func.sum(Order.credit_amount)).filter(Order.branch_id == branch_id).scalar() or 0
 
     # Top items with outstanding revenue (branch filtered)
-    credit_orders = [o.id for o in orders_list if o.credit_amount > 0]
-    
-    if credit_orders:
+    # Using a subquery for better performance if there are many credit orders
+    if orders_list:
+        order_ids = [o.id for o in orders_list]
         top_items_query = db.query(
             MenuItem.name,
             func.sum(OrderItem.quantity * OrderItem.price).label('total_credit')
         ).join(
             OrderItem, MenuItem.id == OrderItem.menu_item_id
+        ).join(
+            Order, Order.id == OrderItem.order_id
         ).filter(
-            OrderItem.order_id.in_(credit_orders)
+            Order.branch_id == branch_id,
+            Order.credit_amount > 0,
+            OrderItem.order_id.in_(order_ids)
         ).group_by(
             MenuItem.id, MenuItem.name
         ).order_by(
@@ -144,7 +142,7 @@ async def get_dashboard_summary(
         ).limit(3).all()
         
         top_outstanding_items = [
-            {"name": item.name, "amount": float(item.total_credit)}
+            {"name": item.name, "amount": float(item.total_credit or 0)}
             for item in top_items_query
         ]
     else:
@@ -170,8 +168,8 @@ async def get_dashboard_summary(
         top_selling_items = [
             {
                 "name": item.name, 
-                "quantity": int(item.total_quantity),
-                "revenue": float(item.total_revenue)
+                "quantity": int(item.total_quantity or 0),
+                "revenue": float(item.total_revenue or 0)
             }
             for item in top_selling_query
         ]
@@ -234,10 +232,10 @@ async def get_dashboard_summary(
 @router.get("/sales-summary")
 async def get_sales_summary(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get sales summary for the current user's branch"""
-    branch_id = get_branch_filter(current_user)
+    """Get sales summary for the branch"""
     
     order_query = db.query(Order).filter(Order.status == 'Completed')
     order_query = apply_branch_filter_order(order_query, branch_id)
@@ -257,10 +255,10 @@ async def get_day_book(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get day book (all transactions) for the current user's branch with balance calculation"""
-    branch_id = get_branch_filter(current_user)
+    """Get day book (all transactions) for the branch with balance calculation"""
     
     query = db.query(Order)
     if start_date and end_date:
@@ -268,7 +266,7 @@ async def get_day_book(
         end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
         query = query.filter(Order.created_at >= start_dt, Order.created_at < end_dt)
     else:
-        today = datetime.now().date()
+        today = datetime.now(timezone.utc).date()
         query = query.filter(Order.created_at >= today)
         
     query = apply_branch_filter_order(query, branch_id)
@@ -306,10 +304,9 @@ async def get_daily_sales_report(
     start_date: str,
     end_date: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get summarized daily sales report for a date range"""
-    branch_id = get_branch_filter(current_user)
     
     start_dt = datetime.strptime(start_date, '%Y-%m-%d')
     end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
@@ -407,10 +404,9 @@ async def get_daily_sales_report(
 async def get_monthly_sales_report(
     year: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get summarized monthly sales report for a year"""
-    branch_id = get_branch_filter(current_user)
     
     # Months list for display
     months = ["Baisakh", "Jestha", "Ashad", "Shrawan", "Bhadra", "Ashwin", "Kartik", "Mangsir", "Poush", "Magh", "Falgun", "Chaitra"]
@@ -484,10 +480,9 @@ async def get_purchase_report(
     end_date: Optional[str] = None,
     supplier_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get summarized purchase report"""
-    branch_id = get_branch_filter(current_user)
     
     query = db.query(PurchaseBill).options(joinedload(PurchaseBill.supplier))
     
@@ -542,7 +537,8 @@ async def export_pdf(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Export report as PDF with optional date filtering"""
     from datetime import datetime, time as dtime
@@ -559,27 +555,33 @@ async def export_pdf(
         query_start = datetime.combine(datetime.strptime(start_date, '%Y-%m-%d').date(), dtime.min)
         query_end = datetime.combine(datetime.strptime(end_date, '%Y-%m-%d').date(), dtime.max)
     if report_type == "session":
-        return await export_sessions_pdf(db, current_user)
+        return await export_sessions_pdf(db, current_user, branch_id)
     elif report_type == "user":
         report_type = "staff"
 
     if report_type == "sales-summary":
-        result = await get_sales_summary(db, current_user)
+        result = await get_sales_summary(db, current_user, branch_id)
         data = [{"Metric": k, "Value": v} for k, v in result.items()]
         title = "Sales Summary"
     elif report_type == "day-book":
-        orders = await get_day_book(db, current_user)
-        data = [{"Order Number": o.order_number, "Total": o.total_amount, "Date": str(o.created_at)} for o in orders]
+        orders_res = await get_day_book(None, None, db, current_user, branch_id)
+        data = [{"Order Number": o.get("order_number"), "Total": o.get("received"), "Date": o.get("date")} for o in orders_res.get("items", [])]
         title = "Day Book"
     elif report_type == "sales":
         # Get orders based on date selection
         if query_start and query_end:
             title = f"Sales Report ({query_start.strftime('%Y-%m-%d')})" if date else f"Sales Report ({start_date} to {end_date})"
-            orders = db.query(Order).options(joinedload(Order.items).joinedload(OrderItem.menu_item)).filter(Order.created_at.between(query_start, query_end)).all()
+            orders = db.query(Order).options(joinedload(Order.items).joinedload(OrderItem.menu_item)).filter(
+                Order.created_at.between(query_start, query_end),
+                Order.branch_id == branch_id
+            ).all()
         else:
             # Default to last 24 hours
             last_24h = datetime.now() - timedelta(hours=24)
-            orders = db.query(Order).options(joinedload(Order.items).joinedload(OrderItem.menu_item)).filter(Order.created_at >= last_24h).all()
+            orders = db.query(Order).options(joinedload(Order.items).joinedload(OrderItem.menu_item)).filter(
+                Order.created_at >= last_24h,
+                Order.branch_id == branch_id
+            ).all()
             title = "Daily Sales Report (Last 24h)"
         
         # Summary Metrics
@@ -631,7 +633,7 @@ async def export_pdf(
         if date and query_start:
              period_str = query_start.strftime('%Y-%m-%d')
 
-        metadata = get_branch_metadata(current_user, db) or {}
+        metadata = get_branch_metadata(branch_id, db) or {}
         metadata['period'] = period_str
 
         pdf_buffer = generate_multi_table_pdf_report(sections, title=title.split('(')[0].strip(), metadata=metadata)
@@ -639,7 +641,7 @@ async def export_pdf(
 
     elif report_type == "inventory":
         from app.models import InventoryTransaction
-        products = db.query(Product).all()
+        products = db.query(Product).filter(Product.branch_id == branch_id).all()
         
         # Calculate stock movements (basic aggregation for all time)
         # Note: Ideally this would be optimized with SQL queries, but reusing python logic for consistency
@@ -670,7 +672,7 @@ async def export_pdf(
         data = products_data
         title = "Inventory Stock & Consumption Report"
     elif report_type == "customers":
-        customers = db.query(Customer).all()
+        customers = db.query(Customer).filter(Customer.branch_id == branch_id).all()
         data = [{
             "Customer": c.name, 
             "Phone": c.phone or "-", 
@@ -681,11 +683,12 @@ async def export_pdf(
         } for c in customers]
         title = "Customer Analysis & Loyalty"
     elif report_type == "staff":
-        users = db.query(User).all()
+        # Get users for this branch
+        users = db.query(User).join(UserBranchAssignment).filter(UserBranchAssignment.branch_id == branch_id).all()
         data = [{"Staff": u.full_name, "Role": u.role, "Username": u.username, "Status": "Active" if not u.disabled else "Disabled"} for u in users]
         title = "Staff Account List"
     elif report_type == "purchase":
-        branch_id = get_branch_filter(current_user)
+        # branch_id is already provided by dependency
         query = db.query(PurchaseBill).options(joinedload(PurchaseBill.items).joinedload(PurchaseBillItem.product))
         if branch_id:
             query = query.filter(PurchaseBill.branch_id == branch_id)
@@ -715,14 +718,14 @@ async def export_pdf(
             {"title": "Purchase Bills Summary", "data": bill_data},
             {"title": "Detailed Purchase Items (Materials)", "data": item_data}
         ]
-        pdf_buffer = generate_multi_table_pdf_report(sections, title="Purchase Detailed Report", metadata=get_branch_metadata(current_user, db))
+        pdf_buffer = generate_multi_table_pdf_report(sections, title="Purchase Detailed Report", metadata=get_branch_metadata(branch_id, db))
         return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=purchase_detailed.pdf"})
     else:
 
 
         raise HTTPException(status_code=404, detail="Report type not found")
     
-    metadata = get_branch_metadata(current_user, db) or {}
+    metadata = get_branch_metadata(branch_id, db) or {}
     metadata['period'] = title.split('(')[-1].replace(')', '') if '(' in title else "Last 24 Hours"
     
     pdf_buffer = generate_pdf_report(data, title.split('(')[0].strip(), metadata=metadata)
@@ -741,7 +744,8 @@ async def export_excel(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Export report as Excel with optional date filtering"""
     from datetime import datetime, time as dtime
@@ -759,24 +763,30 @@ async def export_excel(
     elif start_date and end_date:
         query_start = datetime.combine(datetime.strptime(start_date, '%Y-%m-%d').date(), dtime.min)
         query_end = datetime.combine(datetime.strptime(end_date, '%Y-%m-%d').date(), dtime.max)
-    metadata = get_branch_metadata(current_user, db) or {}
+    metadata = get_branch_metadata(branch_id, db) or {}
     metadata['period'] = "Full Summary"
     
     if report_type == "sales-summary":
-        result = await get_sales_summary(db, current_user)
+        result = await get_sales_summary(db, current_user, branch_id)
         data = [{"Metric": k, "Value": v} for k, v in result.items()]
         excel_buffer = generate_excel_report(data, "Sales Summary", metadata=metadata)
     elif report_type == "day-book":
-        orders = await get_day_book(db, current_user)
-        data = [{"Order Number": o.order_number, "Total": o.total_amount, "Date": str(o.created_at)} for o in orders]
+        orders_res = await get_day_book(None, None, db, current_user, branch_id)
+        data = [{"Order Number": o.get("order_number"), "Total": o.get("received"), "Date": o.get("date")} for o in orders_res.get("items", [])]
         excel_buffer = generate_excel_report(data, "Day Book", metadata=metadata)
     elif report_type == "sales":
         if query_start and query_end:
-            orders = db.query(Order).filter(Order.created_at.between(query_start, query_end)).all()
+            orders = db.query(Order).filter(
+                Order.created_at.between(query_start, query_end),
+                Order.branch_id == branch_id
+            ).all()
             title = f"Sales Report ({query_start.strftime('%Y-%m-%d')})" if date else f"Sales Report ({start_date} to {end_date})"
         else:
             last_24h = datetime.now() - timedelta(hours=24)
-            orders = db.query(Order).filter(Order.created_at >= last_24h).all()
+            orders = db.query(Order).filter(
+                Order.created_at >= last_24h,
+                Order.branch_id == branch_id
+            ).all()
             title = "Daily Sales Report (Last 24h)"
         
         data = []
@@ -1365,12 +1375,12 @@ def get_sessions_report(
 @router.get("/export/sessions/pdf")
 async def export_sessions_pdf(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Export all sessions as a PDF report"""
     from app.models.pos_session import POSSession
-    
-    sessions = db.query(POSSession).order_by(POSSession.start_time.desc()).all()
+    sessions = db.query(POSSession).filter(POSSession.branch_id == branch_id).order_by(POSSession.start_time.desc()).all()
     
     data = []
     for s in sessions:
@@ -1397,7 +1407,7 @@ async def export_sessions_pdf(
             "Duration": duration
         })
     
-    metadata = get_branch_metadata(current_user, db)
+    metadata = get_branch_metadata(branch_id, db)
     pdf_buffer = generate_pdf_report(data, "POS Shift Statistics Report", metadata=metadata)
     
     return StreamingResponse(
@@ -1411,7 +1421,8 @@ async def export_sessions_pdf(
 async def export_shift_report(
     session_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Generate a detailed single-shift report PDF"""
     from app.models.pos_session import POSSession
@@ -1423,7 +1434,7 @@ async def export_shift_report(
     from reportlab.lib import colors
     from reportlab.lib.units import inch
     
-    session = db.query(POSSession).filter(POSSession.id == session_id).first()
+    session = db.query(POSSession).filter(POSSession.id == session_id, POSSession.branch_id == branch_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
         
@@ -1433,7 +1444,7 @@ async def export_shift_report(
     styles = getSampleStyleSheet()
     
     # Title & Header
-    metadata = get_branch_metadata(current_user, db)
+    metadata = get_branch_metadata(branch_id, db)
     
     branch_name = "BUSINESS"
     if metadata:

@@ -7,9 +7,12 @@ from app.models.role import Role
 from app.schemas import RoleCreate, RoleUpdate
 
 
-def get_roles(db: Session, skip: int = 0, limit: int = 100) -> List[Role]:
-    """Get all roles"""
-    return db.query(Role).offset(skip).limit(limit).all()
+def get_roles(db: Session, branch_id: Optional[int] = None, skip: int = 0, limit: int = 100) -> List[Role]:
+    """Get all roles for a branch"""
+    query = db.query(Role)
+    if branch_id:
+        query = query.filter(Role.branch_id == branch_id)
+    return query.offset(skip).limit(limit).all()
 
 
 def get_role(db: Session, role_id: int) -> Optional[Role]:
@@ -17,17 +20,21 @@ def get_role(db: Session, role_id: int) -> Optional[Role]:
     return db.query(Role).filter(Role.id == role_id).first()
 
 
-def get_role_by_name(db: Session, name: str) -> Optional[Role]:
-    """Get a single role by name"""
-    return db.query(Role).filter(Role.name == name).first()
+def get_role_by_name(db: Session, name: str, branch_id: Optional[int] = None) -> Optional[Role]:
+    """Get a single role by name within a branch"""
+    query = db.query(Role).filter(Role.name == name)
+    if branch_id:
+        query = query.filter(Role.branch_id == branch_id)
+    return query.first()
 
 
-def create_role(db: Session, role_data: RoleCreate) -> Role:
-    """Create a new role"""
+def create_role(db: Session, role_data: RoleCreate, branch_id: Optional[int] = None) -> Role:
+    """Create a new role for a branch"""
     db_role = Role(
         name=role_data.name,
         description=role_data.description,
-        permissions=role_data.permissions
+        permissions=role_data.permissions,
+        branch_id=branch_id or role_data.branch_id
     )
     db.add(db_role)
     db.commit()

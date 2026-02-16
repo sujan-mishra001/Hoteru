@@ -76,7 +76,7 @@ const Reports: React.FC = () => {
         { name: 'Customer Analytics', icon: <BarChart3 />, description: 'Visit frequency and total spending by customer', type: 'customers' },
         { name: 'Staff Performance', icon: <FileText />, description: 'Orders processed and items served per staff', type: 'staff' },
         { name: 'Purchase Report', icon: <ShoppingCart />, description: 'Summary of all purchase bills and supplier data', type: 'purchase' },
-        { name: 'Session Report', icon: <Calendar />, description: 'View all POS sessions, sales, and staff activity', type: 'sessions', navigateTo: '/reports/sessions' },
+        { name: 'Session Report', icon: <Calendar />, description: 'View all POS sessions, sales, and staff activity', type: 'sessions', navigateTo: `/${currentBranch?.code}/reports/sessions` },
     ];
 
 
@@ -268,31 +268,31 @@ const Reports: React.FC = () => {
                             <ActionItem
                                 title="Daily Sales Report"
                                 description="Detailed day-by-day performance"
-                                onClick={() => navigate('/reports/daily-sales')}
+                                onClick={() => navigate(`/${currentBranch?.code}/reports/daily-sales`)}
                                 color="#FFC107"
                             />
                             <ActionItem
                                 title="Monthly Sales Summary"
                                 description="Year-over-year growth analytics"
-                                onClick={() => navigate('/reports/monthly-sales')}
+                                onClick={() => navigate(`/${currentBranch?.code}/reports/monthly-sales`)}
                                 color="#3b82f6"
                             />
                             <ActionItem
                                 title="Daybook Report"
                                 description="Daily account and cash flow logs"
-                                onClick={() => navigate('/reports/daybook')}
+                                onClick={() => navigate(`/${currentBranch?.code}/reports/daybook`)}
                                 color="#10b981"
                             />
                             <ActionItem
                                 title="Purchase Report"
                                 description="Inventory procurement summary"
-                                onClick={() => navigate('/reports/purchase')}
+                                onClick={() => navigate(`/${currentBranch?.code}/reports/purchase`)}
                                 color="#ef4444"
                             />
                             <ActionItem
                                 title="POS Session History"
                                 description="Staff shift and drawer logs"
-                                onClick={() => navigate('/reports/sessions')}
+                                onClick={() => navigate(`/${currentBranch?.code}/reports/sessions`)}
                                 color="#6366f1"
                             />
                         </Box>

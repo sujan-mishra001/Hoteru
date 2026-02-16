@@ -1,7 +1,7 @@
 """
 Settings-related models (Company Settings, Payment Modes, etc.)
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, LargeBinary
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, LargeBinary, ForeignKey
 from datetime import datetime
 from app.db.database import Base
 
@@ -52,6 +52,7 @@ class PaymentMode(Base):
     name = Column(String, nullable=False, unique=True)  # Cash, Fonepay, Credit Card, etc.
     is_active = Column(Boolean, default=True)
     display_order = Column(Integer, default=0)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -64,6 +65,7 @@ class StorageArea(Base):
     name = Column(String, nullable=False, unique=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -80,5 +82,6 @@ class DiscountRule(Base):
     min_order_amount = Column(Float, default=0)
     max_discount_amount = Column(Float, nullable=True)
     applicable_on = Column(String, default="All")  # All, Dine-In, Takeaway, Delivery
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

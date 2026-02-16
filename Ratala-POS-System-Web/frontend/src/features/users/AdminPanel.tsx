@@ -41,7 +41,8 @@ const AdminPanel: React.FC = () => {
         full_name: '',
         email: '',
         role: '',
-        username: ''
+        username: '',
+        disabled: false
     });
 
     const fetchData = async () => {
@@ -80,7 +81,8 @@ const AdminPanel: React.FC = () => {
             full_name: user.full_name || '',
             email: user.email || '',
             role: user.role || '',
-            username: user.username || ''
+            username: user.username || '',
+            disabled: user.disabled || false
         });
         setEditDialogOpen(true);
     };
@@ -173,6 +175,7 @@ const AdminPanel: React.FC = () => {
                         <TableRow>
                             <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase' }}>User / Registry</TableCell>
                             <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase' }}>System Role</TableCell>
+                            <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase' }}>Status</TableCell>
                             <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase' }}>Organization / Branch</TableCell>
                             <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase' }}>Registration Date</TableCell>
                             <TableCell sx={{ fontWeight: 800, color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase' }} align="right">Actions</TableCell>
@@ -234,6 +237,19 @@ const AdminPanel: React.FC = () => {
                                                 fontSize: '0.65rem',
                                                 borderRadius: '6px',
                                                 '& .MuiChip-icon': { color: 'inherit' }
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={user.disabled ? 'Disabled' : 'Enabled'}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: user.disabled ? '#fee2e2' : '#dcfce7',
+                                                color: user.disabled ? '#b91c1c' : '#15803d',
+                                                fontWeight: 700,
+                                                borderRadius: '6px',
+                                                fontSize: '0.75rem'
                                             }}
                                         />
                                     </TableCell>
@@ -348,6 +364,18 @@ const AdminPanel: React.FC = () => {
                                     <MenuItem value="worker">Standard Staff</MenuItem>
                                     <MenuItem value="waiter">Waiter</MenuItem>
                                     <MenuItem value="bartender">Bartender</MenuItem>
+                                </TextField>
+                            </Grid>
+                            <Grid size={12}>
+                                <TextField
+                                    select
+                                    label="Account Status"
+                                    fullWidth
+                                    value={editFormData.disabled ? 'true' : 'false'}
+                                    onChange={(e) => setEditFormData({ ...editFormData, disabled: e.target.value === 'true' })}
+                                >
+                                    <MenuItem value="false">Active (Enabled)</MenuItem>
+                                    <MenuItem value="true">Inactive (Disabled)</MenuItem>
                                 </TextField>
                             </Grid>
                         </Grid>

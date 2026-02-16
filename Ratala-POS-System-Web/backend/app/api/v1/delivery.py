@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models import DeliveryPartner
 
 router = APIRouter()
@@ -21,10 +21,11 @@ def apply_branch_filter_delivery(query, branch_id):
 @router.get("")
 async def get_delivery_partners(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all delivery partners for the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Get all delivery partners for the branch"""
+    # branch_id is now provided by dependency
     query = db.query(DeliveryPartner)
     query = apply_branch_filter_delivery(query, branch_id)
     partners = query.all()
@@ -35,10 +36,11 @@ async def get_delivery_partners(
 async def create_delivery_partner(
     partner_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create a new delivery partner in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Create a new delivery partner in the branch"""
+    # branch_id is now provided by dependency
     
     # Set branch_id if the column exists
     if branch_id is not None and hasattr(DeliveryPartner, 'branch_id'):
@@ -56,10 +58,11 @@ async def update_delivery_partner(
     partner_id: int,
     partner_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update a delivery partner in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Update a delivery partner in the branch"""
+    # branch_id is now provided by dependency
     query = db.query(DeliveryPartner).filter(DeliveryPartner.id == partner_id)
     query = apply_branch_filter_delivery(query, branch_id)
     partner = query.first()
@@ -80,10 +83,11 @@ async def update_delivery_partner(
 async def delete_delivery_partner(
     partner_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Delete a delivery partner in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Delete a delivery partner in the branch"""
+    # branch_id is now provided by dependency
     query = db.query(DeliveryPartner).filter(DeliveryPartner.id == partner_id)
     query = apply_branch_filter_delivery(query, branch_id)
     partner = query.first()

@@ -11,7 +11,7 @@ import {
     Settings,
     HelpCircle
 } from 'lucide-react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet, useParams } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { usePermission } from '../providers/PermissionProvider';
 
@@ -20,9 +20,22 @@ const POSLayout: React.FC = () => {
     const location = useLocation();
     const { logout, user } = useAuth();
     const { hasPermission } = usePermission();
+    const { branchSlug } = useParams<{ branchSlug: string }>();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
     const open = Boolean(anchorEl);
+
+    const getPath = (path: string) => {
+        const target = branchSlug;
+        if (!target) return path;
+        if (path.startsWith('/')) {
+            // path is like /pos/tables
+            // target is like ratala
+            // result should be /ratala/pos/tables
+            return `/${target}${path}`;
+        }
+        return `/${target}/${path}`;
+    };
 
 
 
@@ -61,13 +74,14 @@ const POSLayout: React.FC = () => {
                 {/* Nav Items */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1 }}>
                     {menuItems.map((item) => {
-                        const isActive = location.pathname === item.path ||
-                            (item.path === '/pos' && location.pathname.startsWith('/pos/order')) ||
-                            (item.path === '/pos' && location.pathname.startsWith('/pos/billing'));
+                        const itemPath = getPath(item.path);
+                        const isActive = location.pathname === itemPath ||
+                            (item.path === '/pos/tables' && location.pathname.startsWith(getPath('/pos/order'))) ||
+                            (item.path === '/pos/tables' && location.pathname.startsWith(getPath('/pos/billing')));
                         return (
                             <Tooltip key={item.label} title={item.label} placement="right">
                                 <Box
-                                    onClick={() => navigate(item.path)}
+                                    onClick={() => navigate(itemPath)}
                                     sx={{
                                         display: 'flex',
                                         flexDirection: 'column',
@@ -102,7 +116,7 @@ const POSLayout: React.FC = () => {
                         <>
                             <Tooltip title="Admin Panel" placement="right">
                                 <IconButton
-                                    onClick={() => navigate('/dashboard')}
+                                    onClick={() => navigate(getPath('/dashboard'))}
                                     sx={{ color: '#94a3b8', '&:hover': { color: '#FFC107' } }}
                                 >
                                     <LayoutDashboard size={20} />
@@ -167,13 +181,13 @@ const POSLayout: React.FC = () => {
                             </Typography>
                         </Box>
                         <Divider sx={{ my: 0.5, borderColor: '#f1f5f9' }} />
-                        <MenuItem onClick={() => navigate('/pos/settings')} sx={{ py: 1, gap: 1.5, fontSize: '14px', fontWeight: 600 }}>
+                        <MenuItem onClick={() => navigate(getPath('/pos/settings'))} sx={{ py: 1, gap: 1.5, fontSize: '14px', fontWeight: 600 }}>
                             <ListItemIcon sx={{ minWidth: 'auto !important' }}>
                                 <Settings size={18} color="#64748b" />
                             </ListItemIcon>
                             Settings
                         </MenuItem>
-                        <MenuItem onClick={() => navigate('/pos/support')} sx={{ py: 1, gap: 1.5, fontSize: '14px', fontWeight: 600 }}>
+                        <MenuItem onClick={() => navigate(getPath('/pos/support'))} sx={{ py: 1, gap: 1.5, fontSize: '14px', fontWeight: 600 }}>
                             <ListItemIcon sx={{ minWidth: 'auto !important' }}>
                                 <HelpCircle size={18} color="#64748b" />
                             </ListItemIcon>

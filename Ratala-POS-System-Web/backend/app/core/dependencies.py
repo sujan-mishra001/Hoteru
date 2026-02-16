@@ -3,7 +3,7 @@ Dependencies for FastAPI routes (authentication, authorization, etc.)
 """
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -73,6 +73,22 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
     
+    # Handle platform admin specifically
+    if username == "platform_admin":
+        # Create a synthetic user object that mimics DBUser
+        class SyntheticUser:
+            def __init__(self):
+                self.id = 0
+                self.username = "platform_admin"
+                self.email = "admin@panel"
+                self.full_name = "Platform Administrator"
+                self.role = "platform_admin"
+                self.disabled = False
+                self.organization_id = None
+                self.current_branch_id = None
+                self.is_organization_owner = False
+        return SyntheticUser()
+    
     user = db.query(DBUser).filter(DBUser.username == username).first()
     if user is None:
         raise credentials_exception
@@ -112,3 +128,51 @@ def check_platform_admin(current_user: DBUser = Depends(get_current_user)) -> DB
             detail="Platform Admin access required"
         )
     return current_user
+
+
+async def get_branch_id(
+    x_branch_code: str = Header(..., alias="X-Branch-Code"),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user)
+) -> int:
+    """
+    Get the current branch ID based on the X-Branch-Code header.
+    Verifies that the user has access to this branch.
+    """
+    from app.models.branch import Branch
+    from app.models.user_branch import UserBranchAssignment
+
+    # Resolve branch code or slug to ID
+    branch = db.query(Branch).filter(
+        (Branch.code == x_branch_code) | (Branch.slug == x_branch_code)
+    ).first()
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Branch with code '{x_branch_code}' not found."
+        )
+
+    # Platform Admin bypass
+    if current_user.role == "platform_admin":
+        return branch.id
+
+    # Check if user belongs to the same organization
+    if current_user.organization_id != branch.organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Branch belongs to another organization."
+        )
+
+    # Check if user is assigned to this branch
+    assignment = db.query(UserBranchAssignment).filter(
+        UserBranchAssignment.user_id == current_user.id,
+        UserBranchAssignment.branch_id == branch.id
+    ).first()
+
+    if not assignment:
+         raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this branch."
+         )
+
+    return branch.id

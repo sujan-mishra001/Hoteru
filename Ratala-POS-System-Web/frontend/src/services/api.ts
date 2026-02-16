@@ -12,12 +12,33 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout
 });
 
-// Add token to requests
+// Add token and branch code to requests
 api.interceptors.request.use((config) => {
   const token = sessionManager.getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Extract branch slug/code from URL or localStorage
+  const pathParts = window.location.pathname.split('/');
+  let branchIdentifier = localStorage.getItem('currentBranchSlug') || localStorage.getItem('currentBranchCode');
+
+  // If the first part of the path (after /) doesn't look like a standard non-branch route, it's likely a branch slug or code
+  if (pathParts.length > 1) {
+    const firstPart = pathParts[1];
+    const nonBranchRoutes = ['', 'login', 'signup', 'select-branch', 'admin', 'forgot-password', 'verify-otp', 'reset-password', 'digital-menu'];
+
+    if (firstPart && !nonBranchRoutes.includes(firstPart) && !firstPart.includes('.')) {
+      branchIdentifier = firstPart;
+      // We don't know if it's a code or slug here, but we store it as a slug for URL persistence
+      localStorage.setItem('currentBranchSlug', branchIdentifier);
+    }
+  }
+
+  if (branchIdentifier) {
+    config.headers['X-Branch-Code'] = branchIdentifier;
+  }
+
   return config;
 });
 
@@ -221,7 +242,7 @@ export const usersAPI = {
 // Settings API
 export const settingsAPI = {
   getCompanySettings: () => api.get('/settings/company'),
-  getPublicCompanySettings: (branch_id?: number) => api.get('/settings/public-company', { params: { branch_id } }),
+  getPublicCompanySettings: (branch_id?: number, branch_code?: string, branch_slug?: string) => api.get('/settings/public-company', { params: { branch_id, branch_code, branch_slug } }),
   updateCompanySettings: (data: any) => api.put('/settings/company', data),
   getPaymentModes: () => api.get('/settings/payment-modes'),
   createPaymentMode: (data: any) => api.post('/settings/payment-modes', data),
@@ -248,6 +269,7 @@ export const settingsAPI = {
 // Branches API
 export const branchAPI = {
   getAll: () => api.get('/branches'),
+  getCurrent: () => api.get('/branches/current'),
   getById: (id: number) => api.get(`/branches/${id}`),
   create: (data: any) => api.post('/branches', data),
   update: (id: number, data: any) => api.put(`/branches/${id}`, data),

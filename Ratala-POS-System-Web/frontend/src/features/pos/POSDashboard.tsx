@@ -35,6 +35,7 @@ import { useAuth } from '../../app/providers/AuthProvider';
 import { usePermission } from '../../app/providers/PermissionProvider';
 import { floorsAPI, tablesAPI, sessionsAPI, authAPI, deliveryAPI, qrAPI, ordersAPI, customersAPI } from '../../services/api';
 import { useNotification } from '../../app/providers/NotificationProvider';
+import { useBranch } from '../../app/providers/BranchProvider';
 import { Search, Plus, UserCircle, MoreHorizontal } from 'lucide-react';
 import { TextField, List, ListItem, InputAdornment } from '@mui/material';
 
@@ -199,6 +200,7 @@ const POSDashboard: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { hasPermission } = usePermission();
+    const { currentBranch } = useBranch();
     const { showAlert } = useNotification();
     const [loading, setLoading] = useState(true);
 
@@ -330,7 +332,7 @@ const POSDashboard: React.FC = () => {
 
             const allOrders = ordersRes.data || [];
             const activeOrdersList = allOrders.filter((o: any) =>
-                (o.status === 'Pending' || o.status === 'In Progress' || o.status === 'Draft') &&
+                (o.status === 'Pending' || o.status === 'In Progress' || o.status === 'Draft' || o.status === 'Completed') &&
                 (o.order_type === 'Takeaway' || o.order_type === 'Delivery')
             );
             setActiveOrders(activeOrdersList);
@@ -368,7 +370,7 @@ const POSDashboard: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedFloorId]);
+    }, [selectedFloorId, currentBranch?.id]);
 
     // Fetch QR when dialog opens
     useEffect(() => {
@@ -437,7 +439,8 @@ const POSDashboard: React.FC = () => {
             showAlert(`Session closed successfully. Total Sales: Rs. ${Number(response.data.total_sales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'success');
 
             // Redirect to POS/Tables swiftly
-            navigate('/pos');
+            const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+            navigate(`/${branchPath}/pos`);
         } catch (error: any) {
             showAlert(error.response?.data?.detail || 'Failed to close session', 'error');
         }
@@ -463,10 +466,11 @@ const POSDashboard: React.FC = () => {
             }
         }
 
+        const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
         if (activeOrderId) {
-            navigate(`/pos/order/${table.id}`, { state: { table, orderId: activeOrderId, customOrderType, deliveryPartnerId } });
+            navigate(`/${branchPath}/pos/order/${table.id}`, { state: { table, orderId: activeOrderId, customOrderType, deliveryPartnerId } });
         } else {
-            navigate(`/pos/order/${table.id}`, { state: { table, customOrderType, deliveryPartnerId } });
+            navigate(`/${branchPath}/pos/order/${table.id}`, { state: { table, customOrderType, deliveryPartnerId } });
         }
     };
 
@@ -660,7 +664,10 @@ const POSDashboard: React.FC = () => {
                                                 key={table.id}
                                                 table={table}
                                                 onClick={() => handleTableClick(table)}
-                                                onPaymentClick={() => navigate(`/pos/billing/${table.id}`, { state: { table, orderId: table.active_order_id } })}
+                                                onPaymentClick={() => {
+                                                    const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+                                                    navigate(`/${branchPath}/pos/billing/${table.id}`, { state: { table, orderId: table.active_order_id } });
+                                                }}
                                                 onMenuOpen={handleMenuOpen}
                                             />
                                         ))}
@@ -680,7 +687,10 @@ const POSDashboard: React.FC = () => {
                                             key={table.id}
                                             table={table}
                                             onClick={() => handleTableClick(table)}
-                                            onPaymentClick={() => navigate(`/pos/billing/${table.id}`, { state: { table, orderId: table.active_order_id } })}
+                                            onPaymentClick={() => {
+                                                const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+                                                navigate(`/${branchPath}/pos/billing/${table.id}`, { state: { table, orderId: table.active_order_id } });
+                                            }}
                                             onMenuOpen={handleMenuOpen}
                                         />
                                     ))}
@@ -743,7 +753,8 @@ const POSDashboard: React.FC = () => {
                                     <Paper
                                         key={order.id}
                                         onClick={() => {
-                                            const targetUrl = order.table_id ? `/pos/order/${order.table_id}` : '/pos/order';
+                                            const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+                                            const targetUrl = order.table_id ? `/${branchPath}/pos/order/${order.table_id}` : `/${branchPath}/pos/order`;
                                             navigate(targetUrl, { state: { orderId: order.id } });
                                         }}
                                         elevation={0}
@@ -780,7 +791,8 @@ const POSDashboard: React.FC = () => {
                                                 variant="contained"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    navigate(`/pos/billing/${order.table_id || '0'}`, { state: { table: order.table, orderId: order.id } });
+                                                    const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+                                                    navigate(`/${branchPath}/pos/billing/${order.table_id || '0'}`, { state: { table: order.table, orderId: order.id } });
                                                 }}
                                                 sx={{
                                                     height: 26,
@@ -874,10 +886,10 @@ const POSDashboard: React.FC = () => {
                                 mt: 1.5, mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1',
                                 cursor: 'pointer', '&:hover': { bgcolor: '#f1f5f9' }, transition: 'all 0.2s'
                             }}
-                            onClick={() => window.open(`${window.location.origin}/digital-menu/${user?.current_branch_id}`, '_blank')}
+                            onClick={() => window.open(`${window.location.origin}/digital-menu/${currentBranch?.slug || currentBranch?.code}`, '_blank')}
                         >
                             <Typography variant="caption" sx={{ color: '#4f46e5', fontWeight: 800, fontFamily: 'monospace', fontSize: '13px' }}>
-                                {window.location.origin}/digital-menu/{user?.current_branch_id}
+                                {window.location.origin}/digital-menu/{currentBranch?.slug || currentBranch?.code}
                             </Typography>
                         </Box>
 
@@ -900,7 +912,7 @@ const POSDashboard: React.FC = () => {
                                     bgcolor: '#2C1810', '&:hover': { bgcolor: '#000' },
                                     borderRadius: '12px', textTransform: 'none', fontWeight: 700
                                 }}
-                                onClick={() => window.open(`/digital-menu/${user?.current_branch_id}`, '_blank')}
+                                onClick={() => window.open(`/digital-menu/${currentBranch?.slug || currentBranch?.code}`, '_blank')}
                             >
                                 View Menu
                             </Button>
@@ -1029,7 +1041,7 @@ const POSDashboard: React.FC = () => {
                     <Button
                         variant="contained"
                         onClick={() => {
-                            navigate('/pos/order', {
+                            navigate(`/${currentBranch?.code}/pos/order`, {
                                 state: {
                                     customOrderType: newOrderType,
                                     deliveryPartnerId: dialogSelectedPartnerId,

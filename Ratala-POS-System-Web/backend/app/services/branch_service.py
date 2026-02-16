@@ -7,6 +7,17 @@ from app.models.branch import Branch
 from app.models.user_branch import UserBranchAssignment
 from app.schemas import BranchCreate, BranchUpdate
 from datetime import datetime
+import re
+
+
+def slugify(text: str) -> str:
+    """Create a URL-friendly slug from text"""
+    if not text:
+        return ""
+    text = text.lower()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[-\s]+', '-', text).strip('-')
+    return text
 
 
 def get_branch(db: Session, branch_id: int) -> Optional[Branch]:
@@ -73,6 +84,7 @@ def create_branch(
     db_branch = Branch(
         organization_id=organization_id,
         name=branch_data.name,
+        slug=slugify(branch_data.name),
         code=branch_data.code,
         location=branch_data.location,
         address=branch_data.address,
@@ -104,6 +116,9 @@ def update_branch(
     
     update_data = branch_data.model_dump(exclude_unset=True)
     
+    if 'name' in update_data:
+        db_branch.slug = slugify(update_data['name'])
+        
     for key, value in update_data.items():
         setattr(db_branch, key, value)
     

@@ -159,6 +159,7 @@ class RoleBase(BaseModel):
     name: str
     description: Optional[str] = None
     permissions: List[str] = []
+    branch_id: Optional[int] = None
 
 class RoleCreate(RoleBase):
     pass

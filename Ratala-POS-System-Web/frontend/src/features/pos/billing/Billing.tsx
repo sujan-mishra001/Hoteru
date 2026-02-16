@@ -161,9 +161,14 @@ const Billing: React.FC = () => {
         const gross = order.gross_amount || 0;
         const discValue = Math.round((gross * newPercent) / 100);
 
-        // Use current company settings for SC and Tax to ensure consistency
-        const scRate = companySettings?.service_charge_rate || 5;
-        const taxRate = companySettings?.tax_rate || 13;
+        // Use branch settings if available, otherwise global defaults
+        const scRate = currentBranch?.service_charge_rate !== undefined
+            ? currentBranch.service_charge_rate
+            : (companySettings?.service_charge_rate || 5);
+
+        const taxRate = currentBranch?.tax_rate !== undefined
+            ? currentBranch.tax_rate
+            : (companySettings?.tax_rate || 13);
         const deliveryCharge = order.delivery_charge || 0;
 
         const scAmount = Math.round((gross - discValue) * scRate / 100);
@@ -246,7 +251,10 @@ const Billing: React.FC = () => {
         return (
             <Box sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h6" color="text.secondary">No active order found for this table.</Typography>
-                <Button variant="outlined" sx={{ mt: 2 }} onClick={() => navigate('/pos')}>Go Back</Button>
+                <Button variant="outlined" sx={{ mt: 2 }} onClick={() => {
+                    const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+                    navigate(`/${branchPath}/pos`);
+                }}>Go Back</Button>
             </Box>
         );
     }
@@ -383,20 +391,20 @@ const Billing: React.FC = () => {
                                 <Typography variant="body2" fontWeight={800} color="#ef4444">- Rs. {Number(order?.discount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography variant="body2" fontWeight={600} color="#64748b">Service Charge ({companySettings?.service_charge_rate || 0}%)</Typography>
+                                <Typography variant="body2" fontWeight={600} color="#64748b">Service Charge ({currentBranch?.service_charge_rate ?? companySettings?.service_charge_rate ?? 0}%)</Typography>
                                 <Typography variant="body2" fontWeight={800} color="#1e293b">
                                     Rs. {Number(order?.service_charge_amount !== undefined && order?.service_charge_amount !== null
                                         ? order.service_charge_amount
-                                        : ((order?.gross_amount || 0) - (order?.discount || 0)) * (companySettings?.service_charge_rate || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        : ((order?.gross_amount || 0) - (order?.discount || 0)) * (currentBranch?.service_charge_rate ?? companySettings?.service_charge_rate ?? 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </Typography>
                             </Box>
-                            {(companySettings?.tax_rate > 0 || (order?.tax_amount > 0)) && (
+                            {((currentBranch?.tax_rate ?? companySettings?.tax_rate ?? 0) > 0 || (order?.tax_amount > 0)) && (
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2" fontWeight={600} color="#64748b">VAT ({companySettings?.tax_rate || 0}%)</Typography>
+                                    <Typography variant="body2" fontWeight={600} color="#64748b">VAT ({currentBranch?.tax_rate ?? companySettings?.tax_rate ?? 0}%)</Typography>
                                     <Typography variant="body2" fontWeight={800} color="#1e293b">
                                         Rs. {Number(order?.tax_amount !== undefined && order?.tax_amount !== null
                                             ? order.tax_amount
-                                            : (((order?.gross_amount || 0) - (order?.discount || 0)) + (((order?.gross_amount || 0) - (order?.discount || 0)) * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            : (((order?.gross_amount || 0) - (order?.discount || 0)) + (((order?.gross_amount || 0) - (order?.discount || 0)) * (currentBranch?.service_charge_rate ?? companySettings?.service_charge_rate ?? 0) / 100)) * (currentBranch?.tax_rate ?? companySettings?.tax_rate ?? 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </Typography>
                                 </Box>
                             )}
@@ -548,7 +556,10 @@ const Billing: React.FC = () => {
                                     fullWidth
                                     variant={isPaid ? 'contained' : 'contained'}
                                     size="large"
-                                    onClick={isPaid ? () => navigate('/pos') : handleProcessPayment}
+                                    onClick={isPaid ? () => {
+                                        const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
+                                        navigate(`/${branchPath}/pos`);
+                                    } : handleProcessPayment}
                                     disabled={loading}
                                     startIcon={loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : (isPaid ? <CheckCircle2 size={24} /> : <CheckCircle2 size={24} />)}
                                     sx={{

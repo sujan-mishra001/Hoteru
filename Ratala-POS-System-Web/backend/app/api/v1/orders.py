@@ -1,7 +1,7 @@
 """
 Order management routes
 """
-from fastapi import APIRouter, Depends, Body, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, Body, HTTPException, BackgroundTasks, Header
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 from app.services.printing_service import PrintingService
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
-from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession, CompanySettings, MenuItem
+from app.core.dependencies import get_current_user, get_branch_id
+from app.models import Order, OrderItem, KOT, KOTItem, Table, Customer, POSSession, CompanySettings, MenuItem, Branch
 
 from app.schemas import OrderResponse
 from app.services.inventory_service import InventoryService
@@ -25,11 +25,11 @@ async def get_orders(
     status: Optional[str] = None,
     customer_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Get all orders, optionally filtered by order_type, status, and customer_id"""
-    # Get user's current branch for filtering
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     
     query = db.query(Order).options(
         joinedload(Order.table),
@@ -39,8 +39,7 @@ async def get_orders(
     )
     
     # Filter by branch_id for data isolation
-    if branch_id:
-        query = query.filter(Order.branch_id == branch_id)
+    query = query.filter(Order.branch_id == branch_id)
     
     if order_type:
         query = query.filter(Order.order_type == order_type)
@@ -59,11 +58,11 @@ async def get_orders(
 async def get_order(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Get order by ID with items"""
-    # Get user's current branch for filtering
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     
     query = db.query(Order).options(
         joinedload(Order.table),
@@ -88,18 +87,21 @@ async def get_order(
 async def create_order(
     order_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id),
+    x_branch_code: str = Header(..., alias="X-Branch-Code")
 ):
     """Create a new order"""
     items_data = order_data.pop('items', [])
     
     if 'order_number' not in order_data:
-        # Generate globally unique order number (format: ORD-YYYYMMDD-SEQ)
+        # Generate branch-specific order number (format: BRANCH-ORD-YYYYMMDD-SEQ)
         today_str = datetime.now().strftime('%Y%m%d')
-        prefix = f"ORD-{today_str}-"
+        prefix = f"{x_branch_code}-ORD-{today_str}-"
         
         while True:
             last_order = db.query(Order).filter(
+                Order.branch_id == branch_id,
                 Order.order_number.like(f"{prefix}%")
             ).order_by(Order.order_number.desc()).first()
             
@@ -117,16 +119,18 @@ async def create_order(
                 seq = 1
                 
             order_number = f"{prefix}{seq:04d}"
-            # Double check uniqueness
-            if not db.query(Order).filter(Order.order_number == order_number).first():
+            # Double check uniqueness within branch
+            if not db.query(Order).filter(Order.order_number == order_number, Order.branch_id == branch_id).first():
                 order_data['order_number'] = order_number
                 break
             # If exists, loop will run again and last_order will find the one we just detected
     order_data['created_by'] = current_user.id
+    order_data['branch_id'] = branch_id
     
     # Tie to active POS Session
     active_session = db.query(POSSession).filter(
         POSSession.user_id == current_user.id,
+        POSSession.branch_id == branch_id,
         POSSession.status == "Open"
     ).first()
     if active_session:
@@ -135,7 +139,6 @@ async def create_order(
     # Handle customer lookup/creation by name if customer_id is missing
     customer_name = order_data.pop('customer_name', None)
     if not order_data.get('customer_id') and customer_name:
-        branch_id = current_user.current_branch_id
         # Try to find existing customer by name in this branch
         customer = db.query(Customer).filter(
             Customer.name == customer_name,
@@ -156,30 +159,37 @@ async def create_order(
 
     # Calculate accurate amounts based on business rules
     # 1. Gross - sum of items
-    gross = sum(item.get('price', 0) * item.get('quantity', 0) for item in items_data)
-    order_data['gross_amount'] = gross
+    gross = 0
+    for item in items_data:
+        price = item.get('price')
+        if price is None or price == 0:
+            mi = db.query(MenuItem).filter(MenuItem.id == item.get('menu_item_id')).first()
+            price = mi.price if mi else 0
+        gross += (item.get('quantity', 0) * price)
     
-    # 2. Charges from settings
+    # 2. Charges from settings (Branch specific first)
     settings = db.query(CompanySettings).first()
-    sc_rate = settings.service_charge_rate if settings else 10.0
-    tax_rate = settings.tax_rate if settings else 13.0
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    
+    sc_rate = branch.service_charge_rate if branch and branch.service_charge_rate is not None else (settings.service_charge_rate if settings else 10.0)
+    tax_rate = branch.tax_rate if branch and branch.tax_rate is not None else (settings.tax_rate if settings else 13.0)
     
     discount = order_data.get('discount', 0)
     delivery_charge = order_data.get('delivery_charge', 0)
     
-    # SC calculation: Net of discount? (Standard is on gross)
-    sc_amount = round(gross * (sc_rate / 100), 2)
-    # Tax calculation: usually on (Gross + SC)
-    tax_amount = round((gross + sc_amount) * (tax_rate / 100), 2)
+    # Consistent with Frontend: SC and Tax on Net of Discount
+    base_amount = max(0, gross - discount)
+    sc_amount = round(base_amount * (sc_rate / 100), 2)
+    tax_amount = round((base_amount + sc_amount) * (tax_rate / 100), 2)
     
+    order_data['gross_amount'] = gross
     order_data['service_charge_amount'] = sc_amount
     order_data['tax_amount'] = tax_amount
-    order_data['net_amount'] = round(gross - discount + sc_amount + tax_amount + delivery_charge, 2)
+    order_data['net_amount'] = round(base_amount + sc_amount + tax_amount + delivery_charge, 2)
     order_data['total_amount'] = order_data['net_amount']
     
     # Set branch_id for data isolation
-    if current_user.current_branch_id:
-        order_data['branch_id'] = current_user.current_branch_id
+    order_data['branch_id'] = branch_id
     
     # Remove fields not in Order model but potentially in input
     order_data.pop('tax', None)
@@ -202,105 +212,112 @@ async def create_order(
         db.add(order_item)
     
     # --- Generate KOT/BOT logic ---
-    item_ids = [item['menu_item_id'] for item in items_data]
-    menu_items = db.query(MenuItem).filter(MenuItem.id.in_(item_ids)).all()
-    # Map item ID -> MenuItem object
-    menu_items_map = {m.id: m for m in menu_items}
-    
-    kot_items = []
-    bot_items = []
-    
-    for item in items_data:
-        m_item = menu_items_map.get(item['menu_item_id'])
-        if m_item:
-            if m_item.kot_bot == 'BOT':
-                bot_items.append(item)
-            else:
-                kot_items.append(item)
+    if new_order.status != 'Draft':
+        item_ids = [item['menu_item_id'] for item in items_data]
+        menu_items = db.query(MenuItem).options(joinedload(MenuItem.category)).filter(MenuItem.id.in_(item_ids)).all()
+        # Map item ID -> MenuItem object
+        menu_items_map = {m.id: m for m in menu_items}
+        
+        kot_items = []
+        bot_items = []
+        
+        for item in items_data:
+            m_item = menu_items_map.get(item['menu_item_id'])
+            if m_item:
+                # Prioritize Category type, fallback to MenuItem.kot_bot
+                category_type = m_item.category.type if m_item.category else m_item.kot_bot
+                if category_type == 'BOT':
+                    bot_items.append(item)
+                else:
+                    kot_items.append(item)
 
-    # Create KOT
-    if kot_items:
         today_str = datetime.now().strftime('%Y%m%d')
-        kot_prefix = f"#KOT-{today_str}-"
-        
-        while True:
-            last_kot = db.query(KOT).filter(
-                KOT.kot_number.like(f"{kot_prefix}%")
-            ).order_by(KOT.kot_number.desc()).first()
+
+        # Create KOT
+        if kot_items:
+            kot_prefix = f"KOT-{today_str}-"
             
-            kot_seq = 1
-            if last_kot:
-                try:
-                    parts = last_kot.kot_number.split('-')
-                    if len(parts) >= 3:
-                        kot_seq = int(parts[-1]) + 1
-                except (ValueError, IndexError):
-                    pass
+            while True:
+                # Check globally across all branches for uniqueness if we've removed branch code
+                last_kot = db.query(KOT).filter(
+                    KOT.kot_number.like(f"{kot_prefix}%")
+                ).order_by(KOT.kot_number.desc()).first()
+                
+                kot_seq = 1
+                if last_kot:
+                    try:
+                        parts = last_kot.kot_number.split('-')
+                        if len(parts) >= 3:
+                            kot_seq = int(parts[-1]) + 1
+                    except (ValueError, IndexError):
+                        pass
+                
+                new_kot_num = f"{kot_prefix}{kot_seq:04d}"
+                if not db.query(KOT).filter(KOT.kot_number == new_kot_num).first():
+                    break
             
-            new_kot_num = f"{kot_prefix}{kot_seq:04d}"
-            if not db.query(KOT).filter(KOT.kot_number == new_kot_num).first():
-                break
-        
-        kot = KOT(
-            kot_number=new_kot_num,
-            order_id=new_order.id,
-            kot_type='KOT',
-            status='Pending',
-            created_by=current_user.id
-        )
-        db.add(kot)
-        db.flush()
-        
-        for item in kot_items:
-            k_item = KOTItem(
-                kot_id=kot.id,
-                menu_item_id=item['menu_item_id'],
-                quantity=item['quantity'],
-                notes=item.get('notes', '')
+            kot = KOT(
+                kot_number=new_kot_num,
+                order_id=new_order.id,
+                branch_id=branch_id,
+                kot_type='KOT',
+                status='Pending',
+                created_by=current_user.id
             )
-            db.add(k_item)
+            db.add(kot)
+            db.flush()
             
-    # Create BOT
-    if bot_items:
-        today_str = datetime.now().strftime('%Y%m%d')
-        bot_prefix = f"#BOT-{today_str}-"
-        
-        while True:
-            last_bot = db.query(KOT).filter(
-                KOT.kot_number.like(f"{bot_prefix}%")
-            ).order_by(KOT.kot_number.desc()).first()
+            for item in kot_items:
+                k_item = KOTItem(
+                    kot_id=kot.id,
+                    menu_item_id=item['menu_item_id'],
+                    quantity=item['quantity'],
+                    notes=item.get('notes', '')
+                )
+                db.add(k_item)
+                
+        # Create BOT
+        if bot_items:
+            bot_prefix = f"BOT-{today_str}-"
             
-            bot_seq = 1
-            if last_bot:
-                try:
-                    parts = last_bot.kot_number.split('-')
-                    if len(parts) >= 3:
-                        bot_seq = int(parts[-1]) + 1
-                except (ValueError, IndexError):
-                    pass
+            while True:
+                # Check globally across all branches for uniqueness
+                last_bot = db.query(KOT).filter(
+                    KOT.kot_number.like(f"{bot_prefix}%")
+                ).order_by(KOT.kot_number.desc()).first()
+                
+                bot_seq = 1
+                if last_bot:
+                    try:
+                        parts = last_bot.kot_number.split('-')
+                        if len(parts) >= 3:
+                            bot_seq = int(parts[-1]) + 1
+                    except (ValueError, IndexError):
+                        pass
+                
+                new_bot_num = f"{bot_prefix}{bot_seq:04d}"
+                if not db.query(KOT).filter(KOT.kot_number == new_bot_num).first():
+                    break
             
-            new_bot_num = f"{bot_prefix}{bot_seq:04d}"
-            if not db.query(KOT).filter(KOT.kot_number == new_bot_num).first():
-                break
-        
-        bot = KOT(
-            kot_number=new_bot_num,
-            order_id=new_order.id,
-            kot_type='BOT',
-            status='Pending',
-            created_by=current_user.id
-        )
-        db.add(bot)
-        db.flush()
-        
-        for item in bot_items:
-            b_item = KOTItem(
-                kot_id=bot.id,
-                menu_item_id=item['menu_item_id'],
-                quantity=item['quantity'],
-                notes=item.get('notes', '')
+            bot = KOT(
+                kot_number=new_bot_num,
+                order_id=new_order.id,
+                branch_id=branch_id,
+                kot_type='BOT',
+                status='Pending',
+                created_by=current_user.id
             )
-            db.add(b_item)
+            db.add(bot)
+            db.flush()
+            
+            for item in bot_items:
+                b_item = KOTItem(
+                    kot_id=bot.id,
+                    menu_item_id=item['menu_item_id'],
+                    quantity=item['quantity'],
+                    notes=item.get('notes', '')
+                )
+                db.add(b_item)
     
     # Update table status to Occupied if table order
     if new_order.table_id and new_order.order_type in ['Table', 'Dine-in']:
@@ -349,10 +366,14 @@ async def update_order(
     order_id: int,
     order_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Update an order"""
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).filter(
+        Order.id == order_id,
+        Order.branch_id == branch_id
+    ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
@@ -383,20 +404,38 @@ async def update_order(
     
     # Recalculate amounts if items were updated or specific amounts provided
     if items_data is not None or 'gross_amount' in order_data or 'discount' in order_data or 'delivery_charge' in order_data:
-        # Use existing gross if items not provided
-        gross = sum(item.quantity * item.price for item in order.items)
+        # Calculate gross - if items_data is provided, use it (it's the source of truth for the update)
+        if items_data is not None:
+             gross = 0
+             for item in items_data:
+                 price = item.get('price')
+                 if price is None or price == 0:
+                     # Fallback to current menu price if missing
+                     mi = db.query(MenuItem).filter(MenuItem.id == item['menu_item_id']).first()
+                     price = mi.price if mi else 0
+                 gross += (item['quantity'] * price)
+        else:
+            # Use existing items if none provided in this update
+            gross = sum(item.quantity * item.price for item in order.items)
         
         settings = db.query(CompanySettings).first()
-        sc_rate = settings.service_charge_rate if settings else 10.0
-        tax_rate = settings.tax_rate if settings else 13.0
+        branch = db.query(Branch).filter(Branch.id == order.branch_id).first()
         
-        sc_amount = round(gross * (sc_rate / 100), 2)
-        tax_amount = round((gross + sc_amount) * (tax_rate / 100), 2)
+        sc_rate = branch.service_charge_rate if branch and branch.service_charge_rate is not None else (settings.service_charge_rate if settings else 10.0)
+        tax_rate = branch.tax_rate if branch and branch.tax_rate is not None else (settings.tax_rate if settings else 13.0)
+        
+        discount = order.discount or 0
+        delivery = order.delivery_charge or 0
+        
+        # Consistent with Frontend: SC and Tax on Net of Discount
+        base_amount = max(0, gross - discount)
+        sc_amount = round(base_amount * (sc_rate / 100), 2)
+        tax_amount = round((base_amount + sc_amount) * (tax_rate / 100), 2)
         
         order.gross_amount = gross
         order.service_charge_amount = sc_amount
         order.tax_amount = tax_amount
-        order.net_amount = round(gross - order.discount + sc_amount + tax_amount + order.delivery_charge, 2)
+        order.net_amount = round(base_amount + sc_amount + tax_amount + delivery, 2)
         order.total_amount = order.net_amount
     
     # Handle KOT status when order status changes
@@ -501,10 +540,14 @@ async def update_order(
 async def delete_order(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Delete an order"""
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).filter(
+        Order.id == order_id,
+        Order.branch_id == branch_id
+    ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
@@ -529,10 +572,11 @@ async def print_bill(
     order_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Trigger bill printing for an order"""
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     
     order = db.query(Order).options(
         joinedload(Order.table),
@@ -556,10 +600,14 @@ async def change_order_table(
     order_id: int,
     new_table_id: int = Body(..., embed=True),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Change order's table and update statuses"""
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).filter(
+        Order.id == order_id,
+        Order.branch_id == branch_id
+    ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
         
@@ -608,12 +656,17 @@ async def add_order_items(
     order_id: int,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id),
+    x_branch_code: str = Header(..., alias="X-Branch-Code")
 ):
     """Add items to an existing order and generate KOTs"""
     order = db.query(Order).options(
         joinedload(Order.items)
-    ).filter(Order.id == order_id).first()
+    ).filter(
+        Order.id == order_id,
+        Order.branch_id == branch_id
+    ).first()
     
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -635,126 +688,144 @@ async def add_order_items(
         db.add(order_item)
         
     # 2. Recalculate Totals
-    # Get current items + new items for calculation (simplified: just sum existing + new payload)
-    # Actually, safest is to commit items, then recalc from DB? 
-    # Or just add to running constants.
-    
+    # Get current items + new items for calculation
     current_gross = order.gross_amount or 0
-    new_items_gross = sum(item.get('price', 0) * item.get('quantity', 0) for item in items_data)
+    new_items_gross = 0
+    for item in items_data:
+        price = item.get('price')
+        if price is None or price == 0:
+            mi = db.query(MenuItem).filter(MenuItem.id == item.get('menu_item_id')).first()
+            price = mi.price if mi else 0
+        new_items_gross += (item.get('quantity', 0) * price)
+    
     total_gross = current_gross + new_items_gross
     
     settings = db.query(CompanySettings).first()
-    sc_rate = settings.service_charge_rate if settings else 10.0
-    tax_rate = settings.tax_rate if settings else 13.0
+    branch = db.query(Branch).filter(Branch.id == order.branch_id).first()
     
-    sc_amount = round(total_gross * (sc_rate / 100), 2)
-    tax_amount = round((total_gross + sc_amount) * (tax_rate / 100), 2)
+    sc_rate = branch.service_charge_rate if branch and branch.service_charge_rate is not None else (settings.service_charge_rate if settings else 10.0)
+    tax_rate = branch.tax_rate if branch and branch.tax_rate is not None else (settings.tax_rate if settings else 13.0)
+    
+    discount = order.discount or 0
+    delivery = order.delivery_charge or 0
+    
+    # Consistent with Frontend: SC and Tax on Net of Discount
+    base_amount = max(0, total_gross - discount)
+    sc_amount = round(base_amount * (sc_rate / 100), 2)
+    tax_amount = round((base_amount + sc_amount) * (tax_rate / 100), 2)
     
     order.gross_amount = total_gross
     order.service_charge_amount = sc_amount
     order.tax_amount = tax_amount
-    order.net_amount = round(total_gross - (order.discount or 0) + sc_amount + tax_amount + (order.delivery_charge or 0), 2)
+    order.net_amount = round(base_amount + sc_amount + tax_amount + delivery, 2)
     order.total_amount = order.net_amount
     
     # 3. Generate KOT/BOT (Copy logic from create_order)
-    item_ids = [item['menu_item_id'] for item in items_data]
-    menu_items = db.query(MenuItem).filter(MenuItem.id.in_(item_ids)).all()
-    menu_items_map = {m.id: m for m in menu_items}
-    
-    kot_items = []
-    bot_items = []
-    
-    for item in items_data:
-        m_item = menu_items_map.get(item['menu_item_id'])
-        if m_item:
-            if m_item.kot_bot == 'BOT':
-                bot_items.append(item)
-            else:
-                kot_items.append(item)
+    if order.status != 'Draft':
+        item_ids = [item['menu_item_id'] for item in items_data]
+        menu_items = db.query(MenuItem).options(joinedload(MenuItem.category)).filter(MenuItem.id.in_(item_ids)).all()
+        menu_items_map = {m.id: m for m in menu_items}
+        
+        kot_items = []
+        bot_items = []
+        
+        for item in items_data:
+            m_item = menu_items_map.get(item['menu_item_id'])
+            if m_item:
+                # Prioritize Category type
+                category_type = m_item.category.type if m_item.category else m_item.kot_bot
+                if category_type == 'BOT':
+                    bot_items.append(item)
+                else:
+                    kot_items.append(item)
 
-    # Create KOT
-    if kot_items:
         today_str = datetime.now().strftime('%Y%m%d')
-        kot_prefix = f"#KOT-{today_str}-"
-        
-        while True:
-            last_kot = db.query(KOT).filter(
-                KOT.kot_number.like(f"{kot_prefix}%")
-            ).order_by(KOT.kot_number.desc()).first()
+
+        # Create KOT
+        if kot_items:
+            kot_prefix = f"KOT-{today_str}-"
             
-            kot_seq = 1
-            if last_kot:
-                try:
-                    parts = last_kot.kot_number.split('-')
-                    if len(parts) >= 3:
-                        kot_seq = int(parts[-1]) + 1
-                except (ValueError, IndexError):
-                    pass
+            while True:
+                # Check globally for uniqueness
+                last_kot = db.query(KOT).filter(
+                    KOT.kot_number.like(f"{kot_prefix}%")
+                ).order_by(KOT.kot_number.desc()).first()
+                
+                kot_seq = 1
+                if last_kot:
+                    try:
+                        parts = last_kot.kot_number.split('-')
+                        if len(parts) >= 3:
+                            kot_seq = int(parts[-1]) + 1
+                    except (ValueError, IndexError):
+                        pass
+                
+                new_kot_num = f"{kot_prefix}{kot_seq:04d}"
+                if not db.query(KOT).filter(KOT.kot_number == new_kot_num).first():
+                    break
             
-            new_kot_num = f"{kot_prefix}{kot_seq:04d}"
-            if not db.query(KOT).filter(KOT.kot_number == new_kot_num).first():
-                break
-        
-        kot = KOT(
-            kot_number=new_kot_num,
-            order_id=order.id,
-            kot_type='KOT',
-            status='Pending',
-            created_by=current_user.id
-        )
-        db.add(kot)
-        db.flush()
-        
-        for item in kot_items:
-            k_item = KOTItem(
-                kot_id=kot.id,
-                menu_item_id=item['menu_item_id'],
-                quantity=item['quantity'],
-                notes=item.get('notes', '')
+            kot = KOT(
+                kot_number=new_kot_num,
+                order_id=order.id,
+                branch_id=branch_id,
+                kot_type='KOT',
+                status='Pending',
+                created_by=current_user.id
             )
-            db.add(k_item)
+            db.add(kot)
+            db.flush()
             
-    # Create BOT
-    if bot_items:
-        today_str = datetime.now().strftime('%Y%m%d')
-        bot_prefix = f"#BOT-{today_str}-"
-        
-        while True:
-            last_bot = db.query(KOT).filter(
-                KOT.kot_number.like(f"{bot_prefix}%")
-            ).order_by(KOT.kot_number.desc()).first()
+            for item in kot_items:
+                k_item = KOTItem(
+                    kot_id=kot.id,
+                    menu_item_id=item['menu_item_id'],
+                    quantity=item['quantity'],
+                    notes=item.get('notes', '')
+                )
+                db.add(k_item)
+                
+        # Create BOT
+        if bot_items:
+            bot_prefix = f"BOT-{today_str}-"
             
-            bot_seq = 1
-            if last_bot:
-                try:
-                    parts = last_bot.kot_number.split('-')
-                    if len(parts) >= 3:
-                        bot_seq = int(parts[-1]) + 1
-                except (ValueError, IndexError):
-                    pass
+            while True:
+                # Check globally for uniqueness
+                last_bot = db.query(KOT).filter(
+                    KOT.kot_number.like(f"{bot_prefix}%")
+                ).order_by(KOT.kot_number.desc()).first()
+                
+                bot_seq = 1
+                if last_bot:
+                    try:
+                        parts = last_bot.kot_number.split('-')
+                        if len(parts) >= 3:
+                            bot_seq = int(parts[-1]) + 1
+                    except (ValueError, IndexError):
+                        pass
+                
+                new_bot_num = f"{bot_prefix}{bot_seq:04d}"
+                if not db.query(KOT).filter(KOT.kot_number == new_bot_num).first():
+                    break
             
-            new_bot_num = f"{bot_prefix}{bot_seq:04d}"
-            if not db.query(KOT).filter(KOT.kot_number == new_bot_num).first():
-                break
-        
-        bot = KOT(
-            kot_number=new_bot_num,
-            order_id=order.id,
-            kot_type='BOT',
-            status='Pending',
-            created_by=current_user.id
-        )
-        db.add(bot)
-        db.flush()
-        
-        for item in bot_items:
-            b_item = KOTItem(
-                kot_id=bot.id,
-                menu_item_id=item['menu_item_id'],
-                quantity=item['quantity'],
-                notes=item.get('notes', '')
+            bot = KOT(
+                kot_number=new_bot_num,
+                order_id=order.id,
+                branch_id=branch_id,
+                kot_type='BOT',
+                status='Pending',
+                created_by=current_user.id
             )
-            db.add(b_item)
+            db.add(bot)
+            db.flush()
+            
+            for item in bot_items:
+                b_item = KOTItem(
+                    kot_id=bot.id,
+                    menu_item_id=item['menu_item_id'],
+                    quantity=item['quantity'],
+                    notes=item.get('notes', '')
+                )
+                db.add(b_item)
             
     db.commit()
     db.refresh(order)

@@ -52,7 +52,7 @@ class MenuItem(Base):
     image_data = Column(LargeBinary, nullable=True)
     description = Column(String, nullable=True)
     inventory_tracking = Column(Boolean, default=False)
-    kot_bot = Column(String, nullable=False)  # KOT or BOT
+    kot_bot = Column(String, nullable=False)  
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

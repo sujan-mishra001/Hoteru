@@ -69,10 +69,6 @@ const KOTPrintView = forwardRef<HTMLDivElement, KOTPrintViewProps>(({ kot, branc
             </List>
 
             <Divider sx={{ mt: 1, mb: 0.5, borderStyle: 'dashed', borderColor: 'black' }} />
-
-            <Box sx={{ textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '10px' }}>{new Date().toLocaleString()}</Typography>
-            </Box>
         </Box>
     );
 });

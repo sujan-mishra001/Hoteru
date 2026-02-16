@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from app.db.database import get_db
 from app.models.pos_session import POSSession
 from app.models.auth import User
+from app.models.branch import Branch
 from app.schemas.pos_session import POSSession as POSSessionSchema, POSSessionCreate, POSSessionUpdate
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 
 router = APIRouter()
 
@@ -47,16 +48,14 @@ def read_sessions(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
+    """Read all sessions for the branch"""
     # Auto-close sessions older than 24 hours
     auto_close_old_sessions(db)
     
-    # Filter by user's current branch (unless admin viewing all)
-    branch_id = current_user.current_branch_id if current_user.role != 'admin' else None
-    
-    query = db.query(POSSession)
-    query = apply_branch_filter_session(query, branch_id)
+    query = db.query(POSSession).filter(POSSession.branch_id == branch_id)
     sessions = query.order_by(POSSession.start_time.desc()).offset(skip).limit(limit).all()
     return sessions
 
@@ -64,11 +63,13 @@ def read_sessions(
 def create_session(
     session_in: POSSessionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    # Check if user already has an open session
+    # Check if user already has an open session in this branch
     active_session = db.query(POSSession).filter(
         POSSession.user_id == current_user.id,
+        POSSession.branch_id == branch_id,
         POSSession.status == "Open"
     ).first()
     
@@ -80,7 +81,7 @@ def create_session(
         
     db_session = POSSession(
         user_id=current_user.id,
-        branch_id=session_in.branch_id or current_user.current_branch_id,
+        branch_id=branch_id,
         opening_cash=session_in.opening_cash,
         notes=session_in.notes,
         status="Open",
@@ -95,13 +96,14 @@ def create_session(
 def read_session(
     id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    branch_id = current_user.current_branch_id if current_user.role != 'admin' else None
-    
-    query = db.query(POSSession).filter(POSSession.id == id)
-    query = apply_branch_filter_session(query, branch_id)
-    session = query.first()
+    """Read a specific session, filtered by branch"""
+    session = db.query(POSSession).filter(
+        POSSession.id == id,
+        POSSession.branch_id == branch_id
+    ).first()
     
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or access denied")
@@ -112,13 +114,14 @@ def update_session(
     id: int,
     session_in: POSSessionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    branch_id = current_user.current_branch_id if current_user.role != 'admin' else None
-    
-    query = db.query(POSSession).filter(POSSession.id == id)
-    query = apply_branch_filter_session(query, branch_id)
-    db_session = query.first()
+    """Update a session, filtered by branch"""
+    db_session = db.query(POSSession).filter(
+        POSSession.id == id,
+        POSSession.branch_id == branch_id
+    ).first()
     
     if not db_session:
         raise HTTPException(status_code=404, detail="Session not found or access denied")

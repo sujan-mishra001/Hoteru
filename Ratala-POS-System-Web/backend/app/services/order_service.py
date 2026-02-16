@@ -53,7 +53,8 @@ class OrderService:
     @staticmethod
     def create_kot(db: Session, order_id: int) -> KOT:
         """Create a KOT for an order"""
-        kot_number = f"KOT-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+        today_str = datetime.now().strftime('%Y%m%d')
+        kot_number = f"KOT-{today_str}-{random.randint(1000, 9999)}"
         new_kot = KOT(
             kot_number=kot_number,
             order_id=order_id,

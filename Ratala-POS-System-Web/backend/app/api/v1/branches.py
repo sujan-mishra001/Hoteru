@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models.auth import User
 from app.schemas import (
     BranchCreate,
@@ -21,7 +21,20 @@ from app.services import branch_service, organization_service
 router = APIRouter(prefix="/branches", tags=["Branches"])
 
 
-@router.post("/", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
+@router.get("/current", response_model=BranchResponse)
+def get_current_branch_details(
+    branch_id: int = Depends(get_branch_id),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get details of the currently selected branch"""
+    branch = branch_service.get_branch(db, branch_id)
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    return branch
+
+
+@router.post("", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
 def create_branch(
     branch_data: BranchCreate,
     db: Session = Depends(get_db),
@@ -78,7 +91,7 @@ def create_branch(
     return branch
 
 
-@router.get("/", response_model=List[BranchBasicResponse])
+@router.get("", response_model=List[BranchBasicResponse])
 def list_branches(
     active_only: bool = True,
     skip: int = 0,

@@ -109,7 +109,8 @@ const Cashier: React.FC = () => {
         // Navigate to billing page with orderId in state
         // If it's a table order, pass tableId, otherwise use 0
         const tableId = order.table_id || 0;
-        navigate(`/pos/billing/${tableId}`, { state: { orderId: order.id } });
+        const branchSlug = currentBranch?.slug || localStorage.getItem('branchSlug');
+        navigate(`/${branchSlug}/pos/billing/${tableId}`, { state: { orderId: order.id } });
     };
 
     return (

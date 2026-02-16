@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user, check_admin_role
-from app.models import Floor
+from app.core.dependencies import get_current_user, check_admin_role, get_branch_id
+from app.models import Floor, Branch
 
 router = APIRouter()
 
@@ -22,13 +22,14 @@ def apply_branch_filter(db: Session, query, branch_id):
 @router.get("")
 async def get_floors(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all floors for the current user's branch, ordered by display_order"""
-    branch_id = current_user.current_branch_id
-    query = db.query(Floor).filter(Floor.is_active == True)
-    query = apply_branch_filter(db, query, branch_id)
-    floors = query.order_by(Floor.display_order).all()
+    """Get all floors for the branch, ordered by display_order"""
+    floors = db.query(Floor).filter(
+        Floor.is_active == True,
+        Floor.branch_id == branch_id
+    ).order_by(Floor.display_order).all()
     return floors
 
 
@@ -36,13 +37,14 @@ async def get_floors(
 async def get_floor(
     floor_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get floor by ID, filtered by user's branch"""
-    branch_id = current_user.current_branch_id
-    query = db.query(Floor).filter(Floor.id == floor_id)
-    query = apply_branch_filter(db, query, branch_id)
-    floor = query.first()
+    """Get floor by ID, filtered by branch"""
+    floor = db.query(Floor).filter(
+        Floor.id == floor_id,
+        Floor.branch_id == branch_id
+    ).first()
     if not floor:
         raise HTTPException(status_code=404, detail="Floor not found")
     return floor
@@ -52,27 +54,25 @@ async def get_floor(
 async def create_floor(
     floor_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(check_admin_role)
+    current_user = Depends(check_admin_role),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create a new floor in the user's current branch (Admin only)"""
-    branch_id = current_user.current_branch_id
-    
-    # Check if floor name already exists in the branch (or globally if branch_id is None)
-    query = db.query(Floor).filter(Floor.name == floor_data.get('name'))
-    query = apply_branch_filter(db, query, branch_id)
-    existing = query.first()
+    """Create a new floor in the branch (Admin only)"""
+    # Check if floor name already exists in the branch
+    existing = db.query(Floor).filter(
+        Floor.name == floor_data.get('name'),
+        Floor.branch_id == branch_id
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Floor name already exists in this branch")
     
     # Get max display_order for the branch
-    query = db.query(Floor)
-    query = apply_branch_filter(db, query, branch_id)
-    max_order = query.order_by(Floor.display_order.desc()).first()
-    floor_data['display_order'] = (max_order.display_order + 1) if max_order else 0
+    max_order = db.query(Floor).filter(
+        Floor.branch_id == branch_id
+    ).order_by(Floor.display_order.desc()).first()
     
-    # Set branch_id for the new floor
-    if branch_id is not None:
-        floor_data['branch_id'] = branch_id
+    floor_data['display_order'] = (max_order.display_order + 1) if max_order else 0
+    floor_data['branch_id'] = branch_id
     
     new_floor = Floor(**floor_data)
     db.add(new_floor)
@@ -87,23 +87,24 @@ async def update_floor(
     floor_id: int,
     floor_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(check_admin_role)
+    current_user = Depends(check_admin_role),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update a floor in the user's current branch (Admin only)"""
-    branch_id = current_user.current_branch_id
-    
+    """Update a floor in the branch (Admin only)"""
     # Get floor filtered by branch
-    query = db.query(Floor).filter(Floor.id == floor_id)
-    query = apply_branch_filter(db, query, branch_id)
-    floor = query.first()
+    floor = db.query(Floor).filter(
+        Floor.id == floor_id,
+        Floor.branch_id == branch_id
+    ).first()
     if not floor:
         raise HTTPException(status_code=404, detail="Floor not found or access denied")
     
     # Check if new name conflicts with existing in the branch
     if 'name' in floor_data and floor_data['name'] != floor.name:
-        query = db.query(Floor).filter(Floor.name == floor_data['name'])
-        query = apply_branch_filter(db, query, branch_id)
-        existing = query.first()
+        existing = db.query(Floor).filter(
+            Floor.name == floor_data['name'],
+            Floor.branch_id == branch_id
+        ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Floor name already exists in this branch")
     
@@ -119,15 +120,15 @@ async def update_floor(
 async def delete_floor(
     floor_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(check_admin_role)
+    current_user = Depends(check_admin_role),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Delete a floor in the user's current branch (Admin only) - sets is_active to False"""
-    branch_id = current_user.current_branch_id
-    
+    """Delete a floor in the branch (Admin only) - sets is_active to False"""
     # Get floor filtered by branch
-    query = db.query(Floor).filter(Floor.id == floor_id)
-    query = apply_branch_filter(db, query, branch_id)
-    floor = query.first()
+    floor = db.query(Floor).filter(
+        Floor.id == floor_id,
+        Floor.branch_id == branch_id
+    ).first()
     if not floor:
         raise HTTPException(status_code=404, detail="Floor not found or access denied")
     
@@ -142,15 +143,15 @@ async def reorder_floor(
     floor_id: int,
     new_order: int = Body(..., embed=True),
     db: Session = Depends(get_db),
-    current_user = Depends(check_admin_role)
+    current_user = Depends(check_admin_role),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Reorder a floor in the user's current branch (Admin only)"""
-    branch_id = current_user.current_branch_id
-    
+    """Reorder a floor in the branch (Admin only)"""
     # Get floor filtered by branch
-    query = db.query(Floor).filter(Floor.id == floor_id)
-    query = apply_branch_filter(db, query, branch_id)
-    floor = query.first()
+    floor = db.query(Floor).filter(
+        Floor.id == floor_id,
+        Floor.branch_id == branch_id
+    ).first()
     if not floor:
         raise HTTPException(status_code=404, detail="Floor not found or access denied")
     

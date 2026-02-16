@@ -2,7 +2,7 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models.printer import Printer as PrinterModel
 from app.schemas.printer import Printer, PrinterCreate, PrinterUpdate
 
@@ -14,11 +14,12 @@ def read_printers(
     skip: int = 0,
     limit: int = 100,
     current_user: Any = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ) -> Any:
     """
-    Retrieve printers for the current user's branch.
+    Retrieve printers for the branch.
     """
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     query = db.query(PrinterModel)
     if branch_id:
         query = query.filter(PrinterModel.branch_id == branch_id)
@@ -32,12 +33,13 @@ def create_printer(
     db: Session = Depends(get_db),
     printer_in: PrinterCreate,
     current_user: Any = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ) -> Any:
     """
     Create new printer.
     """
     printer_dict = printer_in.dict()
-    printer_dict["branch_id"] = current_user.current_branch_id
+    printer_dict["branch_id"] = branch_id
     printer_dict["organization_id"] = current_user.organization_id
     
     printer = PrinterModel(**printer_dict)

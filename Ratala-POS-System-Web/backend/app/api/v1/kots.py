@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import random
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models import KOT, Order, KOTItem, MenuItem
 from sqlalchemy.orm import joinedload
 from fastapi import BackgroundTasks
@@ -25,10 +25,11 @@ async def get_kots(
     kot_type: Optional[str] = None,  # KOT or BOT
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all KOTs/BOTs for the current user's branch, optionally filtered by type and status"""
-    branch_id = current_user.current_branch_id
+    """Get all KOTs/BOTs for the branch, optionally filtered by type and status"""
+    # branch_id is now provided by dependency
     
     query = db.query(KOT).options(
         joinedload(KOT.order).joinedload(Order.table),
@@ -53,10 +54,11 @@ async def get_kots(
 async def get_kot(
     kot_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get KOT by ID, filtered by user's branch"""
-    branch_id = current_user.current_branch_id
+    """Get KOT by ID, filtered by branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(KOT).options(
         joinedload(KOT.order).joinedload(Order.table),
@@ -80,7 +82,8 @@ async def create_kot(
     background_tasks: BackgroundTasks,
     kot_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Create a new KOT or BOT"""
     items_data = kot_data.pop('items', [])
@@ -90,25 +93,27 @@ async def create_kot(
         kot_type = kot_data.get('kot_type', 'KOT')
         prefix = 'KOT' if kot_type == 'KOT' else 'BOT'
         
-        # Get count of KOTs/BOTs today for this branch/type to generate sequential number
+        # Get today's start
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        branch_id = current_user.current_branch_id
+        today_str = datetime.now().strftime('%Y%m%d')
+        kot_prefix = f"{prefix}-{today_str}-"
         
-        # We'll use a loop to ensure we find a unique number
-        attempt = 0
         while True:
-            # Count existing KOTs for today in this branch (as a starting point)
-            if attempt == 0:
-                count = db.query(KOT).join(Order).filter(
-                    Order.branch_id == branch_id,
-                    KOT.kot_type == kot_type,
-                    KOT.created_at >= today_start
-                ).count()
-                seq = count + 1
-            else:
-                seq += 1
+            # Check globally across all branches for uniqueness if we've removed branch code
+            last_kot = db.query(KOT).filter(
+                KOT.kot_number.like(f"{kot_prefix}%")
+            ).order_by(KOT.kot_number.desc()).first()
             
-            kot_number = f"#{prefix}-{datetime.now().strftime('%Y%m%d')}-{seq:04d}"
+            seq = 1
+            if last_kot:
+                try:
+                    parts = last_kot.kot_number.split('-')
+                    if len(parts) >= 3:
+                        seq = int(parts[-1]) + 1
+                except (ValueError, IndexError):
+                    pass
+            
+            kot_number = f"{kot_prefix}{seq:04d}"
             
             # Check if this number already exists
             existing = db.query(KOT).filter(KOT.kot_number == kot_number).first()
@@ -116,10 +121,7 @@ async def create_kot(
                 kot_data['kot_number'] = kot_number
                 break
             
-            attempt += 1
-            if attempt > 100: # Safety break
-                kot_data['kot_number'] = f"#{prefix}-{datetime.now().strftime('%Y%m%d')}-{seq:04d}-{random.randint(1000, 9999)}"
-                break
+            # If exists, we continue loop which will find the new last_kot
     
     kot_data['created_by'] = current_user.id
     
@@ -162,10 +164,11 @@ async def update_kot(
     kot_id: int,
     kot_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update a KOT/BOT in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Update a KOT/BOT in the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(KOT).filter(KOT.id == kot_id)
     if branch_id:
@@ -188,10 +191,11 @@ async def update_kot_status(
     kot_id: int,
     status: str = Body(..., embed=True),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update KOT/BOT status in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Update KOT/BOT status in the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(KOT).options(
         joinedload(KOT.items).joinedload(KOTItem.menu_item)
@@ -223,10 +227,11 @@ async def print_kot(
     kot_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Manually trigger KOT/BOT printing"""
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     
     query = db.query(KOT).options(
         joinedload(KOT.order).joinedload(Order.table),

@@ -7,8 +7,8 @@ import { TopSellingItemsChart } from '../../components/dashboard/TopSellingChart
 import { useAuth } from '../../app/providers/AuthProvider';
 import { reportsAPI, sessionsAPI } from '../../services/api';
 import { useNotification } from '../../app/providers/NotificationProvider';
-
 import { useNavigate } from 'react-router-dom';
+import { useBranch } from '../../app/providers/BranchProvider';
 
 interface DashboardData {
     occupancy: number;
@@ -50,6 +50,7 @@ interface Session {
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { currentBranch } = useBranch();
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -100,7 +101,7 @@ const Dashboard: React.FC = () => {
         if (user?.id) {
             fetchDashboardData();
         }
-    }, [user?.id]);
+    }, [user?.id, currentBranch?.id]);
 
     // Timer effect for active session
     // Timer effect for active session (personal or global)
@@ -183,7 +184,7 @@ const Dashboard: React.FC = () => {
             showAlert('Session ended successfully', 'success');
 
             // Redirect smoothly to dashboard
-            navigate('/dashboard');
+            navigate(`/${currentBranch?.code}/dashboard`);
         } catch (error: any) {
             console.error('Error ending session:', error);
             showAlert(error.response?.data?.detail || 'Failed to end session', 'error');
@@ -207,7 +208,7 @@ const Dashboard: React.FC = () => {
                 <Grid size={{ xs: 12, md: 7 }}>
                     <WelcomeCard
                         username={user?.full_name || user?.username || 'Admin'}
-                        onGoToPOS={() => navigate('/pos')}
+                        onGoToPOS={() => navigate(`/${currentBranch?.code}/pos`)}
                         isSessionActive={!!activeSession}
                         activeSessionUser={globalActiveSession?.user?.full_name || globalActiveSession?.user?.username}
                         sessionDuration={sessionDuration}

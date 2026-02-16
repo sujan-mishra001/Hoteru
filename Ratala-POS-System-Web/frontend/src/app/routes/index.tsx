@@ -74,7 +74,7 @@ const AppRoutes: React.FC = () => {
             </Route>
 
             {/* View-Only Routes (Outside Layouts) */}
-            <Route path="/digital-menu/:branchId" element={<DigitalMenu />} />
+            <Route path="/digital-menu/:branchSlug" element={<DigitalMenu />} />
 
             {/* Standalone Platform Admin Control Center */}
             <Route element={<AuthGuard />}>
@@ -94,18 +94,18 @@ const AppRoutes: React.FC = () => {
                 </Route>
 
                 {/* Branch-Specific Routes */}
-                <Route element={<BranchGuard />}>
+                <Route path="/:branchSlug" element={<BranchGuard />}>
                     {/* Admin/Manager Panel */}
                     <Route element={<PermissionGuard requiredPermissions={['dashboard.view']} />}>
                         <Route element={<AdminLayout />}>
-                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="dashboard" element={<Dashboard />} />
                             <Route element={<PermissionGuard allowedRoles={['admin']} />}>
-                                <Route path="/users" element={<UserManagement />} />
-                                <Route path="/roles" element={<Roles />} />
+                                <Route path="users" element={<UserManagement />} />
+                                <Route path="roles" element={<Roles />} />
                             </Route>
-                            <Route path="/customers" element={<Customers />} />
-                            <Route path="/orders" element={<Orders />} />
-                            <Route path="/inventory" element={<Inventory />}>
+                            <Route path="customers" element={<Customers />} />
+                            <Route path="orders" element={<Orders />} />
+                            <Route path="inventory" element={<Inventory />}>
                                 <Route index element={<ProductList />} />
                                 <Route path="products" element={<ProductList />} />
                                 <Route path="units" element={<Units />} />
@@ -117,13 +117,13 @@ const AppRoutes: React.FC = () => {
                                 <Route path="add" element={<AddInventory />} />
                             </Route>
 
-                            <Route path="/purchase" element={<Purchase />}>
+                            <Route path="purchase" element={<Purchase />}>
                                 <Route index element={<PurchaseBill />} />
                                 <Route path="supplier" element={<Supplier />} />
                                 <Route path="bill" element={<PurchaseBill />} />
                                 <Route path="return" element={<PurchaseReturn />} />
                             </Route>
-                            <Route path="/reports">
+                            <Route path="reports">
                                 <Route index element={<Reports />} />
                                 <Route path="sessions" element={<SessionReport />} />
                                 <Route path="daily-sales" element={<DailySalesReport />} />
@@ -131,20 +131,20 @@ const AppRoutes: React.FC = () => {
                                 <Route path="daybook" element={<DaybookReport />} />
                                 <Route path="purchase" element={<PurchaseReport />} />
                             </Route>
-                            <Route path="/settings" element={<Settings />} />
-                            <Route path="/menu" element={<MenuManagement />} />
+                            <Route path="settings" element={<Settings />} />
+                            <Route path="menu" element={<MenuManagement />} />
                             <Route element={<PermissionGuard allowedRoles={['admin']} />}>
-                                <Route path="/floor-tables" element={<FloorTableSettings />} />
+                                <Route path="floor-tables" element={<FloorTableSettings />} />
                             </Route>
 
-                            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                            <Route index element={<Navigate to="dashboard" replace />} />
                         </Route>
                     </Route>
 
                     {/* POS Interface */}
                     <Route element={<PermissionGuard requiredPermissions={['pos.access']} />}>
-                        <Route path="/pos" element={<POSLayout />}>
-                            <Route index element={<Navigate to="/pos/tables" replace />} />
+                        <Route path="pos" element={<POSLayout />}>
+                            <Route index element={<Navigate to="tables" replace />} />
                             <Route path="tables" element={<POSDashboard />} />
                             <Route path="customers" element={<Customers />} />
                             <Route path="orders" element={<Orders />} />

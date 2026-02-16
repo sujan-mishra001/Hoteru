@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import List
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models import User, CompanySettings, PaymentMode, StorageArea, DiscountRule
+from app.models.branch import Branch
 from pydantic import BaseModel
 from datetime import datetime
 import os
@@ -25,19 +26,28 @@ def apply_branch_filter_settings(query, model, branch_id):
 @router.get("/public-company")
 async def get_public_company_settings(
     branch_id: int | None = None,
+    branch_code: str | None = None,
+    branch_slug: str | None = None,
     db: Session = Depends(get_db)
 ):
     """Publicly accessible company/branch settings"""
-    # If branch_id is provided, try to get branch-specific info
+    # If branch_id, branch_code, or branch_slug is provided, try to get branch-specific info
     branch = None
     if branch_id:
-        from app.models.branch import Branch
         branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    elif branch_slug:
+        # Try to match by slug first, then fall back to code
+        branch = db.query(Branch).filter(Branch.slug == branch_slug).first()
+        if not branch:
+            branch = db.query(Branch).filter(Branch.code == branch_slug).first()
+    elif branch_code:
+        branch = db.query(Branch).filter(Branch.code == branch_code).first()
     
     settings = db.query(CompanySettings).first()
     
     # Merge data: branch info takes priority if it exists
     return {
+        "branch_id": branch.id if branch else None,
         "company_name": (branch.name if branch else (settings.company_name if settings and settings.company_name else "")),
         "phone": (branch.phone if branch and branch.phone else (settings.phone if settings else "")),
         "address": (branch.address if branch and branch.address else (settings.address if settings else "")),
@@ -368,12 +378,11 @@ async def update_receipt_settings():
 @router.get("/payment-modes", response_model=List[PaymentModeResponse])
 async def get_payment_modes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all payment modes for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    query = db.query(PaymentMode)
-    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
+    """Get all payment modes for the branch"""
+    query = db.query(PaymentMode).filter(PaymentMode.branch_id == branch_id)
     modes = query.order_by(PaymentMode.display_order).all()
     
     if not modes:
@@ -399,7 +408,8 @@ async def get_payment_modes(
 async def create_payment_mode(
     payment_mode: PaymentModeBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Create a new payment mode in the current user's branch"""
     if current_user.role != "admin":
@@ -408,12 +418,12 @@ async def create_payment_mode(
             detail="Only admins can create payment modes"
         )
     
-    branch_id = current_user.current_branch_id
     
-    # Check if payment mode already exists in the branch (or globally)
-    query = db.query(PaymentMode).filter(PaymentMode.name == payment_mode.name)
-    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
-    existing = query.first()
+    # Check if payment mode already exists in the branch
+    existing = db.query(PaymentMode).filter(
+        PaymentMode.name == payment_mode.name,
+        PaymentMode.branch_id == branch_id
+    ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -437,7 +447,8 @@ async def update_payment_mode(
     payment_mode_id: int,
     payment_mode_data: PaymentModeBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Update a payment mode in the current user's branch"""
     if current_user.role != "admin":
@@ -446,11 +457,10 @@ async def update_payment_mode(
             detail="Only admins can update payment modes"
         )
     
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(PaymentMode).filter(PaymentMode.id == payment_mode_id)
-    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
-    payment_mode = query.first()
+    payment_mode = db.query(PaymentMode).filter(
+        PaymentMode.id == payment_mode_id,
+        PaymentMode.branch_id == branch_id
+    ).first()
     
     if not payment_mode:
         raise HTTPException(status_code=404, detail="Payment mode not found or access denied")
@@ -467,7 +477,8 @@ async def update_payment_mode(
 async def delete_payment_mode(
     payment_mode_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Delete a payment mode in the current user's branch"""
     if current_user.role != "admin":
@@ -476,11 +487,10 @@ async def delete_payment_mode(
             detail="Only admins can delete payment modes"
         )
     
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(PaymentMode).filter(PaymentMode.id == payment_mode_id)
-    query = apply_branch_filter_settings(query, PaymentMode, branch_id)
-    payment_mode = query.first()
+    payment_mode = db.query(PaymentMode).filter(
+        PaymentMode.id == payment_mode_id,
+        PaymentMode.branch_id == branch_id
+    ).first()
     
     if not payment_mode:
         raise HTTPException(status_code=404, detail="Payment mode not found or access denied")
@@ -494,20 +504,19 @@ async def delete_payment_mode(
 @router.get("/storage-areas", response_model=List[StorageAreaResponse])
 async def get_storage_areas(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all storage areas for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    query = db.query(StorageArea)
-    query = apply_branch_filter_settings(query, StorageArea, branch_id)
-    return query.all()
+    """Get all storage areas for the current branch"""
+    return db.query(StorageArea).filter(StorageArea.branch_id == branch_id).all()
 
 
 @router.post("/storage-areas", response_model=StorageAreaResponse)
 async def create_storage_area(
     storage_area: StorageAreaBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Create a new storage area in the current user's branch"""
     if current_user.role != "admin":
@@ -516,7 +525,6 @@ async def create_storage_area(
             detail="Only admins can create storage areas"
         )
     
-    branch_id = current_user.current_branch_id
     area_dict = storage_area.model_dump()
     
     # Set branch_id if the column exists
@@ -535,7 +543,8 @@ async def update_storage_area(
     storage_area_id: int,
     storage_area_data: StorageAreaBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Update a storage area in the current user's branch"""
     if current_user.role != "admin":
@@ -544,11 +553,10 @@ async def update_storage_area(
             detail="Only admins can update storage areas"
         )
     
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(StorageArea).filter(StorageArea.id == storage_area_id)
-    query = apply_branch_filter_settings(query, StorageArea, branch_id)
-    storage_area = query.first()
+    storage_area = db.query(StorageArea).filter(
+        StorageArea.id == storage_area_id,
+        StorageArea.branch_id == branch_id
+    ).first()
     
     if not storage_area:
         raise HTTPException(status_code=404, detail="Storage area not found or access denied")
@@ -565,7 +573,8 @@ async def update_storage_area(
 async def delete_storage_area(
     storage_area_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Delete a storage area in the current user's branch"""
     if current_user.role != "admin":
@@ -574,11 +583,10 @@ async def delete_storage_area(
             detail="Only admins can delete storage areas"
         )
     
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(StorageArea).filter(StorageArea.id == storage_area_id)
-    query = apply_branch_filter_settings(query, StorageArea, branch_id)
-    storage_area = query.first()
+    storage_area = db.query(StorageArea).filter(
+        StorageArea.id == storage_area_id,
+        StorageArea.branch_id == branch_id
+    ).first()
     
     if not storage_area:
         raise HTTPException(status_code=404, detail="Storage area not found or access denied")
@@ -592,20 +600,19 @@ async def delete_storage_area(
 @router.get("/discounts", response_model=List[DiscountRuleResponse])
 async def get_discount_rules(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all discount rules for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    query = db.query(DiscountRule)
-    query = apply_branch_filter_settings(query, DiscountRule, branch_id)
-    return query.all()
+    """Get all discount rules for the branch"""
+    return db.query(DiscountRule).filter(DiscountRule.branch_id == branch_id).all()
 
 
 @router.post("/discounts", response_model=DiscountRuleResponse)
 async def create_discount_rule(
     discount: DiscountRuleBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Create a new discount rule in the current user's branch"""
     if current_user.role != "admin":
@@ -614,7 +621,6 @@ async def create_discount_rule(
             detail="Only admins can create discount rules"
         )
     
-    branch_id = current_user.current_branch_id
     discount_dict = discount.model_dump()
     
     # Set branch_id if the column exists
@@ -633,7 +639,8 @@ async def update_discount_rule(
     discount_id: int,
     discount_data: DiscountRuleBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Update a discount rule in the current user's branch"""
     if current_user.role != "admin":
@@ -642,11 +649,10 @@ async def update_discount_rule(
             detail="Only admins can update discount rules"
         )
     
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(DiscountRule).filter(DiscountRule.id == discount_id)
-    query = apply_branch_filter_settings(query, DiscountRule, branch_id)
-    discount = query.first()
+    discount = db.query(DiscountRule).filter(
+        DiscountRule.id == discount_id,
+        DiscountRule.branch_id == branch_id
+    ).first()
     
     if not discount:
         raise HTTPException(status_code=404, detail="Discount rule not found or access denied")
@@ -664,7 +670,8 @@ async def update_discount_rule(
 async def delete_discount_rule(
     discount_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Delete a discount rule in the current user's branch"""
     if current_user.role != "admin":
@@ -673,11 +680,10 @@ async def delete_discount_rule(
             detail="Only admins can delete discount rules"
         )
     
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(DiscountRule).filter(DiscountRule.id == discount_id)
-    query = apply_branch_filter_settings(query, DiscountRule, branch_id)
-    discount = query.first()
+    discount = db.query(DiscountRule).filter(
+        DiscountRule.id == discount_id,
+        DiscountRule.branch_id == branch_id
+    ).first()
     
     if not discount:
         raise HTTPException(status_code=404, detail="Discount rule not found or access denied")

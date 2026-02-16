@@ -10,7 +10,7 @@ from io import BytesIO
 from app.db.database import get_db
 from app.models.qr_code import QRCode
 from app.schemas.qr_code import QRCodeCreate, QRCodeUpdate, QRCodeResponse
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models.auth import User
 
 router = APIRouter(prefix="/qr-codes", tags=["QR Codes"])
@@ -21,17 +21,14 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.get("/", response_model=List[QRCodeResponse])
-def get_qr_codes(
-    branch_id: Optional[int] = None,
+async def get_qr_codes(
+    branch_id: int = Depends(get_branch_id),
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all QR codes with optional filters"""
-    query = db.query(QRCode)
-    
-    if branch_id is not None:
-        query = query.filter(QRCode.branch_id == branch_id)
+    """Get all QR codes for the current branch"""
+    query = db.query(QRCode).filter(QRCode.branch_id == branch_id)
     
     if is_active is not None:
         query = query.filter(QRCode.is_active == is_active)
@@ -43,14 +40,15 @@ def get_qr_codes(
 @router.get("/generate-menu-qr")
 async def generate_menu_qr(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Generate dynamic QR for the digital menu"""
     # Use configured frontend URL
     from app.core.config import settings
     frontend_url = settings.FRONTEND_URL
     
-    branch_id = current_user.current_branch_id or 1 # Fallback to 1
+    # branch_id is now provided by dependency
     
     # URL that the customer scans
     menu_url = f"{frontend_url}/digital-menu/{branch_id}"
@@ -94,11 +92,11 @@ async def create_qr_code(
     image: UploadFile = File(...),
     is_active: bool = Form(True),
     display_order: int = Form(0),
-    branch_id: Optional[int] = Form(None),
+    branch_id: int = Depends(get_branch_id),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new QR code with image upload"""
+    """Create a new QR code with image upload for the current branch"""
     print(f"DEBUG: Creating QR code - Name: {name}, Active: {is_active}, Order: {display_order}, Branch: {branch_id}")
     print(f"DEBUG: Image received: {image.filename}, Content-Type: {image.content_type}")
     

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_branch_id
 from app.models import Category, MenuGroup, MenuItem, Floor, Table, Order, KOT
 from app.schemas.pos import POSSyncResponse, TableSyncInfo
 
@@ -12,13 +12,14 @@ router = APIRouter()
 @router.get("/sync", response_model=POSSyncResponse)
 async def get_pos_sync(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """
     Consolidated sync endpoint for POS startup.
     Reduces 6-7 calls into 1.
     """
-    branch_id = current_user.current_branch_id
+    # branch_id is now provided by dependency
     
     # 1. Fetch Menu Data
     categories = db.query(Category).filter(Category.is_active == True)

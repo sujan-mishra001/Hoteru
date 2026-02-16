@@ -1,14 +1,14 @@
 """
 Purchase management routes with branch isolation
 """
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, Body, Header
 from sqlalchemy.orm import Session, joinedload
 import random
 from datetime import datetime, timezone
 
 from app.db.database import get_db
-from app.core.dependencies import get_current_user
-from app.models import Supplier, PurchaseBill, PurchaseReturn, PurchaseBillItem, InventoryTransaction, Product
+from app.core.dependencies import get_current_user, get_branch_id
+from app.models import Supplier, PurchaseBill, PurchaseReturn, PurchaseBillItem, InventoryTransaction, Product, Branch
 
 router = APIRouter()
 
@@ -23,13 +23,11 @@ def apply_branch_filter_purchase(query, model, branch_id):
 @router.get("/suppliers")
 async def get_suppliers(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all suppliers for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    query = db.query(Supplier)
-    query = apply_branch_filter_purchase(query, Supplier, branch_id)
-    suppliers = query.all()
+    """Get all suppliers for the branch"""
+    suppliers = db.query(Supplier).filter(Supplier.branch_id == branch_id).all()
     return suppliers
 
 
@@ -37,14 +35,14 @@ async def get_suppliers(
 async def get_supplier(
     supplier_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get a specific supplier in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(Supplier).filter(Supplier.id == supplier_id)
-    query = apply_branch_filter_purchase(query, Supplier, branch_id)
-    supplier = query.first()
+    """Get a specific supplier in the branch"""
+    supplier = db.query(Supplier).filter(
+        Supplier.id == supplier_id,
+        Supplier.branch_id == branch_id
+    ).first()
     
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found or access denied")
@@ -55,14 +53,11 @@ async def get_supplier(
 async def create_supplier(
     supplier_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Create a new supplier in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    # Set branch_id if the column exists
-    if branch_id is not None and hasattr(Supplier, 'branch_id'):
-        supplier_data['branch_id'] = branch_id
+    """Create a new supplier in the branch"""
+    supplier_data['branch_id'] = branch_id
     
     new_supplier = Supplier(**supplier_data)
     db.add(new_supplier)
@@ -77,10 +72,11 @@ async def update_supplier(
     supplier_id: int,
     supplier_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Update a supplier in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Update a supplier in the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(Supplier).filter(Supplier.id == supplier_id)
     query = apply_branch_filter_purchase(query, Supplier, branch_id)
@@ -102,10 +98,11 @@ async def update_supplier(
 async def delete_supplier(
     supplier_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Delete a supplier in the current user's branch"""
-    branch_id = current_user.current_branch_id
+    """Delete a supplier in the branch"""
+    # branch_id is now provided by dependency
     
     query = db.query(Supplier).filter(Supplier.id == supplier_id)
     query = apply_branch_filter_purchase(query, Supplier, branch_id)
@@ -128,17 +125,16 @@ async def delete_supplier(
 @router.get("/bills")
 async def get_bills(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all purchase bills for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(PurchaseBill).options(
+    """Get all purchase bills for the branch"""
+    bills = db.query(PurchaseBill).filter(
+        PurchaseBill.branch_id == branch_id
+    ).options(
         joinedload(PurchaseBill.supplier),
         joinedload(PurchaseBill.items).joinedload(PurchaseBillItem.product)
-    )
-    query = apply_branch_filter_purchase(query, PurchaseBill, branch_id)
-    bills = query.order_by(PurchaseBill.created_at.desc()).all()
+    ).order_by(PurchaseBill.created_at.desc()).all()
     return bills
 
 
@@ -146,17 +142,17 @@ async def get_bills(
 async def get_bill(
     bill_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get a specific purchase bill in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(PurchaseBill).options(
+    """Get a specific purchase bill in the branch"""
+    bill = db.query(PurchaseBill).options(
         joinedload(PurchaseBill.supplier),
         joinedload(PurchaseBill.items).joinedload(PurchaseBillItem.product)
-    ).filter(PurchaseBill.id == bill_id)
-    query = apply_branch_filter_purchase(query, PurchaseBill, branch_id)
-    bill = query.first()
+    ).filter(
+        PurchaseBill.id == bill_id,
+        PurchaseBill.branch_id == branch_id
+    ).first()
     
     if not bill:
         raise HTTPException(status_code=404, detail="Bill not found or access denied")
@@ -167,15 +163,15 @@ async def get_bill(
 async def create_bill(
     bill_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id),
+    x_branch_code: str = Header(..., alias="X-Branch-Code")
 ):
-    """Create a new purchase bill in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
+    """Create a new purchase bill in the branch"""
     # Extract items if they exist
     items_data = bill_data.pop('items', [])
     
-    # Parse dates if they are strings
+    # ... existing date parsing ...
     for date_field in ['order_date', 'paid_date']:
         if date_field in bill_data and isinstance(bill_data[date_field], str) and bill_data[date_field]:
             try:
@@ -185,22 +181,31 @@ async def create_bill(
         elif date_field in bill_data and not bill_data[date_field]:
             bill_data[date_field] = None
 
-    # Set branch_id
-    if branch_id is not None and hasattr(PurchaseBill, 'branch_id'):
-        bill_data['branch_id'] = branch_id
+    bill_data['branch_id'] = branch_id
     
-    # Generate sequential bill number: PO-YYYYMMDD-XXXX (Global Sequence)
+    # Generate sequential bill number: BRANCH-PO-YYYYMMDD-XXXX
     today_str = datetime.now().strftime('%Y%m%d')
-    prefix = f"PO-{today_str}"
+    prefix = f"{x_branch_code}-PO-{today_str}-"
     
     while True:
-        # Use total count of all bills for the sequence number
-        total_bills = db.query(PurchaseBill).count()
-        new_seq = total_bills + 1
-        bill_number = f"{prefix}-{new_seq:04d}"
+        last_bill = db.query(PurchaseBill).filter(
+            PurchaseBill.branch_id == branch_id,
+            PurchaseBill.bill_number.like(f"{prefix}%")
+        ).order_by(PurchaseBill.bill_number.desc()).first()
         
-        # Double check uniqueness
-        if not db.query(PurchaseBill).filter(PurchaseBill.bill_number == bill_number).first():
+        if last_bill:
+            try:
+                last_seq = int(last_bill.bill_number.split('-')[-1])
+                new_seq = last_seq + 1
+            except:
+                new_seq = 1
+        else:
+            new_seq = 1
+            
+        bill_number = f"{prefix}{new_seq:04d}"
+        
+        # Double check uniqueness within branch
+        if not db.query(PurchaseBill).filter(PurchaseBill.bill_number == bill_number, PurchaseBill.branch_id == branch_id).first():
             bill_data['bill_number'] = bill_number
             break
     
@@ -232,6 +237,7 @@ async def create_bill(
             quantity=item['quantity'],
             reference_number=new_bill.bill_number,
             reference_id=new_bill.id,
+            branch_id=branch_id,
             notes=f"Purchase from {new_bill.supplier.name}" if new_bill.supplier else "Purchase Bill",
             created_by=current_user.id
         )
@@ -248,12 +254,15 @@ async def update_bill(
     bill_id: int,
     bill_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Update a purchase bill"""
-    db_bill = db.query(PurchaseBill).filter(PurchaseBill.id == bill_id).first()
+    db_bill = db.query(PurchaseBill).filter(
+        PurchaseBill.id == bill_id,
+        PurchaseBill.branch_id == branch_id
+    ).first()
     if not db_bill:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Bill not found")
 
     # Update fields
@@ -282,17 +291,21 @@ async def update_bill(
 async def delete_bill(
     bill_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Delete a purchase bill"""
-    db_bill = db.query(PurchaseBill).filter(PurchaseBill.id == bill_id).first()
+    db_bill = db.query(PurchaseBill).filter(
+        PurchaseBill.id == bill_id,
+        PurchaseBill.branch_id == branch_id
+    ).first()
     if not db_bill:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Bill not found")
     
     # Delete associated inventory transactions
     db.query(InventoryTransaction).filter(
         InventoryTransaction.reference_number == db_bill.bill_number,
+        InventoryTransaction.branch_id == branch_id,
         InventoryTransaction.reference_id == db_bill.id
     ).delete(synchronize_session=False)
 
@@ -304,17 +317,16 @@ async def delete_bill(
 @router.get("/returns")
 async def get_returns(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Get all purchase returns for the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
-    query = db.query(PurchaseReturn).options(
+    """Get all purchase returns for the branch"""
+    returns = db.query(PurchaseReturn).filter(
+        PurchaseReturn.branch_id == branch_id
+    ).options(
         joinedload(PurchaseReturn.purchase_bill),
         joinedload(PurchaseReturn.supplier)
-    )
-    query = apply_branch_filter_purchase(query, PurchaseReturn, branch_id)
-    returns = query.order_by(PurchaseReturn.created_at.desc()).all()
+    ).order_by(PurchaseReturn.created_at.desc()).all()
     return returns
 
 
@@ -322,42 +334,42 @@ async def get_returns(
 async def create_return(
     return_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id),
+    x_branch_code: str = Header(..., alias="X-Branch-Code")
 ):
-    """Create a new purchase return in the current user's branch"""
-    branch_id = current_user.current_branch_id
-    
+    """Create a new purchase return in the branch"""
     # If supplier_id not provided but purchase_bill_id is, try to get supplier_id from bill
     if 'supplier_id' not in return_data and 'purchase_bill_id' in return_data:
-        bill_query = db.query(PurchaseBill).filter(PurchaseBill.id == return_data['purchase_bill_id'])
-        bill_query = apply_branch_filter_purchase(bill_query, PurchaseBill, branch_id)
-        bill = bill_query.first()
+        bill = db.query(PurchaseBill).filter(
+            PurchaseBill.id == return_data['purchase_bill_id'],
+            PurchaseBill.branch_id == branch_id
+        ).first()
         if bill:
             return_data['supplier_id'] = bill.supplier_id
 
-    # Set branch_id if the column exists
-    if branch_id is not None and hasattr(PurchaseReturn, 'branch_id'):
-        return_data['branch_id'] = branch_id
+    return_data['branch_id'] = branch_id
     
-    # Generate sequential return number: RET-YYYYMMDD-XXXX
+    # Generate sequential return number: BRANCH-RET-YYYYMMDD-XXXX
     today_str = datetime.now().strftime('%Y%m%d')
-    prefix = f"RET-{today_str}"
+    prefix = f"{x_branch_code}-RET-{today_str}-"
     while True:
         last_return = db.query(PurchaseReturn).filter(
-            PurchaseReturn.return_number.like(f"{prefix}-%")
+            PurchaseReturn.branch_id == branch_id,
+            PurchaseReturn.return_number.like(f"{prefix}%")
         ).order_by(PurchaseReturn.return_number.desc()).first()
         
         if last_return:
             try:
                 last_seq = int(last_return.return_number.split('-')[-1])
                 new_seq = last_seq + 1
-            except (ValueError, IndexError):
+            except:
                 new_seq = 1
         else:
             new_seq = 1
             
-        return_number = f"{prefix}-{new_seq:04d}"
-        if not db.query(PurchaseReturn).filter(PurchaseReturn.return_number == return_number).first():
+        return_number = f"{prefix}{new_seq:04d}"
+        if not db.query(PurchaseReturn).filter(PurchaseReturn.return_number == return_number, PurchaseReturn.branch_id == branch_id).first():
             return_data['return_number'] = return_number
             break
     new_return = PurchaseReturn(**return_data)
@@ -371,12 +383,15 @@ async def create_return(
 async def delete_return(
     return_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Delete a purchase return"""
-    db_return = db.query(PurchaseReturn).filter(PurchaseReturn.id == return_id).first()
+    db_return = db.query(PurchaseReturn).filter(
+        PurchaseReturn.id == return_id,
+        PurchaseReturn.branch_id == branch_id
+    ).first()
     if not db_return:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Return not found")
     
     db.delete(db_return)
