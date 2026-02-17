@@ -13,7 +13,6 @@ import {
     TextField,
     Grid,
     InputAdornment,
-    Divider,
     CircularProgress,
     Dialog,
     DialogTitle,
@@ -669,7 +668,7 @@ const OrderTaking: React.FC = () => {
                         {filteredItems.length > 0 ? (
                             <Grid container spacing={2}>
                                 {filteredItems.map(item => (
-                                    <Grid key={item.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                    <Grid key={item.id} size={{ xs: 12, sm: 6, md: 3, lg: 2.4 }}>
                                         <Paper
                                             elevation={0}
                                             onClick={() => addToOrder(item)}
@@ -693,13 +692,13 @@ const OrderTaking: React.FC = () => {
                                             <Box>
                                                 <Box sx={{
                                                     width: '100%',
-                                                    height: 100,
+                                                    height: 75,
                                                     bgcolor: '#f8fafc',
                                                     borderRadius: '12px',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    mb: 1.5,
+                                                    mb: 1,
                                                     overflow: 'hidden'
                                                 }}>
                                                     {item.image ? (
@@ -709,10 +708,10 @@ const OrderTaking: React.FC = () => {
                                                             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                         />
                                                     ) : (
-                                                        <Typography sx={{ fontSize: '40px' }}>🍽️</Typography>
+                                                        <Typography sx={{ fontSize: '32px' }}>🍽️</Typography>
                                                     )}
                                                 </Box>
-                                                <Typography fontWeight={700} fontSize="14px" sx={{ mb: 0.2, lineHeight: 1.3 }}>
+                                                <Typography fontWeight={700} fontSize="13px" sx={{ mb: 0.2, lineHeight: 1.2 }}>
                                                     {item.name}
                                                 </Typography>
                                                 {searchTerm && (
@@ -721,12 +720,12 @@ const OrderTaking: React.FC = () => {
                                                     </Typography>
                                                 )}
                                             </Box>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                                                <Typography fontWeight={800} color="#FFC107" fontSize="16px">
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                                                <Typography fontWeight={800} color="#FFC107" fontSize="14px">
                                                     NPRs. {Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </Typography>
-                                                <Box sx={{ bgcolor: '#fff7ed', p: 0.5, borderRadius: '8px' }}>
-                                                    <Plus size={16} color="#FFC107" />
+                                                <Box sx={{ bgcolor: '#fff7ed', p: 0.4, borderRadius: '6px' }}>
+                                                    <Plus size={14} color="#FFC107" />
                                                 </Box>
                                             </Box>
                                         </Paper>
@@ -746,14 +745,14 @@ const OrderTaking: React.FC = () => {
 
             {/* Right: Order Summary */}
             <Box sx={{
-                width: { xs: '100%', md: 320, lg: 380 }, // Responsive width
+                width: { xs: '100%', md: 400, lg: 475 }, // Increased by 25%
                 height: { xs: '40%', md: '100%' }, // On mobile, takes remaining height
                 bgcolor: 'white',
                 borderLeft: { md: '1px solid #f1f5f9' },
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: '-4px 0 15px rgba(0,0,0,0.02)',
-                minWidth: { md: 320 }
+                minWidth: { md: 400 }
             }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -952,48 +951,48 @@ const OrderTaking: React.FC = () => {
                                 key={item.item_id}
                                 elevation={0}
                                 sx={{
-                                    p: 1,
-                                    mb: 1.5,
-                                    borderRadius: '16px',
+                                    p: 0.7,
+                                    mb: 1,
+                                    borderRadius: '12px',
                                     border: '1px solid #f1f5f9',
                                     bgcolor: '#f8fafc',
                                     transition: 'all 0.2s',
                                     '&:hover': { border: '1px solid #FFC107' }
                                 }}
                             >
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography fontWeight={700} fontSize="14px">{item.name}</Typography>
-                                    <Typography fontWeight={800} color="#1e293b">NPRs. {Number(item.price * item.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.6 }}>
+                                    <Typography fontWeight={700} fontSize="13px">{item.name}</Typography>
+                                    <Typography fontWeight={800} color="#1e293b" fontSize="13px">NPRs. {Number(item.price * item.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                                 </Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.8, fontSize: '11px' }}>
                                     NPRs. {Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / item
                                 </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'white', borderRadius: '10px', p: 0.5, border: '1px solid #e2e8f0' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'white', borderRadius: '8px', p: 0.4, border: '1px solid #e2e8f0' }}>
                                         <IconButton
                                             size="small"
                                             onClick={() => updateQuantity(item.item_id, -1)}
-                                            sx={{ p: 0.5, color: '#FFC107' }}
+                                            sx={{ p: 0.4, color: '#FFC107' }}
                                         >
-                                            <Minus size={16} />
+                                            <Minus size={14} />
                                         </IconButton>
-                                        <Typography sx={{ width: 30, textAlign: 'center', fontWeight: 800, fontSize: '14px' }}>
+                                        <Typography sx={{ width: 28, textAlign: 'center', fontWeight: 800, fontSize: '13px' }}>
                                             {Number(item.quantity).toFixed(2)}
                                         </Typography>
                                         <IconButton
                                             size="small"
                                             onClick={() => updateQuantity(item.item_id, 1)}
-                                            sx={{ p: 0.5, color: '#FFC107' }}
+                                            sx={{ p: 0.4, color: '#FFC107' }}
                                         >
-                                            <Plus size={16} />
+                                            <Plus size={14} />
                                         </IconButton>
                                     </Box>
                                     <IconButton
                                         size="small"
                                         onClick={() => updateQuantity(item.item_id, -item.quantity)}
-                                        sx={{ ml: 'auto', bgcolor: '#fff1f2', color: '#ef4444', p: 0.8, '&:hover': { bgcolor: '#ffe4e6' } }}
+                                        sx={{ ml: 'auto', bgcolor: '#fff1f2', color: '#ef4444', p: 0.6, '&:hover': { bgcolor: '#ffe4e6' } }}
                                     >
-                                        <X size={16} />
+                                        <X size={14} />
                                     </IconButton>
                                 </Box>
                             </Paper>
@@ -1054,8 +1053,7 @@ const OrderTaking: React.FC = () => {
                             <Typography fontWeight={700} fontSize="13px">NPRs. {Number(deliveryCharge).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                         </Box>
                     )}
-                    <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5, mt: 1, pt: 1, borderTop: '2px dashed #e2e8f0' }}>
                         <Typography variant="subtitle1" fontWeight={800} fontSize="18px">Total Payable</Typography>
                         <Typography variant="subtitle1" fontWeight={800} color="#FFC107" fontSize="18px">NPRs. {Number((total - (total * discountPercent / 100)) * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100) + deliveryCharge).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
                     </Box>
@@ -1067,7 +1065,6 @@ const OrderTaking: React.FC = () => {
                         onClick={handlePlaceOrder}
                         sx={{
                             bgcolor: '#FFC107',
-                            mb: 1,
                             py: 1.5,
                             fontWeight: 800,
                             fontSize: '16px',
@@ -1079,43 +1076,6 @@ const OrderTaking: React.FC = () => {
                     >
                         Place Order
                     </Button>
-                    <Box sx={{ display: 'flex', gap: 1.5 }}>
-                        <Button
-                            fullWidth
-                            variant="outlined"
-                            onClick={handleSaveDraft}
-                            disabled={orderItems.length === 0}
-                            sx={{
-                                borderColor: '#e2e8f0',
-                                color: '#64748b',
-                                py: 1.2,
-                                borderRadius: '12px',
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                '&:hover': { bgcolor: 'white', borderColor: '#FFC107', color: '#FFC107' }
-                            }}
-                        >
-                            Draft
-                        </Button>
-                        <Button
-                            fullWidth
-                            variant="outlined"
-                            onClick={() => setBillDialogOpen(true)}
-                            startIcon={<Printer size={16} />}
-                            disabled={orderItems.length === 0}
-                            sx={{
-                                borderColor: '#e2e8f0',
-                                color: '#64748b',
-                                py: 1.2,
-                                borderRadius: '12px',
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                '&:hover': { bgcolor: 'white', borderColor: '#FFC107', color: '#FFC107' }
-                            }}
-                        >
-                            Print
-                        </Button>
-                    </Box>
                 </Box>
             </Box>
 

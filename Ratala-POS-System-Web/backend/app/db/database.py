@@ -130,7 +130,27 @@ def init_db():
                     ("branches", "service_charge_rate", "FLOAT"),
                     ("branches", "discount_rate", "FLOAT"),
                     ("branches", "slug", "VARCHAR"),
-                    ("roles", "branch_id", "INTEGER")
+                    ("roles", "branch_id", "INTEGER"),
+                    # New columns for KOT/Order branch isolation and other missing branch_ids
+                    ("kots", "branch_id", "INTEGER"),
+                    ("orders", "branch_id", "INTEGER"),
+                    ("tables", "branch_id", "INTEGER"),
+                    ("floors", "branch_id", "INTEGER"),
+                    ("sessions", "branch_id", "INTEGER"),
+                    ("products", "branch_id", "INTEGER"),
+                    ("inventory_transactions", "branch_id", "INTEGER"),
+                    ("bills_of_materials", "branch_id", "INTEGER"),
+                    ("batch_productions", "branch_id", "INTEGER"),
+                    ("units_of_measurement", "branch_id", "INTEGER"),
+                    ("categories", "branch_id", "INTEGER"),
+                    ("menu_groups", "branch_id", "INTEGER"),
+                    ("menu_items", "branch_id", "INTEGER"),
+                    ("printers", "branch_id", "INTEGER"),
+                    ("qr_codes", "branch_id", "INTEGER"),
+                    ("pos_sessions", "branch_id", "INTEGER"),
+                    # Add finished_product_id if missing
+                    ("bills_of_materials", "finished_product_id", "INTEGER"),
+                    ("batch_productions", "finished_product_id", "INTEGER")
                 ]
                 
                 for table, col, dtype in updates:

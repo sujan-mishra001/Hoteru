@@ -925,51 +925,31 @@ const POSDashboard: React.FC = () => {
             <Dialog
                 open={openNewOrderDialog}
                 onClose={() => setOpenNewOrderDialog(false)}
-                maxWidth="md"
-                fullWidth
-                PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+                maxWidth="sm"
+                PaperProps={{ sx: { borderRadius: '16px', minWidth: 400 } }}
             >
-                <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+                <DialogTitle sx={{ fontWeight: 800, pb: 2 }}>
                     New {newOrderType} Order
                 </DialogTitle>
-                <DialogContent sx={{ minHeight: 300 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-                        {/* Delivery Partner Selection (for Delivery only) */}
-                        {newOrderType === 'Delivery' && (
-                            <Box>
-                                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#64748b' }}>Select Delivery Partner</Typography>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Partner</InputLabel>
-                                    <Select
-                                        value={dialogSelectedPartnerId}
-                                        onChange={(e) => setDialogSelectedPartnerId(e.target.value as string)}
-                                        label="Partner"
-                                        sx={{ borderRadius: '12px' }}
-                                    >
-                                        <MenuItem value=""><em>None</em></MenuItem>
-                                        {deliveryPartners.map(p => (
-                                            <MenuItem key={p.id} value={p.id.toString()}>{p.name}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                        )}
-
+                <DialogContent sx={{ minHeight: 250 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, py: 1 }}>
                         {/* Customer Search & Select */}
                         <Box sx={{ position: 'relative' }}>
-                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#64748b' }}>Select Customer</Typography>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#64748b' }}>
+                                Customer <span style={{ color: '#ef4444' }}>*</span>
+                            </Typography>
                             {dialogSelectedCustomer ? (
                                 <Paper sx={{
-                                    p: 2, borderRadius: '12px', bgcolor: '#fff7ed', border: '1px solid #ffedd5',
+                                    p: 1.5, borderRadius: '12px', bgcolor: '#fff7ed', border: '1px solid #ffedd5',
                                     display: 'flex', alignItems: 'center', gap: 2
                                 }}>
-                                    <UserCircle size={24} color="#FFC107" />
+                                    <UserCircle size={20} color="#FFC107" />
                                     <Box sx={{ flex: 1 }}>
-                                        <Typography fontWeight={800}>{dialogSelectedCustomer.name}</Typography>
+                                        <Typography fontWeight={700} fontSize="14px">{dialogSelectedCustomer.name}</Typography>
                                         <Typography variant="caption" color="text.secondary">{dialogSelectedCustomer.phone || 'No phone'}</Typography>
                                     </Box>
                                     <IconButton size="small" onClick={() => setDialogSelectedCustomer(null)}>
-                                        <Plus size={18} style={{ transform: 'rotate(45deg)' }} />
+                                        <Plus size={16} style={{ transform: 'rotate(45deg)' }} />
                                     </IconButton>
                                 </Paper>
                             ) : (
@@ -981,16 +961,16 @@ const POSDashboard: React.FC = () => {
                                         value={dialogCustomerSearch}
                                         onChange={(e) => setDialogCustomerSearch(e.target.value)}
                                         InputProps={{
-                                            startAdornment: <InputAdornment position="start"><Search size={18} /></InputAdornment>,
+                                            startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment>,
                                             sx: { borderRadius: '12px' }
                                         }}
                                     />
                                     {dialogCustomerSearch && (
                                         <Paper sx={{
-                                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, mt: 1,
-                                            maxHeight: 300, overflow: 'auto', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, mt: 0.5,
+                                            maxHeight: 200, overflow: 'auto', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
                                         }}>
-                                            <List>
+                                            <List sx={{ p: 0 }}>
                                                 {customers
                                                     .filter(c => c.name.toLowerCase().includes(dialogCustomerSearch.toLowerCase()) || c.phone?.includes(dialogCustomerSearch))
                                                     .map(c => (
@@ -1000,7 +980,10 @@ const POSDashboard: React.FC = () => {
                                                             sx={{ borderBottom: '1px solid #f1f5f9' }}
                                                         >
                                                             <ListItemButton
-                                                                onClick={() => setDialogSelectedCustomer(c)}
+                                                                onClick={() => {
+                                                                    setDialogSelectedCustomer(c);
+                                                                    setDialogCustomerSearch('');
+                                                                }}
                                                                 sx={{ py: 1, px: 2 }}
                                                             >
                                                                 <Box>
@@ -1021,10 +1004,11 @@ const POSDashboard: React.FC = () => {
                                                                 const res = await customersAPI.create({ name: dialogCustomerSearch });
                                                                 setDialogSelectedCustomer(res.data);
                                                                 setCustomers(prev => [...prev, res.data]);
+                                                                setDialogCustomerSearch('');
                                                             } catch (err) { showAlert("Error creating customer", "error"); }
                                                         }}
                                                     >
-                                                        <Plus size={16} color="#FFC107" style={{ marginRight: 8 }} />
+                                                        <Plus size={14} color="#FFC107" style={{ marginRight: 8 }} />
                                                         <Typography variant="body2" fontWeight={700} color="#FFC107">Quick Add "{dialogCustomerSearch}"</Typography>
                                                     </ListItemButton>
                                                 </ListItem>
@@ -1034,12 +1018,36 @@ const POSDashboard: React.FC = () => {
                                 </>
                             )}
                         </Box>
+
+                        {/* Delivery Partner Selection (for Delivery only) */}
+                        {newOrderType === 'Delivery' && (
+                            <Box>
+                                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#64748b' }}>
+                                    Delivery Partner <span style={{ color: '#ef4444' }}>*</span>
+                                </Typography>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel>Select Partner</InputLabel>
+                                    <Select
+                                        value={dialogSelectedPartnerId}
+                                        onChange={(e) => setDialogSelectedPartnerId(e.target.value as string)}
+                                        label="Select Partner"
+                                        sx={{ borderRadius: '12px' }}
+                                    >
+                                        <MenuItem value=""><em>None</em></MenuItem>
+                                        {deliveryPartners.map(p => (
+                                            <MenuItem key={p.id} value={p.id.toString()}>{p.name}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        )}
                     </Box>
                 </DialogContent>
-                <DialogActions sx={{ p: 3 }}>
+                <DialogActions sx={{ p: 2.5, pt: 1 }}>
                     <Button onClick={() => setOpenNewOrderDialog(false)} sx={{ color: '#64748b', fontWeight: 700 }}>Cancel</Button>
                     <Button
                         variant="contained"
+                        disabled={!dialogSelectedCustomer || (newOrderType === 'Delivery' && !dialogSelectedPartnerId)}
                         onClick={() => {
                             navigate(`/${currentBranch?.code}/pos/order`, {
                                 state: {
@@ -1052,7 +1060,8 @@ const POSDashboard: React.FC = () => {
                         }}
                         sx={{
                             bgcolor: '#FFC107', '&:hover': { bgcolor: '#e67e00' },
-                            fontWeight: 800, borderRadius: '12px', px: 4
+                            fontWeight: 800, borderRadius: '12px', px: 3,
+                            '&:disabled': { bgcolor: '#e2e8f0', color: '#94a3b8' }
                         }}
                     >
                         Start Order

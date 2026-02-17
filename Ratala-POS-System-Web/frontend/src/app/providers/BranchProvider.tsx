@@ -100,8 +100,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 localStorage.setItem('currentBranchId', current_branch_id.toString());
                 localStorage.setItem('currentBranchCode', branch.code);
                 localStorage.setItem('currentBranchSlug', branch.slug || '');
-                // Hard refresh to ensure all components and contexts reset completely
-                window.location.reload();
+
+                // Update token if returned (contains the new branch_id claim)
+                if (response.data.access_token) {
+                    localStorage.setItem('token', response.data.access_token);
+                }
             }
         } catch (error) {
             console.error('Error selecting branch:', error);

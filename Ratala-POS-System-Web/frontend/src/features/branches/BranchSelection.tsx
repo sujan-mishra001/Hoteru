@@ -36,9 +36,9 @@ const BranchSelection: React.FC = () => {
             // For managers/admins go to dashboard, others go to POS
             // Logic: Land on POS only if they don't have dashboard access
             if (hasPermission('dashboard.view')) {
-                navigate(`/${target}/dashboard`);
+                window.location.href = `/${target}/dashboard`;
             } else {
-                navigate(`/${target}/pos`);
+                window.location.href = `/${target}/pos`;
             }
         } catch (err: any) {
             setError('Failed to select branch. Please try again.');

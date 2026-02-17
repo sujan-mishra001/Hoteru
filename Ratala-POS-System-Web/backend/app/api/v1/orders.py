@@ -80,6 +80,36 @@ async def get_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
+    # Recalculate totals if gross_amount doesn't match sum of items
+    # This handles cases where items were added incrementally through multiple KOTs
+    if order.items:
+        calculated_gross = sum(item.subtotal for item in order.items)
+        
+        # If there's a mismatch, recalculate all amounts
+        if abs(calculated_gross - (order.gross_amount or 0)) > 0.01:
+            settings = db.query(CompanySettings).first()
+            branch = db.query(Branch).filter(Branch.id == order.branch_id).first()
+            
+            sc_rate = branch.service_charge_rate if branch and branch.service_charge_rate is not None else (settings.service_charge_rate if settings else 10.0)
+            tax_rate = branch.tax_rate if branch and branch.tax_rate is not None else (settings.tax_rate if settings else 13.0)
+            
+            discount = order.discount or 0
+            delivery = order.delivery_charge or 0
+            
+            # Consistent with Frontend: SC and Tax on Net of Discount
+            base_amount = max(0, calculated_gross - discount)
+            sc_amount = round(base_amount * (sc_rate / 100), 2)
+            tax_amount = round((base_amount + sc_amount) * (tax_rate / 100), 2)
+            
+            order.gross_amount = calculated_gross
+            order.service_charge_amount = sc_amount
+            order.tax_amount = tax_amount
+            order.net_amount = round(base_amount + sc_amount + tax_amount + delivery, 2)
+            order.total_amount = order.net_amount
+            
+            db.commit()
+            db.refresh(order)
+    
     return order
 
 

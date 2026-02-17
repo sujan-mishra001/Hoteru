@@ -385,14 +385,14 @@ const AdminLayout: React.FC = () => {
                             {accessibleBranches.map((branch) => (
                                 <MenuItem
                                     key={branch.id}
-                                    onClick={() => {
-                                        selectBranch(branch.id);
+                                    onClick={async () => {
+                                        await selectBranch(branch.id);
                                         handleClose();
                                         // Update URL to the new branch
                                         const pathParts = location.pathname.split('/');
                                         const currentPathWithoutBranch = pathParts.slice(2).join('/');
                                         const target = branch.slug || branch.code;
-                                        navigate(`/${target}/${currentPathWithoutBranch}`);
+                                        window.location.href = `/${target}/${currentPathWithoutBranch}`;
                                     }}
                                     selected={currentBranch?.id === branch.id}
                                 >
