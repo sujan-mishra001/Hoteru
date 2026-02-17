@@ -13,22 +13,26 @@ import {
     Card,
     CardContent,
     Alert,
-    Snackbar
+    Snackbar,
 } from '@mui/material';
 import { Plus, X, Edit, Trash2, Save, Package, Utensils } from 'lucide-react';
-import { inventoryAPI } from '../../../services/api';
+import { inventoryAPI, menuAPI } from '../../../services/api';
 
 const BOM: React.FC = () => {
     const [boms, setBoms] = useState<any[]>([]);
     const [products, setProducts] = useState<any[]>([]);
     const [units, setUnits] = useState<any[]>([]);
+    const [menuItems, setMenuItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingBOM, setEditingBOM] = useState<any>(null);
+
+    // We strictly use Menu Items now as per requirements
     const [formData, setFormData] = useState<any>({
         name: '',
         output_quantity: 1,
         finished_product_id: '',
+        menu_item_ids: [],
         components: []
     });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
@@ -44,14 +48,16 @@ const BOM: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [bomsRes, productsRes, unitsRes] = await Promise.all([
+            const [bomsRes, productsRes, unitsRes, menuRes] = await Promise.all([
                 inventoryAPI.getBOMs(),
                 inventoryAPI.getProducts(),
-                inventoryAPI.getUnits()
+                inventoryAPI.getUnits(),
+                menuAPI.getItems()
             ]);
             setBoms(bomsRes.data || []);
             setProducts(productsRes.data || []);
             setUnits(unitsRes.data || []);
+            setMenuItems(menuRes.data || []);
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
@@ -65,7 +71,9 @@ const BOM: React.FC = () => {
             setFormData({
                 name: bom.name || '',
                 output_quantity: bom.output_quantity || 1,
+                // We clear finished_product_id as we are moving away from it for now, or keep it if it exists but don't show UI
                 finished_product_id: bom.finished_product_id || '',
+                menu_item_ids: bom.menu_items ? bom.menu_items.map((m: any) => m.id) : [],
                 components: bom.components.map((c: any) => ({
                     product_id: c.product_id,
                     unit_id: c.unit_id || '',
@@ -78,6 +86,7 @@ const BOM: React.FC = () => {
                 name: '',
                 output_quantity: 1,
                 finished_product_id: '',
+                menu_item_ids: [],
                 components: []
             });
         }
@@ -113,15 +122,20 @@ const BOM: React.FC = () => {
             if (!formData.name) return;
 
             // Filter out empty components
-            const filteredData = {
+            const filteredComponents = formData.components.filter((c: any) => c.product_id !== '');
+
+            const payload = {
                 ...formData,
-                components: formData.components.filter((c: any) => c.product_id !== '')
+                components: filteredComponents,
+                // Ensure we prioritize menu items
+                finished_product_id: null,
+                menu_item_ids: formData.menu_item_ids
             };
 
             if (editingBOM) {
-                await inventoryAPI.updateBOM(editingBOM.id, filteredData);
+                await inventoryAPI.updateBOM(editingBOM.id, payload);
             } else {
-                await inventoryAPI.createBOM(filteredData);
+                await inventoryAPI.createBOM(payload);
             }
             handleCloseDialog();
             loadData();
@@ -149,7 +163,7 @@ const BOM: React.FC = () => {
             <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b', mb: 0.5 }}>Bill of Materials</Typography>
-                    <Typography variant="body2" color="text.secondary">Define recipes and component requirements for finished products.</Typography>
+                    <Typography variant="body2" color="text.secondary">Define recipes and component requirements for Menu Items.</Typography>
                 </Box>
                 <Button
                     variant="contained"
@@ -223,6 +237,21 @@ const BOM: React.FC = () => {
                                             </Typography>
                                         </Typography>
                                     </Box>
+
+                                    {/* Show Linked Product or Menu Items */}
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Usage</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>
+                                            {bom.menu_items && bom.menu_items.length > 0 ? (
+                                                <span style={{ color: '#3b82f6' }}>{bom.menu_items.map((m: any) => m.name).join(', ')} (Menu)</span>
+                                            ) : bom.finished_product ? (
+                                                <span style={{ color: '#10b981' }}>{bom.finished_product.name} (Stock)</span>
+                                            ) : (
+                                                <span style={{ color: '#94a3b8' }}>Unlinked Recipe</span>
+                                            )}
+                                        </Typography>
+                                    </Box>
+
                                     <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
                                     <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>Ingredients ({bom.components?.length || 0})</Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -275,20 +304,28 @@ const BOM: React.FC = () => {
 
                         <TextField
                             select
-                            label="Produced Product (Target Stock)"
+                            label="Linked Menu Item(s) (Sales)"
                             fullWidth
                             variant="outlined"
-                            value={formData.finished_product_id}
-                            onChange={(e) => setFormData({ ...formData, finished_product_id: e.target.value })}
-                            helperText="Linking a product will track its stock level in the inventory page."
+                            SelectProps={{
+                                multiple: true,
+                                renderValue: (selected: any) => {
+                                    return menuItems
+                                        .filter(item => selected.includes(item.id))
+                                        .map(item => item.name)
+                                        .join(', ');
+                                }
+                            }}
+                            value={formData.menu_item_ids}
+                            onChange={(e) => setFormData({ ...formData, menu_item_ids: e.target.value })}
+                            helperText="Select Menu Items (Dishes) that are made using this recipe. Ingredients will be deducted upon sale/production."
                         >
-                            <MenuItem value=""><em>None (Ingredient Consumption Only)</em></MenuItem>
-                            {products.map((p) => (
-                                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                            {menuItems.map((item) => (
+                                <MenuItem key={item.id} value={item.id}>
+                                    {item.name}
+                                </MenuItem>
                             ))}
                         </TextField>
-
-
 
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -385,4 +422,3 @@ const BOM: React.FC = () => {
 };
 
 export default BOM;
-

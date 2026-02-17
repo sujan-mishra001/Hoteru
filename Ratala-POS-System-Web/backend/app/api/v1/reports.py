@@ -810,13 +810,13 @@ async def export_excel(
         if not data:
             data = [{"Message": "No sales record found for today"}]
             
-        metadata = get_branch_metadata(current_user, db) or {}
+        metadata = get_branch_metadata(branch_id, db) or {}
         metadata['period'] = title.split('(')[-1].replace(')', '') if '(' in title else "Today"
         
         excel_buffer = generate_excel_report(data, title.split('(')[0].strip(), metadata=metadata)
     elif report_type == "inventory":
-        # 1. Fetch Products with Unit
-        products = db.query(Product).options(joinedload(Product.unit)).all()
+        # 1. Fetch Products with Unit (Branch Filtered)
+        products = db.query(Product).options(joinedload(Product.unit)).filter(Product.branch_id == branch_id).all()
         products_map = {p.id: p for p in products}
         
         # 2. Fetch Transactions with User and batch info for consumption tracking
@@ -828,7 +828,7 @@ async def export_excel(
         
         txns_query = db.query(InventoryTransaction).options(
             joinedload(InventoryTransaction.user)
-        ).order_by(InventoryTransaction.created_at.asc())
+        ).filter(InventoryTransaction.branch_id == branch_id).order_by(InventoryTransaction.created_at.asc())
         
         all_txns = txns_query.all()
         
@@ -839,7 +839,7 @@ async def export_excel(
             batches = db.query(BatchProduction).options(
                 joinedload(BatchProduction.bom).joinedload(BillOfMaterials.menu_items),
                 joinedload(BatchProduction.finished_product)
-            ).filter(BatchProduction.id.in_(prod_txns)).all()
+            ).filter(BatchProduction.id.in_(prod_txns), BatchProduction.branch_id == branch_id).all()
             batch_map = {b.id: b for b in batches}
         
         # 3. Process Data
@@ -929,11 +929,11 @@ async def export_excel(
         # Build aggregated menu item production stats
         from app.models import OrderItem, Order
         
-        # Fetch all productions with their BOMs and menu items
+        # Fetch all productions with their BOMs and menu items (Branch Filtered)
         all_batches = db.query(BatchProduction).options(
             joinedload(BatchProduction.bom).joinedload(BillOfMaterials.menu_items),
             joinedload(BatchProduction.finished_product)
-        ).all()
+        ).filter(BatchProduction.branch_id == branch_id).all()
         
         # Aggregate by menu item
         menu_item_stats = {}  # {menu_item_id: {name, produced, sold, remaining}}
@@ -956,7 +956,8 @@ async def export_excel(
                     # Calculate total sold for this menu item
                     sold = db.query(func.sum(OrderItem.quantity)).join(Order).filter(
                         OrderItem.menu_item_id == mi.id,
-                        Order.status != 'Cancelled'
+                        Order.status != 'Cancelled',
+                        Order.branch_id == branch_id
                     ).scalar()
                     total_sold = float(sold) if sold else 0.0
                     
@@ -1104,7 +1105,7 @@ async def export_excel(
             headers={"Content-Disposition": f"attachment; filename=inventory_detailed_{datetime.now().strftime('%Y%m%d')}.xlsx"}
         )
     elif report_type == "customers":
-        customers = db.query(Customer).all()
+        customers = db.query(Customer).filter(Customer.branch_id == branch_id).all()
         data = [{
             "Name": c.name,
             "Phone": c.phone or "-",
@@ -1117,7 +1118,8 @@ async def export_excel(
         } for c in customers]
         excel_buffer = generate_excel_report(data, "Customer Analytics", metadata=metadata)
     elif report_type == "staff":
-        users = db.query(User).all()
+        from app.models.user_branch import UserBranchAssignment
+        users = db.query(User).join(UserBranchAssignment).filter(UserBranchAssignment.branch_id == branch_id).all()
         data = [{
             "Name": u.full_name,
             "Username": u.username,
@@ -1128,10 +1130,7 @@ async def export_excel(
         } for u in users]
         excel_buffer = generate_excel_report(data, "Staff", metadata=metadata)
     elif report_type == "purchase":
-        branch_id = get_branch_filter(current_user)
-        query = db.query(PurchaseBill)
-        if branch_id:
-            query = query.filter(PurchaseBill.branch_id == branch_id)
+        query = db.query(PurchaseBill).filter(PurchaseBill.branch_id == branch_id)
             
         if query_start and query_end:
             bills = query.filter(PurchaseBill.order_date.between(query_start, query_end)).all()
@@ -1197,10 +1196,11 @@ async def export_excel(
 async def get_order_invoice(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Generate invoice PDF for an order"""
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).filter(Order.id == order_id, Order.branch_id == branch_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
@@ -1211,7 +1211,7 @@ async def get_order_invoice(
         "items": [{"name": item.menu_item.name, "quantity": item.quantity, "price": item.price, "subtotal": item.subtotal} for item in order.items]
     }
     
-    metadata = get_branch_metadata(current_user, db)
+    metadata = get_branch_metadata(branch_id, db)
     pdf_buffer = generate_invoice_pdf(order_data, metadata=metadata)
     return StreamingResponse(
         pdf_buffer,
@@ -1223,9 +1223,10 @@ async def get_order_invoice(
 @router.get("/export/all/excel")
 async def export_all_excel(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    """Export all report data into a single multi-sheet Excel file"""
+    """Export all report data into a single multi-sheet Excel file with branch isolation"""
     import pandas as pd
     from io import BytesIO
     from datetime import datetime, timedelta
@@ -1234,7 +1235,7 @@ async def export_all_excel(
     last_24h = datetime.now() - timedelta(hours=24)
     
     # 1. Sales Data
-    orders = db.query(Order).filter(Order.created_at >= last_24h).all()
+    orders = db.query(Order).filter(Order.created_at >= last_24h, Order.branch_id == branch_id).all()
     sales_df = pd.DataFrame([{
         "Order #": o.order_number,
         "Type": o.order_type,
@@ -1245,7 +1246,7 @@ async def export_all_excel(
     } for o in orders])
     
     # 2. Inventory Data
-    products = db.query(Product).all()
+    products = db.query(Product).filter(Product.branch_id == branch_id).all()
     inventory_df = pd.DataFrame([{
         "Product": p.name,
         "Category": p.category or "-",
@@ -1255,7 +1256,7 @@ async def export_all_excel(
     } for p in products])
     
     # 3. Customer Data
-    customers = db.query(Customer).all()
+    customers = db.query(Customer).filter(Customer.branch_id == branch_id).all()
     customers_df = pd.DataFrame([{
         "Name": c.name,
         "Phone": c.phone or "-",
@@ -1265,8 +1266,9 @@ async def export_all_excel(
         "Due": c.due_amount or 0
     } for c in customers])
     
-    # 4. Staff Data
-    users = db.query(User).all()
+    # 4. Staff Data (Branch Filtered)
+    from app.models.user_branch import UserBranchAssignment
+    users = db.query(User).join(UserBranchAssignment).filter(UserBranchAssignment.branch_id == branch_id).all()
     staff_df = pd.DataFrame([{
         "Name": u.full_name,
         "Username": u.username,
@@ -1275,7 +1277,7 @@ async def export_all_excel(
     } for u in users])
     
     # 5. Purchase Data
-    purchases = db.query(PurchaseBill).filter(PurchaseBill.order_date >= last_24h).all()
+    purchases = db.query(PurchaseBill).filter(PurchaseBill.order_date >= last_24h, PurchaseBill.branch_id == branch_id).all()
     purchase_df = pd.DataFrame([{
         "Bill #": p.bill_number,
         "Supplier": p.supplier.name if p.supplier else "-",
@@ -1284,7 +1286,7 @@ async def export_all_excel(
         "Total": p.total_amount
     } for p in purchases])
     
-    metadata = get_branch_metadata(current_user, db)
+    metadata = get_branch_metadata(branch_id, db)
 
     header_rows = 0
     header_df = pd.DataFrame()
@@ -1327,7 +1329,7 @@ async def export_all_excel(
     
     buffer.seek(0)
     
-    metadata = get_branch_metadata(current_user, db)
+    metadata = get_branch_metadata(branch_id, db)
     prefix = metadata.get('branch_name').replace(' ', '_') if metadata and metadata.get('branch_name') else "Business"
     filename = f"{prefix}_Master_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
     return StreamingResponse(
@@ -1340,13 +1342,14 @@ async def export_all_excel(
 @router.get("/sessions")
 def get_sessions_report(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """Get all POS sessions for reporting"""
     from app.models.pos_session import POSSession
     from app.models.auth import User
     
-    sessions = db.query(POSSession).order_by(POSSession.start_time.desc()).all()
+    sessions = db.query(POSSession).filter(POSSession.branch_id == branch_id).order_by(POSSession.start_time.desc()).all()
     
     result = []
     for session in sessions:
@@ -1507,7 +1510,8 @@ async def export_master_excel(
     start_date: str,
     end_date: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
     """
     Generate a master Excel report with separate sheets for each date in the range.
@@ -1529,8 +1533,7 @@ async def export_master_excel(
     if start_dt > end_dt:
         raise HTTPException(status_code=400, detail="Start date must be before or equal to end date")
     
-    branch_id = get_branch_filter(current_user)
-    metadata = get_branch_metadata(current_user, db) or {}
+    metadata = get_branch_metadata(branch_id, db) or {}
     
     
     from openpyxl import Workbook
@@ -1555,7 +1558,8 @@ async def export_master_excel(
             joinedload(Order.items).joinedload(OrderItem.menu_item)
         ).filter(
             Order.created_at.between(day_start, day_end),
-            Order.status != 'Cancelled'
+            Order.status != 'Cancelled',
+            Order.branch_id == branch_id
         )
         orders_query = apply_branch_filter_order(orders_query, branch_id)
         orders = orders_query.all()
@@ -1575,14 +1579,15 @@ async def export_master_excel(
                 "Time": o.created_at.strftime('%H:%M') if o.created_at else "-"
             })
         
-        # ===== 2. INVENTORY DATA =====
-        # Filter products created up to this day
+        # Filter products created up to this day (Branch Filtered)
         products = db.query(Product).options(joinedload(Product.unit)).filter(
-            Product.created_at <= day_end
+            Product.created_at <= day_end,
+            Product.branch_id == branch_id
         ).all()
         
         txns_query = db.query(InventoryTransaction).filter(
-            InventoryTransaction.created_at <= day_end
+            InventoryTransaction.created_at <= day_end,
+            InventoryTransaction.branch_id == branch_id
         ).order_by(InventoryTransaction.created_at.asc())
         all_txns = txns_query.all()
         
@@ -1653,7 +1658,7 @@ async def export_master_excel(
         # ===== 3. ITEM TRACKING DATA =====
         all_batches = db.query(BatchProduction).options(
             joinedload(BatchProduction.bom).joinedload(BillOfMaterials.menu_items)
-        ).filter(BatchProduction.created_at <= day_end).all()
+        ).filter(BatchProduction.created_at <= day_end, BatchProduction.branch_id == branch_id).all()
         
         menu_item_stats = {}
         for batch in all_batches:
@@ -1667,7 +1672,8 @@ async def export_master_excel(
                     sold = db.query(func.sum(OrderItem.quantity)).join(Order).filter(
                         OrderItem.menu_item_id == mi.id,
                         Order.status != 'Cancelled',
-                        Order.created_at <= day_end
+                        Order.created_at <= day_end,
+                        Order.branch_id == branch_id
                     ).scalar()
                     total_sold = float(sold) if sold else 0.0
                     

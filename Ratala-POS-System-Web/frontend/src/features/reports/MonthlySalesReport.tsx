@@ -11,27 +11,24 @@ import {
     TableRow,
     CircularProgress,
     Button,
-    Grid,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
+
     Breadcrumbs,
     Link as MuiLink,
 } from '@mui/material';
-import { BarChart3, Download, RotateCcw, ChevronRight } from 'lucide-react';
+import { BarChart3, RotateCcw, ChevronRight } from 'lucide-react';
 import { reportsAPI } from '../../services/api';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useParams } from 'react-router-dom';
 
 const MonthlySalesReport: React.FC = () => {
+    const { branchSlug } = useParams();
     const currentYear = new Date().getFullYear();
-    const [year, setYear] = useState(currentYear);
+    const [year] = useState(currentYear);
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any[]>([]);
 
     const months = [
-        "BAISAKH", "JESTHA", "ASHAD", "SHRAWAN", "BHADRA", "ASHWIN",
-        "KARTIK", "MANGSIR", "POUSH", "MAGH", "FALGUN", "CHAITRA"
+        "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+        "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
     ];
 
     const loadData = async () => {
@@ -50,29 +47,12 @@ const MonthlySalesReport: React.FC = () => {
         loadData();
     }, [year]);
 
-    const handleReset = () => {
-        setYear(currentYear);
-    };
 
-    const handleExport = async () => {
-        try {
-            const response = await reportsAPI.exportExcel('sales', { year });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Monthly_Sales_Summary_${year}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (error) {
-            console.error('Export failed:', error);
-        }
-    };
 
     return (
         <Box>
             <Breadcrumbs separator={<ChevronRight size={14} />} sx={{ mb: 2 }}>
-                <MuiLink component={RouterLink} to="/reports" underline="hover" color="inherit">
+                <MuiLink component={RouterLink} to={`/${branchSlug}/reports`} underline="hover" color="inherit">
                     Reports
                 </MuiLink>
                 <Typography color="text.primary" sx={{ fontWeight: 600 }}>Monthly Sales Summary</Typography>
@@ -87,64 +67,15 @@ const MonthlySalesReport: React.FC = () => {
                     <Button
                         variant="outlined"
                         startIcon={<RotateCcw size={18} />}
-                        onClick={handleReset}
+                        onClick={loadData}
                         sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600 }}
                     >
-                        Reset
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<Download size={18} />}
-                        onClick={handleExport}
-                        sx={{
-                            bgcolor: '#3b82f6',
-                            '&:hover': { bgcolor: '#2563eb' },
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
-                        }}
-                    >
-                        Export Excel
+                        Refresh
                     </Button>
                 </Box>
             </Box>
 
-            <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #f1f5f9', mb: 4 }} elevation={0}>
-                <Grid container spacing={3} alignItems="center">
-                    <Grid size={{ xs: 12, sm: 8 }}>
-                        <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
-                            <InputLabel>Select Year</InputLabel>
-                            <Select
-                                value={year}
-                                label="Select Year"
-                                onChange={(e) => setYear(Number(e.target.value))}
-                            >
-                                {[currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(y => (
-                                    <MenuItem key={y} value={y}>{y}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                        <Button
-                            fullWidth
-                            variant="contained"
-                            onClick={loadData}
-                            sx={{
-                                height: '56px',
-                                bgcolor: '#000',
-                                '&:hover': { bgcolor: '#333' },
-                                borderRadius: '10px',
-                                textTransform: 'none',
-                                fontWeight: 700
-                            }}
-                        >
-                            Generate Report
-                        </Button>
-                    </Grid>
-                </Grid>
-            </Paper>
+
 
             <Box sx={{ mb: 2, textAlign: 'center' }}>
                 <Typography variant="h6" fontWeight={700}>For the period {year}/{year + 1}</Typography>

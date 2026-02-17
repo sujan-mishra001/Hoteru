@@ -302,51 +302,7 @@ const OrderTaking: React.FC = () => {
 
     const total = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    const handleSaveDraft = async () => {
-        if (orderItems.length === 0) return;
 
-        try {
-            setLoading(true);
-            const orderPayload = {
-                table_id: table?.id,
-                customer_id: selectedCustomer?.id,
-                order_type: orderType,
-                status: 'Draft',
-                gross_amount: total,
-                service_charge_amount: Math.round((total - (Math.round(total * discountPercent / 100))) * (companySettings?.service_charge_rate || 0) / 100 * 100) / 100,
-                tax_amount: Math.round(((total - (Math.round(total * discountPercent / 100))) + ((total - (Math.round(total * discountPercent / 100))) * (companySettings?.service_charge_rate || 0) / 100)) * (companySettings?.tax_rate || 0) / 100 * 100) / 100,
-                net_amount: Math.round((total - (Math.round(total * discountPercent / 100))) * (1 + (companySettings?.service_charge_rate || 0) / 100) * (1 + (companySettings?.tax_rate || 0) / 100) + deliveryCharge),
-                discount: Math.round(total * discountPercent / 100),
-                delivery_charge: deliveryCharge,
-                items: orderItems.map(item => ({
-                    menu_item_id: item.item_id,
-                    quantity: item.quantity,
-                    price: item.price,
-                    subtotal: item.price * item.quantity,
-                    notes: ''
-                }))
-            };
-
-            if (existingOrder) {
-                await ordersAPI.update(existingOrder.id, orderPayload);
-            } else {
-                await ordersAPI.create(orderPayload);
-            }
-
-            // For Draft, we DON'T create KOTs or change table status to Occupied
-            // unless it's already occupied.
-
-            logActivity('Draft Saved', `Order draft saved for ${table?.table_id || 'Table'}`, 'order');
-            showAlert("Order saved as draft successfully!", "success");
-            const branchPath = currentBranch?.slug || currentBranch?.code || localStorage.getItem('branchSlug');
-            navigate(`/${branchPath}/pos`);
-        } catch (error: any) {
-            console.error("Error saving draft:", error);
-            showAlert(error.response?.data?.detail || "Error saving draft", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handlePlaceOrder = async () => {
         if (orderItems.length === 0) return;

@@ -26,7 +26,10 @@ api.interceptors.request.use((config) => {
   // If the first part of the path (after /) doesn't look like a standard non-branch route, it's likely a branch slug or code
   if (pathParts.length > 1) {
     const firstPart = pathParts[1];
-    const nonBranchRoutes = ['', 'login', 'signup', 'select-branch', 'admin', 'forgot-password', 'verify-otp', 'reset-password', 'digital-menu'];
+    const nonBranchRoutes = [
+      '', 'login', 'signup', 'select-branch', 'admin', 'forgot-password', 'verify-otp', 'reset-password', 'digital-menu',
+      'reports', 'inventory', 'menu', 'orders', 'pos', 'settings', 'customers', 'users', 'dashboard', 'kitchen'
+    ];
 
     if (firstPart && !nonBranchRoutes.includes(firstPart) && !firstPart.includes('.')) {
       branchIdentifier = firstPart;

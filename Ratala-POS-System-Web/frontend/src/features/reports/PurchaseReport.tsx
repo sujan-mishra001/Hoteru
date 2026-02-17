@@ -12,24 +12,18 @@ import {
     CircularProgress,
     Button,
     Grid,
-    TextField,
     Breadcrumbs,
     Link as MuiLink,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
 } from '@mui/material';
-import { ShoppingCart, Download, RotateCcw, ChevronRight } from 'lucide-react';
-import { reportsAPI, purchaseAPI } from '../../services/api';
-import { Link as RouterLink } from 'react-router-dom';
+import { ShoppingCart, RotateCcw, ChevronRight } from 'lucide-react';
+import { reportsAPI } from '../../services/api';
+import { Link as RouterLink, useParams } from 'react-router-dom';
 
 const PurchaseReport: React.FC = () => {
+    const { branchSlug } = useParams();
     const today = new Date().toISOString().split('T')[0];
-    const [startDate, setStartDate] = useState(today);
-    const [endDate, setEndDate] = useState(today);
-    const [supplierId, setSupplierId] = useState<number | string>('');
-    const [suppliers, setSuppliers] = useState<any[]>([]);
+    const startDate = today;
+    const endDate = today;
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
@@ -40,7 +34,6 @@ const PurchaseReport: React.FC = () => {
             const response = await reportsAPI.getPurchaseReport({
                 start_date: startDate,
                 end_date: endDate,
-                supplier_id: supplierId || undefined
             });
             setData(response.data.items);
             setSummary(response.data.summary);
@@ -51,45 +44,14 @@ const PurchaseReport: React.FC = () => {
         }
     };
 
-    const loadSuppliers = async () => {
-        try {
-            const response = await purchaseAPI.getSuppliers();
-            setSuppliers(response.data);
-        } catch (error) {
-            console.error('Failed to load suppliers:', error);
-        }
-    };
-
     useEffect(() => {
         loadData();
-        loadSuppliers();
     }, []);
-
-    const handleReset = () => {
-        setStartDate(today);
-        setEndDate(today);
-        setSupplierId('');
-    };
-
-    const handleExport = async () => {
-        try {
-            const response = await reportsAPI.exportExcel('purchase', { start_date: startDate, end_date: endDate });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Purchase_Report_${startDate}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (error) {
-            console.error('Export failed:', error);
-        }
-    };
 
     return (
         <Box>
             <Breadcrumbs separator={<ChevronRight size={14} />} sx={{ mb: 2 }}>
-                <MuiLink component={RouterLink} to="/reports" underline="hover" color="inherit">
+                <MuiLink component={RouterLink} to={`/${branchSlug}/reports`} underline="hover" color="inherit">
                     Reports
                 </MuiLink>
                 <Typography color="text.primary" sx={{ fontWeight: 600 }}>Purchase Report</Typography>
@@ -104,87 +66,13 @@ const PurchaseReport: React.FC = () => {
                     <Button
                         variant="outlined"
                         startIcon={<RotateCcw size={18} />}
-                        onClick={handleReset}
+                        onClick={loadData}
                         sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600 }}
                     >
-                        Reset
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<Download size={18} />}
-                        onClick={handleExport}
-                        sx={{
-                            bgcolor: '#ef4444',
-                            '&:hover': { bgcolor: '#dc2626' },
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
-                        }}
-                    >
-                        Export Excel
+                        Refresh
                     </Button>
                 </Box>
             </Box>
-
-            <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #f1f5f9', mb: 4 }} elevation={0}>
-                <Grid container spacing={3} alignItems="center">
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                        <TextField
-                            fullWidth
-                            label="Start Date"
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                        <TextField
-                            fullWidth
-                            label="End Date"
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                        <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
-                            <InputLabel>Supplier</InputLabel>
-                            <Select
-                                value={supplierId}
-                                label="Supplier"
-                                onChange={(e) => setSupplierId(e.target.value)}
-                            >
-                                <MenuItem value="">All Suppliers</MenuItem>
-                                {suppliers.map(s => (
-                                    <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                        <Button
-                            fullWidth
-                            variant="contained"
-                            onClick={loadData}
-                            sx={{
-                                height: '56px',
-                                bgcolor: '#000',
-                                '&:hover': { bgcolor: '#333' },
-                                borderRadius: '10px',
-                                textTransform: 'none',
-                                fontWeight: 700
-                            }}
-                        >
-                            Generate Report
-                        </Button>
-                    </Grid>
-                </Grid>
-            </Paper>
 
             {summary && (
                 <Grid container spacing={2} sx={{ mb: 3 }}>

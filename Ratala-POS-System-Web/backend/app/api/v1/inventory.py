@@ -4,7 +4,7 @@ Core Principle: Stock is NEVER updated directly, only through transactions
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime, timezone
 import random
 
@@ -12,7 +12,7 @@ from app.db.database import get_db
 from app.core.dependencies import get_current_user, get_branch_id
 from app.models import (
     Product, UnitOfMeasurement, InventoryTransaction,
-    BillOfMaterials, BOMItem, BatchProduction, POSSession, Branch
+    BillOfMaterials, BOMItem, BatchProduction, POSSession, Branch, MenuItem
 )
 from app.services.inventory_service import InventoryService
 
@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 def apply_branch_filter_inventory(query, model, branch_id):
-    """Apply branch_id filter if branch_id is set and model has branch_id column"""
+    """Apply strict branch_id filter for data isolation"""
     if branch_id is not None and hasattr(model, 'branch_id'):
         query = query.filter(model.branch_id == branch_id)
     return query
@@ -78,7 +78,7 @@ async def get_products(
 ):
     """Get all products with DERIVED stock for the branch"""
     query = db.query(Product).options(joinedload(Product.unit))
-    query = query.filter(Product.branch_id == branch_id)
+    query = apply_branch_filter_inventory(query, Product, branch_id)
     products = query.all()
     
     result = []
@@ -159,10 +159,8 @@ async def update_product(
     branch_id: int = Depends(get_branch_id)
 ):
     """Update a product in the branch"""
-    query = db.query(Product).filter(
-        Product.id == product_id,
-        Product.branch_id == branch_id
-    )
+    query = db.query(Product).filter(Product.id == product_id)
+    query = apply_branch_filter_inventory(query, Product, branch_id)
     db_product = query.first()
     
     if not db_product:
@@ -215,10 +213,8 @@ async def delete_product(
     branch_id: int = Depends(get_branch_id)
 ):
     """Delete a product in the branch - ONLY if no transactions exist"""
-    query = db.query(Product).filter(
-        Product.id == product_id,
-        Product.branch_id == branch_id
-    )
+    query = db.query(Product).filter(Product.id == product_id)
+    query = apply_branch_filter_inventory(query, Product, branch_id)
     db_product = query.first()
     
     if not db_product:
@@ -249,9 +245,24 @@ async def get_units(
     current_user = Depends(get_current_user),
     branch_id: int = Depends(get_branch_id)
 ):
-    """Get all units for the branch"""
-    units = db.query(UnitOfMeasurement).filter(UnitOfMeasurement.branch_id == branch_id).all()
-    return units
+    """Get all units for the branch with branch details"""
+    query = db.query(UnitOfMeasurement).options(joinedload(UnitOfMeasurement.branch))
+    query = apply_branch_filter_inventory(query, UnitOfMeasurement, branch_id)
+    units = query.all()
+    
+    result = []
+    for unit in units:
+        result.append({
+            "id": unit.id,
+            "name": unit.name,
+            "abbreviation": unit.abbreviation,
+            "conversion_factor": unit.conversion_factor,
+            "base_unit_id": unit.base_unit_id,
+            "branch_id": unit.branch_id,
+            "branch_slug": unit.branch.code if unit.branch else None,
+            "created_at": unit.created_at
+        })
+    return result
 
 
 @router.post("/units")
@@ -261,12 +272,30 @@ async def create_unit(
     current_user = Depends(get_current_user),
     branch_id: int = Depends(get_branch_id)
 ):
+    """Create a new unit of measurement for the branch"""
+    # Check if unit with same name already exists in this branch
+    existing_unit = db.query(UnitOfMeasurement).filter(
+        UnitOfMeasurement.name == unit_data.get('name'),
+        UnitOfMeasurement.branch_id == branch_id
+    ).first()
+    
+    if existing_unit:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unit '{unit_data.get('name')}' already exists in this branch"
+        )
+    
     unit_data['branch_id'] = branch_id
     new_unit = UnitOfMeasurement(**unit_data)
     db.add(new_unit)
-    db.commit()
-    db.refresh(new_unit)
-    return new_unit
+    
+    try:
+        db.commit()
+        db.refresh(new_unit)
+        return new_unit
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Error creating unit: {str(e)}")
 
 
 @router.put("/units/{unit_id}")
@@ -275,11 +304,14 @@ async def update_unit(
     unit_id: int,
     unit_data: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    db_unit = db.query(UnitOfMeasurement).filter(UnitOfMeasurement.id == unit_id).first()
+    query = db.query(UnitOfMeasurement).filter(UnitOfMeasurement.id == unit_id)
+    query = apply_branch_filter_inventory(query, UnitOfMeasurement, branch_id)
+    db_unit = query.first()
     if not db_unit:
-        raise HTTPException(status_code=404, detail="Unit not found")
+        raise HTTPException(status_code=404, detail="Unit not found or access denied")
     
     for key, value in unit_data.items():
         if key != 'id':
@@ -294,11 +326,14 @@ async def update_unit(
 async def delete_unit(
     unit_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    branch_id: int = Depends(get_branch_id)
 ):
-    db_unit = db.query(UnitOfMeasurement).filter(UnitOfMeasurement.id == unit_id).first()
+    query = db.query(UnitOfMeasurement).filter(UnitOfMeasurement.id == unit_id)
+    query = apply_branch_filter_inventory(query, UnitOfMeasurement, branch_id)
+    db_unit = query.first()
     if not db_unit:
-        raise HTTPException(status_code=404, detail="Unit not found")
+        raise HTTPException(status_code=404, detail="Unit not found or access denied")
     
     products_count = db.query(Product).filter(Product.unit_id == unit_id).count()
     if products_count > 0:
@@ -350,11 +385,10 @@ async def get_transactions(
     branch_id: int = Depends(get_branch_id)
 ):
     """Get all inventory transactions for the branch"""
-    query = db.query(InventoryTransaction).filter(
-        InventoryTransaction.branch_id == branch_id
-    ).options(
+    query = db.query(InventoryTransaction).options(
         joinedload(InventoryTransaction.product).joinedload(Product.unit)
     )
+    query = apply_branch_filter_inventory(query, InventoryTransaction, branch_id)
     return query.order_by(InventoryTransaction.created_at.desc()).all()
 
 
@@ -573,6 +607,15 @@ async def create_bom(
     db.add(new_bom)
     db.flush()
     
+    # Handle menu item linking
+    menu_item_ids = bom_data.pop('menu_item_ids', [])
+    if menu_item_ids:
+        # Clear any existing BOM linking for these items (just in case they were linked elsewhere)
+        # But really we just want to set bom_id to this new one
+        db.query(MenuItem).filter(MenuItem.id.in_(menu_item_ids)).update(
+            {"bom_id": new_bom.id}, synchronize_session=False
+        )
+    
     for comp in components:
         # Clean up component data
         if not comp.get('product_id'):
@@ -598,7 +641,9 @@ async def update_bom(
     current_user = Depends(get_current_user),
     branch_id: int = Depends(get_branch_id)
 ):
-    db_bom = db.query(BillOfMaterials).filter(BillOfMaterials.id == bom_id, BillOfMaterials.branch_id == branch_id).first()
+    query = db.query(BillOfMaterials).filter(BillOfMaterials.id == bom_id)
+    query = apply_branch_filter_inventory(query, BillOfMaterials, branch_id)
+    db_bom = query.first()
     if not db_bom:
         raise HTTPException(status_code=404, detail="BOM not found")
         
@@ -623,6 +668,18 @@ async def update_bom(
                 
             db.add(BOMItem(bom_id=bom_id, **comp))
             
+            
+    # Handle menu item linking
+    menu_item_ids = bom_data.pop('menu_item_ids', None)
+    if menu_item_ids is not None:
+        # Clear existing links for this BOM
+        db.query(MenuItem).filter(MenuItem.bom_id == bom_id).update({"bom_id": None}, synchronize_session=False)
+        # Set new links
+        if menu_item_ids:
+            db.query(MenuItem).filter(MenuItem.id.in_(menu_item_ids)).update(
+                {"bom_id": bom_id}, synchronize_session=False
+            )
+            
     db.commit()
     db.refresh(db_bom)
     return db_bom
@@ -643,9 +700,12 @@ async def create_production(
     bom_id = prod_data.get('bom_id')
     quantity = prod_data.get('quantity', 1)
     
-    bom = db.query(BillOfMaterials).options(
+    query = db.query(BillOfMaterials).options(
         joinedload(BillOfMaterials.components)
-    ).filter(BillOfMaterials.id == bom_id, BillOfMaterials.branch_id == branch_id).first()
+    ).filter(BillOfMaterials.id == bom_id)
+    
+    query = apply_branch_filter_inventory(query, BillOfMaterials, branch_id)
+    bom = query.first()
     
     if not bom or not bom.is_active:
         raise HTTPException(status_code=400, detail="Active BOM required")

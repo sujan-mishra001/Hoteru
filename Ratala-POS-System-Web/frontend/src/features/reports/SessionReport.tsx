@@ -15,10 +15,13 @@ import {
     Tooltip,
     Button,
     Snackbar,
-    Alert
+    Alert,
+    Breadcrumbs,
+    Link as MuiLink
 } from '@mui/material';
-import { Calendar, User, Clock, DollarSign, FileText } from 'lucide-react';
+import { Calendar, User, Clock, DollarSign, FileText, ChevronRight } from 'lucide-react';
 import { reportsAPI } from '../../services/api';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 
 interface Session {
     id: number;
@@ -39,6 +42,7 @@ interface Session {
 }
 
 const SessionReport: React.FC = () => {
+    const { branchSlug } = useParams();
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
@@ -134,6 +138,12 @@ const SessionReport: React.FC = () => {
 
     return (
         <Box>
+            <Breadcrumbs separator={<ChevronRight size={14} />} sx={{ mb: 2 }}>
+                <MuiLink component={RouterLink} to={`/${branchSlug}/reports`} underline="hover" color="inherit">
+                    Reports
+                </MuiLink>
+                <Typography color="text.primary" sx={{ fontWeight: 600 }}>Session Report</Typography>
+            </Breadcrumbs>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: { xs: 2, sm: 3, md: 4 }, gap: 2 }}>
                 <Box>
                     <Typography variant="h5" fontWeight={800} sx={{ mb: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>

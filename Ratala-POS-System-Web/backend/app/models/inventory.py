@@ -22,6 +22,7 @@ class UnitOfMeasurement(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     base_unit = relationship("UnitOfMeasurement", remote_side=[id])
+    branch = relationship("Branch")
 
     __table_args__ = (
         UniqueConstraint('name', 'branch_id', name='uq_unit_name_branch'),

@@ -11,14 +11,12 @@ import {
     TableRow,
     CircularProgress,
     Button,
-    Grid,
-    TextField,
     Breadcrumbs,
     Link as MuiLink,
 } from '@mui/material';
-import { Calendar, Download, RotateCcw, ChevronRight } from 'lucide-react';
+import { Calendar, RotateCcw, ChevronRight } from 'lucide-react';
 import { reportsAPI } from '../../services/api';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useParams } from 'react-router-dom';
 
 interface DailySaleItem {
     date: string;
@@ -48,11 +46,12 @@ interface SummaryData {
 }
 
 const DailySalesReport: React.FC = () => {
+    const { branchSlug } = useParams();
     const today = new Date().toISOString().split('T')[0];
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const [startDate, setStartDate] = useState(thirtyDaysAgo);
-    const [endDate, setEndDate] = useState(today);
+    const [startDate] = useState(thirtyDaysAgo);
+    const [endDate] = useState(today);
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<DailySaleItem[]>([]);
     const [summary, setSummary] = useState<SummaryData | null>(null);
@@ -74,30 +73,10 @@ const DailySalesReport: React.FC = () => {
         loadData();
     }, []);
 
-    const handleReset = () => {
-        setStartDate(thirtyDaysAgo);
-        setEndDate(today);
-    };
-
-    const handleExport = async () => {
-        try {
-            const response = await reportsAPI.exportExcel('sales', { start_date: startDate, end_date: endDate });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Daily_Sales_Report_${startDate}_to_${endDate}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (error) {
-            console.error('Export failed:', error);
-        }
-    };
-
     return (
         <Box>
             <Breadcrumbs separator={<ChevronRight size={14} />} sx={{ mb: 2 }}>
-                <MuiLink component={RouterLink} to="/reports" underline="hover" color="inherit">
+                <MuiLink component={RouterLink} to={`/${branchSlug}/reports`} underline="hover" color="inherit">
                     Reports
                 </MuiLink>
                 <Typography color="text.primary" sx={{ fontWeight: 600 }}>Daily Sales Report</Typography>
@@ -112,72 +91,13 @@ const DailySalesReport: React.FC = () => {
                     <Button
                         variant="outlined"
                         startIcon={<RotateCcw size={18} />}
-                        onClick={handleReset}
+                        onClick={loadData}
                         sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600 }}
                     >
-                        Reset
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<Download size={18} />}
-                        onClick={handleExport}
-                        sx={{
-                            bgcolor: '#FFC107',
-                            '&:hover': { bgcolor: '#FF9800' },
-                            borderRadius: '10px',
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            boxShadow: '0 4px 12px rgba(255, 193, 7, 0.2)'
-                        }}
-                    >
-                        Export Excel
+                        Refresh
                     </Button>
                 </Box>
             </Box>
-
-            <Paper sx={{ p: 3, borderRadius: '16px', border: '1px solid #f1f5f9', mb: 4 }} elevation={0}>
-                <Grid container spacing={3} alignItems="center">
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                        <TextField
-                            fullWidth
-                            label="Start Date"
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                        <TextField
-                            fullWidth
-                            label="End Date"
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            InputLabelProps={{ shrink: true }}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                        <Button
-                            fullWidth
-                            variant="contained"
-                            onClick={loadData}
-                            sx={{
-                                height: '56px',
-                                bgcolor: '#000',
-                                '&:hover': { bgcolor: '#333' },
-                                borderRadius: '10px',
-                                textTransform: 'none',
-                                fontWeight: 700
-                            }}
-                        >
-                            Generate Report
-                        </Button>
-                    </Grid>
-                </Grid>
-            </Paper>
 
             {summary && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)', lg: 'repeat(8, 1fr)' }, gap: 1.5, mb: 3 }}>
