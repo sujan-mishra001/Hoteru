@@ -116,6 +116,7 @@ def init_db():
                 updates = [
                     ("users", "profile_image_url", "VARCHAR"),
                     ("users", "profile_image_data", "BYTEA"),
+                    ("users", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
                     ("categories", "image_data", "BYTEA"),
                     ("menu_groups", "image_data", "BYTEA"),
                     ("menu_items", "image_data", "BYTEA"),

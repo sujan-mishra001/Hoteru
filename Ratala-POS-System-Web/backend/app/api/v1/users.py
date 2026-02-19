@@ -2,7 +2,7 @@
 User management routes (Admin only)
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Body, File, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user, check_admin_role, get_password_hash, check_platform_admin, get_branch_id
@@ -43,13 +43,18 @@ async def get_all_organization_users(
     current_user: DBUser = Depends(check_admin_role)
 ):
     """Get all users in the organization (Admin only)"""
+    query = db.query(DBUser).options(
+        joinedload(DBUser.organization),
+        joinedload(DBUser.branch_assignments).joinedload(UserBranchAssignment.branch)
+    )
+    
     if current_user.role == "platform_admin":
-        return db.query(DBUser).all()
+        return query.all()
         
     if not current_user.organization_id:
         return []
         
-    users = db.query(DBUser).filter(
+    users = query.filter(
         DBUser.organization_id == current_user.organization_id
     ).all()
     return users
@@ -212,13 +217,13 @@ async def delete_user(
         all_members = db.query(DBUser).filter(DBUser.organization_id == org.id).all()
         member_ids = [m.id for m in all_members]
         
-        # 1. Get branch IDs for manual cleanup of operational data
+        # Collect IDs for manual cleanup of operational data
         from app.models.branch import Branch
         branches = db.query(Branch).filter(Branch.organization_id == org.id).all()
         branch_ids = [b.id for b in branches]
         
         if branch_ids:
-            # 2. Delete all operational data linked to these branches
+            # 1. Get all related IDs for deep cleanup
             from app.models.orders import Order, KOT, OrderItem, KOTItem, Table, Floor, Session
             from app.models.pos_session import POSSession
             from app.models.inventory import InventoryTransaction, BatchProduction, UnitOfMeasurement, Product, BillOfMaterials, BOMItem
@@ -231,34 +236,42 @@ async def delete_user(
             from app.models.purchase import Supplier, PurchaseBill, PurchaseReturn, PurchaseBillItem
             from app.models.delivery import DeliveryPartner
             
-            # Collect IDs to handle records with potential null branch_id
             product_ids = [r[0] for r in db.query(Product.id).filter(Product.branch_id.in_(branch_ids)).all()]
             order_ids = [r[0] for r in db.query(Order.id).filter(Order.branch_id.in_(branch_ids)).all()]
-            kot_ids = [r[0] for r in db.query(KOT.id).filter(KOT.branch_id.in_(branch_ids)).all()]
+            # KOTs can be linked by branch_id OR pointing to orders we are deleting
+            kot_ids = [r[0] for r in db.query(KOT.id).filter(
+                (KOT.branch_id.in_(branch_ids)) | (KOT.order_id.in_(order_ids))
+            ).all()]
             bom_ids = [r[0] for r in db.query(BillOfMaterials.id).filter(BillOfMaterials.branch_id.in_(branch_ids)).all()]
             purchase_bill_ids = [r[0] for r in db.query(PurchaseBill.id).filter(PurchaseBill.branch_id.in_(branch_ids)).all()]
             
-            # Delete in order of dependency to avoid foreign key violations
+            # 2. Delete operational items in order of dependency (Items -> Parents)
             
-            # Operational items first (use IDs where possible for thoroughness)
-            if order_ids:
-                db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
-            
+            # KOT items first
             if kot_ids:
                 db.query(KOTItem).filter(KOTItem.kot_id.in_(kot_ids)).delete(synchronize_session=False)
+                db.flush()
+                # Delete KOTs before Orders
+                db.query(KOT).filter(KOT.id.in_(kot_ids)).delete(synchronize_session=False)
+                db.flush()
+
+            # Order items
+            if order_ids:
+                db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
+                db.flush()
+                # Delete Orders before POSSessions
+                db.query(Order).filter(Order.id.in_(order_ids)).delete(synchronize_session=False)
+                db.flush()
             
-            db.query(KOT).filter(KOT.branch_id.in_(branch_ids)).delete(synchronize_session=False)
-            db.query(Order).filter(Order.branch_id.in_(branch_ids)).delete(synchronize_session=False)
-            
-            # Inventory Transactions (CRITICAL: Delete by product_id to catch transactions with null branch_id)
+            # Inventory dependencies
             if product_ids:
                 db.query(InventoryTransaction).filter(InventoryTransaction.product_id.in_(product_ids)).delete(synchronize_session=False)
                 db.query(BatchProduction).filter(BatchProduction.finished_product_id.in_(product_ids)).delete(synchronize_session=False)
                 db.query(BOMItem).filter(BOMItem.product_id.in_(product_ids)).delete(synchronize_session=False)
-                db.flush()  # Allow DB to process these deletes before moving on
                 db.query(PurchaseBillItem).filter(PurchaseBillItem.product_id.in_(product_ids)).delete(synchronize_session=False)
+                db.flush()
             
-            # More Inventory cleanup
+            # Remaining branch-linked operational data
             db.query(BatchProduction).filter(BatchProduction.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(POSSession).filter(POSSession.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.flush()
@@ -269,7 +282,7 @@ async def delete_user(
             db.query(Category).filter(Category.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.flush()
             
-            # Bill of Materials
+            # BOM
             if bom_ids:
                 db.query(BOMItem).filter(BOMItem.bom_id.in_(bom_ids)).delete(synchronize_session=False)
             db.query(BillOfMaterials).filter(BillOfMaterials.branch_id.in_(branch_ids)).delete(synchronize_session=False)
@@ -279,23 +292,22 @@ async def delete_user(
             db.query(Product).filter(Product.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.flush()
             
-            # Tables and Floors
+            # Tables and Floors (Handle self-referencing table merges)
+            db.query(Table).filter(Table.branch_id.in_(branch_ids)).update({Table.merged_to_id: None}, synchronize_session=False)
             db.query(QRCode).filter(QRCode.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Table).filter(Table.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Floor).filter(Floor.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Session).filter(Session.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             
-            # Purchase items
+            # Purchases
             if purchase_bill_ids:
                 db.query(PurchaseBillItem).filter(PurchaseBillItem.purchase_bill_id.in_(purchase_bill_ids)).delete(synchronize_session=False)
             db.query(PurchaseReturn).filter(PurchaseReturn.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(PurchaseBill).filter(PurchaseBill.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Supplier).filter(Supplier.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             
-            # Unit of measurement (can have base_unit_id pointing to itself)
+            # Utilities and Core branch settings
             db.query(UnitOfMeasurement).filter(UnitOfMeasurement.branch_id.in_(branch_ids)).delete(synchronize_session=False)
-            
-            # Core branch data
             db.query(Role).filter(Role.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Customer).filter(Customer.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Printer).filter(Printer.branch_id.in_(branch_ids)).delete(synchronize_session=False)
@@ -309,27 +321,29 @@ async def delete_user(
             db.query(PaymentMode).filter(PaymentMode.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(StorageArea).filter(StorageArea.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(DiscountRule).filter(DiscountRule.branch_id.in_(branch_ids)).delete(synchronize_session=False)
-            
-            # 3. Clean up any remaining sessions/orders for these specific users (even if branch_id was null)
-            db.query(POSSession).filter(POSSession.user_id.in_(member_ids)).delete(synchronize_session=False)
-            db.query(Order).filter(Order.created_by.in_(member_ids)).delete(synchronize_session=False)
+            db.flush()
 
-            # 4. Finally delete the branches
-            db.query(Branch).filter(Branch.organization_id == org.id).delete(synchronize_session=False)
-        
-        db.flush()
-        
-        # 5. Detach users from Org to allow Org deletion (Owner NOT NULL constraint)
+        # 3. Detach users from Org and Branches BEFORE deleting branches (CRITICAL for FKs)
         for member in all_members:
             member.organization_id = None
             member.current_branch_id = None
         db.flush()
+
+        # 4. Clean up any remaining sessions/orders for these specific users (even if branch_id was null)
+        # Order MUST be deleted before POSSession
+        db.query(Order).filter(Order.created_by.in_(member_ids)).delete(synchronize_session=False)
+        db.query(POSSession).filter(POSSession.user_id.in_(member_ids)).delete(synchronize_session=False)
+        db.flush()
+
+        # 5. Finally delete the branches and organization
+        if branch_ids:
+            db.query(Branch).filter(Branch.organization_id == org.id).delete(synchronize_session=False)
         
-        # 6. Delete Organization
+        db.flush()
         db.delete(org)
         db.flush()
         
-        # 7. Delete Users
+        # 6. Delete Users
         for member in all_members:
             try:
                 db.delete(member)
@@ -337,8 +351,9 @@ async def delete_user(
                 # If a user still has dependencies we can't clear, nullify them
                 print(f"Warning: Could not delete user {member.id}: {str(e)}")
                 member.disabled = True
+
     else:
-        # For standard staff deletion
+        # For standard staff (non-owner) deletion
         from app.models.orders import Order, KOT
         from app.models.pos_session import POSSession
         from app.models.inventory import InventoryTransaction, BatchProduction
@@ -347,17 +362,30 @@ async def delete_user(
         # 1. Clear branch assignments
         db.query(UserBranchAssignment).filter(UserBranchAssignment.user_id == user_id).delete(synchronize_session=False)
 
-        # 2. Nullify creator fields where possible
-        db.query(Order).filter(Order.created_by == user_id).update({Order.created_by: None})
-        db.query(KOT).filter(KOT.created_by == user_id).update({KOT.created_by: None})
-        db.query(InventoryTransaction).filter(InventoryTransaction.created_by == user_id).update({InventoryTransaction.created_by: None})
-        db.query(BatchProduction).filter(BatchProduction.created_by == user_id).update({BatchProduction.created_by: None})
+        # 2. Get user's sessions to handle their dependencies
+        user_session_ids = [s[0] for s in db.query(POSSession.id).filter(POSSession.user_id == user_id).all()]
+
+        # 3. Nullify references to this user and their sessions
+        # First, nullify pos_session_id in related tables (Order, InventoryTransaction, BatchProduction)
+        if user_session_ids:
+            db.query(Order).filter(Order.pos_session_id.in_(user_session_ids)).update({Order.pos_session_id: None}, synchronize_session=False)
+            db.query(InventoryTransaction).filter(InventoryTransaction.pos_session_id.in_(user_session_ids)).update({InventoryTransaction.pos_session_id: None}, synchronize_session=False)
+            db.query(BatchProduction).filter(BatchProduction.pos_session_id.in_(user_session_ids)).update({BatchProduction.pos_session_id: None}, synchronize_session=False)
+            db.flush()
+
+        # 4. Nullify creator fields
+        db.query(Order).filter(Order.created_by == user_id).update({Order.created_by: None}, synchronize_session=False)
+        db.query(KOT).filter(KOT.created_by == user_id).update({KOT.created_by: None}, synchronize_session=False)
+        db.query(InventoryTransaction).filter(InventoryTransaction.created_by == user_id).update({InventoryTransaction.created_by: None}, synchronize_session=False)
+        db.query(BatchProduction).filter(BatchProduction.created_by == user_id).update({BatchProduction.created_by: None}, synchronize_session=False)
         
-        # 3. Delete non-nullable dependencies (sessions MUST have a user)
-        db.query(POSSession).filter(POSSession.user_id == user_id).delete(synchronize_session=False)
+        # 5. Delete non-nullable dependencies (sessions MUST have a user)
+        if user_session_ids:
+            db.query(POSSession).filter(POSSession.id.in_(user_session_ids)).delete(synchronize_session=False)
         
         db.flush()
         db.delete(user)
+
         
     db.commit()
     return {"message": "User deleted successfully"}

@@ -114,6 +114,7 @@ class UserBranchAssignmentResponse(BaseModel):
     organization_id: int
     is_primary: bool
     created_at: datetime
+    branch: Optional[BranchBasicResponse] = None
 
     class Config:
         from_attributes = True

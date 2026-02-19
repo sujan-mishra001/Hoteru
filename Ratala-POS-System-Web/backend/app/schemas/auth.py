@@ -22,6 +22,27 @@ class UserCreate(BaseModel):
     password: str
     role: str = "worker"
 
+class OrganizationBasic(BaseModel):
+    id: int
+    name: str
+    class Config:
+        from_attributes = True
+
+class BranchBasic(BaseModel):
+    id: int
+    name: str
+    class Config:
+        from_attributes = True
+
+class UserBranchAssignmentBasic(BaseModel):
+    id: int
+    user_id: int
+    branch_id: int
+    is_primary: bool
+    branch: Optional[BranchBasic] = None
+    class Config:
+        from_attributes = True
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -36,6 +57,9 @@ class UserResponse(BaseModel):
     is_organization_owner: bool = False
     profile_image_url: Optional[str] = None
     permissions: List[str] = []
+    created_at: Optional[datetime] = None
+    organization: Optional[OrganizationBasic] = None
+    branch_assignments: List[UserBranchAssignmentBasic] = []
 
     class Config:
         from_attributes = True

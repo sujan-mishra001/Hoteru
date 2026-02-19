@@ -1,8 +1,9 @@
 """
 Authentication and user models
 """
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, LargeBinary
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, LargeBinary, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from app.db.database import Base
 
 
@@ -26,6 +27,7 @@ class User(Base):
     is_organization_owner = Column(Boolean, default=False, nullable=False)
     profile_image_url = Column(String, nullable=True)
     profile_image_data = Column(LargeBinary, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships
     organization = relationship("Organization", back_populates="users", foreign_keys=[organization_id])

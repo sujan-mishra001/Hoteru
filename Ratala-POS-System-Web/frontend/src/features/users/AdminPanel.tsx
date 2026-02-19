@@ -261,12 +261,32 @@ const AdminPanel: React.FC = () => {
                                                     {user.organization?.name || 'Self-Registered'}
                                                 </Typography>
                                             </Box>
-                                            <Typography variant="caption" sx={{ color: '#94a3b8', ml: 3.2 }}>
-                                                {user.current_branch_id ?
-                                                    (branches.find(b => b.id === user.current_branch_id)?.name || 'Branch Member') :
-                                                    'No primary branch'
-                                                }
-                                            </Typography>
+                                            <Box sx={{ ml: 3.2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {user.branch_assignments && user.branch_assignments.length > 0 ? (
+                                                    user.branch_assignments.map((assignment: any) => (
+                                                        <Chip
+                                                            key={assignment.branch_id}
+                                                            label={assignment.branch?.name || 'Unknown'}
+                                                            size="small"
+                                                            variant="outlined"
+                                                            sx={{
+                                                                fontSize: '0.65rem',
+                                                                height: '18px',
+                                                                borderColor: assignment.is_primary ? '#fbbf24' : '#e2e8f0',
+                                                                bgcolor: assignment.is_primary ? '#fffbeb' : 'transparent',
+                                                                fontWeight: assignment.is_primary ? 700 : 500
+                                                            }}
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                                                        {user.current_branch_id ?
+                                                            (branches.find(b => b.id === user.current_branch_id)?.name || 'Branch Member') :
+                                                            'No primary branch'
+                                                        }
+                                                    </Typography>
+                                                )}
+                                            </Box>
                                         </Box>
                                     </TableCell>
                                     <TableCell>
