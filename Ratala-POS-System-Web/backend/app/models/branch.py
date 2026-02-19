@@ -50,6 +50,7 @@ class Branch(Base):
     # orders = relationship("Order", back_populates="branch")
     qr_codes = relationship("QRCode", back_populates="branch", cascade="all, delete-orphan")
     printers = relationship("Printer", back_populates="branch", cascade="all, delete-orphan")
+    current_users = relationship("User", back_populates="current_branch", passive_deletes=True)
     
     def __repr__(self):
         return f"<Branch(id={self.id}, code='{self.code}', name='{self.name}', org_id={self.organization_id})>"

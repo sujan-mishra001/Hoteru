@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 import { inventoryAPI } from '../../../services/api';
+import BeautifulConfirm from '../../../components/common/BeautifulConfirm';
 
 const Units: React.FC = () => {
     const [units, setUnits] = useState<any[]>([]);
@@ -31,6 +32,7 @@ const Units: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [openRulesDialog, setOpenRulesDialog] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+    const [confirmDelete, setConfirmDelete] = useState<{ open: boolean, id: number | null }>({ open: false, id: null });
 
     const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
         setSnackbar({ open: true, message, severity });
@@ -115,9 +117,14 @@ const Units: React.FC = () => {
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Are you sure you want to delete this unit?')) return;
+        setConfirmDelete({ open: true, id });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!confirmDelete.id) return;
         try {
-            await inventoryAPI.deleteUnit(id);
+            await inventoryAPI.deleteUnit(confirmDelete.id);
+            setConfirmDelete({ open: false, id: null });
             loadUnits();
             showSnackbar('Unit deleted successfully');
         } catch (error: any) {
@@ -250,6 +257,16 @@ const Units: React.FC = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            <BeautifulConfirm
+                open={confirmDelete.open}
+                title="Delete Unit"
+                message="Are you sure you want to delete this unit? This might affect products using this unit."
+                onConfirm={confirmDeleteAction}
+                onCancel={() => setConfirmDelete({ open: false, id: null })}
+                confirmText="Yes, Delete Unit"
+                isDestructive
+            />
 
             {/* Rules Dialog */}
             <Dialog open={openRulesDialog} onClose={() => setOpenRulesDialog(false)} maxWidth="xs" fullWidth>

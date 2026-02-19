@@ -146,7 +146,6 @@ const AdminLayout: React.FC = () => {
                 { text: 'Products', path: '/inventory/products' },
                 { text: 'Units', path: '/inventory/units' },
                 { text: 'Stock Management', path: '/inventory/add' },
-                { text: 'Counts', path: '/inventory/count' },
                 { text: 'BOM/Recipe', path: '/inventory/bom' },
                 { text: 'Production', path: '/inventory/production' },
                 { text: 'Production Count', path: '/inventory/production-count' }

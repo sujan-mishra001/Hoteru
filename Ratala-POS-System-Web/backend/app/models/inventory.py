@@ -41,6 +41,7 @@ class Product(Base):
     category = Column(String, nullable=True)
     unit_id = Column(Integer, ForeignKey("units_of_measurement.id"))
     min_stock = Column(Float, default=0)
+    product_type = Column(String, default="Raw") # Raw, Semi-Finished, Finished
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -61,7 +62,7 @@ class Product(Base):
                 total += txn.quantity
             elif txn.transaction_type in ['OUT', 'Remove', 'Production_OUT']:
                 total -= txn.quantity
-            elif txn.transaction_type in ['Adjustment', 'Count']:
+            elif txn.transaction_type in ['Adjustment']:
                 total += txn.quantity # For adjustments, quantity is stored as signed
         return total
 
@@ -92,7 +93,7 @@ class Product(Base):
 class InventoryTransaction(Base):
     """
     Inventory transaction model - the ONLY way to change stock
-    Types: IN, OUT, Adjustment, Count, Production_IN, Production_OUT
+    Types: IN, OUT, Adjustment, Production_IN, Production_OUT
     """
     __tablename__ = "inventory_transactions"
     
@@ -124,6 +125,8 @@ class BillOfMaterials(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     finished_product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    production_mode = Column(String, default="manual") # manual, automatic
+    bom_type = Column(String, nullable=False, default="production") # production, menu
     
     components = relationship("BOMItem", back_populates="bom", cascade="all, delete-orphan")
     menu_items = relationship("MenuItem", back_populates="bom")
@@ -139,6 +142,7 @@ class BOMItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     unit_id = Column(Integer, ForeignKey("units_of_measurement.id"), nullable=True)
     quantity = Column(Float, nullable=False)
+    item_type = Column(String, nullable=False, default="input") # input, output
     
     bom = relationship("BillOfMaterials", back_populates="components")
     product = relationship("Product")

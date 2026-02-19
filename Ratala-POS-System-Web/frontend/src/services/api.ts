@@ -141,6 +141,7 @@ export const inventoryAPI = {
   updateBOM: (id: number, data: any) => api.put(`/inventory/boms/${id}`, data),
   deleteBOM: (id: number) => api.delete(`/inventory/boms/${id}`),
   getProductions: () => api.get('/inventory/productions'),
+  getProductionCounts: () => api.get('/inventory/productions/counts'),
   createProduction: (data: any) => api.post('/inventory/productions', data),
 };
 

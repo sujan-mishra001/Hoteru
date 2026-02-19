@@ -15,3 +15,4 @@ xlsxwriter
 pydantic
 email-validator
 qrcode[pil]
+alembic

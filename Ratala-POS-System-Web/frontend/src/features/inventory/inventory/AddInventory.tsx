@@ -52,6 +52,7 @@ const AddInventory: React.FC = () => {
     const [tabValue, setTabValue] = useState(0);
     const [products, setProducts] = useState<any[]>([]);
     const [transactions, setTransactions] = useState<any[]>([]);
+    const [units, setUnits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -61,7 +62,7 @@ const AddInventory: React.FC = () => {
 
     // Forms State
     // Forms State
-    const [adjustForm, setAdjustForm] = useState({ product_id: '', quantity: 0, notes: '' });
+    const [adjustForm, setAdjustForm] = useState({ product_id: '', quantity: 0, unit_id: '', notes: '' });
     const [adjustType, setAdjustType] = useState('+');
 
     useEffect(() => {
@@ -71,12 +72,14 @@ const AddInventory: React.FC = () => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [productsRes, transactionsRes] = await Promise.all([
+            const [productsRes, transactionsRes, unitsRes] = await Promise.all([
                 inventoryAPI.getProducts(),
-                inventoryAPI.getTransactions()
+                inventoryAPI.getTransactions(),
+                inventoryAPI.getUnits()
             ]);
             setProducts(productsRes.data || []);
             setTransactions(transactionsRes.data || []);
+            setUnits(unitsRes.data || []);
         } catch (error) {
             console.error('Error loading inventory data:', error);
         } finally {
@@ -98,7 +101,7 @@ const AddInventory: React.FC = () => {
             await inventoryAPI.createAdjustment({ ...adjustForm, quantity: finalQuantity });
             setSnackbar({ open: true, message: 'Adjustment recorded successfully', severity: 'success' });
             checkLowStock();
-            setAdjustForm({ product_id: '', quantity: 0, notes: '' });
+            setAdjustForm({ product_id: '', quantity: 0, unit_id: '', notes: '' });
             setAdjustType('+');
             loadData();
         } catch (error) {
@@ -156,16 +159,16 @@ const AddInventory: React.FC = () => {
                                         required
                                     >
                                         {products.map((p) => (
-                                            <MenuItem key={p.id} value={p.id}>{p.name} ({Number(p.current_stock).toFixed(2)} {p.unit?.abbreviation} current)</MenuItem>
+                                            <MenuItem key={p.id} value={p.id}>{p.name} ({Number(p.current_stock).toFixed(2)} {p.unit?.abbreviation || 'units'} current)</MenuItem>
                                         ))}
                                     </TextField>
-                                    <Box sx={{ display: 'flex', gap: 2 }}>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
                                         <TextField
                                             select
                                             label="Operation"
                                             value={adjustType}
                                             onChange={(e) => setAdjustType(e.target.value)}
-                                            sx={{ width: 140 }}
+                                            fullWidth
                                         >
                                             <MenuItem value="+">Add (+)</MenuItem>
                                             <MenuItem value="-">Deduct (-)</MenuItem>
@@ -179,6 +182,18 @@ const AddInventory: React.FC = () => {
                                             required
                                             InputProps={{ inputProps: { min: 0 } }}
                                         />
+                                        <TextField
+                                            select
+                                            label="Unit"
+                                            fullWidth
+                                            value={adjustForm.unit_id}
+                                            onChange={(e) => setAdjustForm({ ...adjustForm, unit_id: e.target.value })}
+                                        >
+                                            <MenuItem value=""><em>Base Unit</em></MenuItem>
+                                            {units.map((u) => (
+                                                <MenuItem key={u.id} value={u.id}>{u.abbreviation}</MenuItem>
+                                            ))}
+                                        </TextField>
                                     </Box>
                                     <Box sx={{ gridColumn: { md: 'span 2' } }}>
                                         <TextField

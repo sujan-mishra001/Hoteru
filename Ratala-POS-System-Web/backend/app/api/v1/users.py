@@ -63,17 +63,30 @@ async def create_user(
 ):
     """Create a new user (Admin only)"""
     # Validate role - must exist in the target branch or be 'admin'
-    target_branch_id = user_data.branch_id or current_user.current_branch_id
-    is_valid_role = user_data.role == "admin" or db.query(Role).filter(
-        Role.name == user_data.role,
-        Role.branch_id == target_branch_id
-    ).first() is not None
+    target_branch_id = user_data.branch_id or (current_user.current_branch_id if current_user.role != "platform_admin" else None)
+    
+    if current_user.role == "platform_admin":
+        is_valid_role = True
+    else:
+        is_valid_role = user_data.role == "admin" or db.query(Role).filter(
+            Role.name == user_data.role,
+            Role.branch_id == target_branch_id
+        ).first() is not None
+        
     if not is_valid_role:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid role. The role '{user_data.role}' does not exist in the target branch."
         )
     
+    # Deriving Organization ID
+    org_id = current_user.organization_id
+    if current_user.role == "platform_admin" and user_data.branch_id:
+        from app.models.branch import Branch
+        target_branch = db.query(Branch).filter(Branch.id == user_data.branch_id).first()
+        if target_branch:
+            org_id = target_branch.organization_id
+
     # Use email as username if username not provided
     username = user_data.username or user_data.email
     
@@ -93,7 +106,7 @@ async def create_user(
         full_name=user_data.full_name,
         hashed_password=get_password_hash(user_data.password),
         role=user_data.role,
-        organization_id=current_user.organization_id,
+        organization_id=org_id,
         current_branch_id=user_data.branch_id,
         disabled=False
     )
@@ -106,7 +119,7 @@ async def create_user(
         assignment = UserBranchAssignment(
             user_id=new_user.id,
             branch_id=user_data.branch_id,
-            organization_id=current_user.organization_id,
+            organization_id=org_id,
             is_primary=True
         )
         db.add(assignment)
@@ -147,12 +160,16 @@ async def update_user(
     
     # Validate role if provided
     if user_data.role:
-        # Check against user's current branch or organization default
-        target_branch_id = user.current_branch_id or current_user.current_branch_id
-        is_valid_role = user_data.role == "admin" or db.query(Role).filter(
-            Role.name == user_data.role,
-            Role.branch_id == target_branch_id
-        ).first() is not None
+        # Platform Admin can assign any role
+        if current_user.role == "platform_admin":
+            is_valid_role = True
+        else:
+            # Check against user's current branch or organization default
+            target_branch_id = user.current_branch_id or current_user.current_branch_id
+            is_valid_role = user_data.role == "admin" or db.query(Role).filter(
+                Role.name == user_data.role,
+                Role.branch_id == target_branch_id
+            ).first() is not None
         
         if not is_valid_role:
             raise HTTPException(
@@ -202,42 +219,101 @@ async def delete_user(
         
         if branch_ids:
             # 2. Delete all operational data linked to these branches
-            from app.models.orders import Order, KOT, OrderItem, KOTItem
+            from app.models.orders import Order, KOT, OrderItem, KOTItem, Table, Floor, Session
             from app.models.pos_session import POSSession
-            from app.models.inventory import InventoryTransaction, BatchProduction
+            from app.models.inventory import InventoryTransaction, BatchProduction, UnitOfMeasurement, Product, BillOfMaterials, BOMItem
+            from app.models.role import Role
+            from app.models.menu import Category, MenuGroup, MenuItem
+            from app.models.customers import Customer
+            from app.models.printer import Printer
+            from app.models.qr_code import QRCode
+            from app.models.settings import PaymentMode, StorageArea, DiscountRule
+            from app.models.purchase import Supplier, PurchaseBill, PurchaseReturn, PurchaseBillItem
+            from app.models.delivery import DeliveryPartner
             
-            # Orders cascade to OrderItems and KOTs, but let's be safe
-            db.query(OrderItem).filter(OrderItem.order_id.in_(
-                db.query(Order.id).filter(Order.branch_id.in_(branch_ids))
-            )).delete(synchronize_session=False)
+            # Collect IDs to handle records with potential null branch_id
+            product_ids = [r[0] for r in db.query(Product.id).filter(Product.branch_id.in_(branch_ids)).all()]
+            order_ids = [r[0] for r in db.query(Order.id).filter(Order.branch_id.in_(branch_ids)).all()]
+            kot_ids = [r[0] for r in db.query(KOT.id).filter(KOT.branch_id.in_(branch_ids)).all()]
+            bom_ids = [r[0] for r in db.query(BillOfMaterials.id).filter(BillOfMaterials.branch_id.in_(branch_ids)).all()]
+            purchase_bill_ids = [r[0] for r in db.query(PurchaseBill.id).filter(PurchaseBill.branch_id.in_(branch_ids)).all()]
             
-            db.query(KOTItem).filter(KOTItem.kot_id.in_(
-                db.query(KOT.id).filter(KOT.order_id.in_(
-                    db.query(Order.id).filter(Order.branch_id.in_(branch_ids))
-                ))
-            )).delete(synchronize_session=False)
+            # Delete in order of dependency to avoid foreign key violations
             
-            db.query(KOT).filter(KOT.order_id.in_(
-                db.query(Order.id).filter(Order.branch_id.in_(branch_ids))
-            )).delete(synchronize_session=False)
+            # Operational items first (use IDs where possible for thoroughness)
+            if order_ids:
+                db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
             
+            if kot_ids:
+                db.query(KOTItem).filter(KOTItem.kot_id.in_(kot_ids)).delete(synchronize_session=False)
+            
+            db.query(KOT).filter(KOT.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Order).filter(Order.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             
-            # POS Sessions and Transactions
-            db.query(InventoryTransaction).filter(InventoryTransaction.pos_session_id.in_(
-                db.query(POSSession.id).filter(POSSession.branch_id.in_(branch_ids))
-            )).delete(synchronize_session=False)
+            # Inventory Transactions (CRITICAL: Delete by product_id to catch transactions with null branch_id)
+            if product_ids:
+                db.query(InventoryTransaction).filter(InventoryTransaction.product_id.in_(product_ids)).delete(synchronize_session=False)
+                db.query(BatchProduction).filter(BatchProduction.finished_product_id.in_(product_ids)).delete(synchronize_session=False)
+                db.query(BOMItem).filter(BOMItem.product_id.in_(product_ids)).delete(synchronize_session=False)
+                db.flush()  # Allow DB to process these deletes before moving on
+                db.query(PurchaseBillItem).filter(PurchaseBillItem.product_id.in_(product_ids)).delete(synchronize_session=False)
             
-            db.query(BatchProduction).filter(BatchProduction.pos_session_id.in_(
-                db.query(POSSession.id).filter(POSSession.branch_id.in_(branch_ids))
-            )).delete(synchronize_session=False)
-            
+            # More Inventory cleanup
+            db.query(BatchProduction).filter(BatchProduction.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(POSSession).filter(POSSession.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.flush()
+            
+            # Menu items and Categories
+            db.query(MenuItem).filter(MenuItem.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(MenuGroup).filter(MenuGroup.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(Category).filter(Category.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.flush()
+            
+            # Bill of Materials
+            if bom_ids:
+                db.query(BOMItem).filter(BOMItem.bom_id.in_(bom_ids)).delete(synchronize_session=False)
+            db.query(BillOfMaterials).filter(BillOfMaterials.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.flush()
+            
+            # Products
+            db.query(Product).filter(Product.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.flush()
+            
+            # Tables and Floors
+            db.query(QRCode).filter(QRCode.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(Table).filter(Table.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(Floor).filter(Floor.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(Session).filter(Session.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            
+            # Purchase items
+            if purchase_bill_ids:
+                db.query(PurchaseBillItem).filter(PurchaseBillItem.purchase_bill_id.in_(purchase_bill_ids)).delete(synchronize_session=False)
+            db.query(PurchaseReturn).filter(PurchaseReturn.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(PurchaseBill).filter(PurchaseBill.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(Supplier).filter(Supplier.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            
+            # Unit of measurement (can have base_unit_id pointing to itself)
+            db.query(UnitOfMeasurement).filter(UnitOfMeasurement.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            
+            # Core branch data
+            db.query(Role).filter(Role.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(Customer).filter(Customer.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(Printer).filter(Printer.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(DeliveryPartner).filter(DeliveryPartner.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            
+            # User Assignments
+            from app.models.user_branch import UserBranchAssignment
+            db.query(UserBranchAssignment).filter(UserBranchAssignment.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            
+            # Settings
+            db.query(PaymentMode).filter(PaymentMode.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(StorageArea).filter(StorageArea.branch_id.in_(branch_ids)).delete(synchronize_session=False)
+            db.query(DiscountRule).filter(DiscountRule.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             
             # 3. Clean up any remaining sessions/orders for these specific users (even if branch_id was null)
             db.query(POSSession).filter(POSSession.user_id.in_(member_ids)).delete(synchronize_session=False)
             db.query(Order).filter(Order.created_by.in_(member_ids)).delete(synchronize_session=False)
-            
+
             # 4. Finally delete the branches
             db.query(Branch).filter(Branch.organization_id == org.id).delete(synchronize_session=False)
         
@@ -255,22 +331,32 @@ async def delete_user(
         
         # 7. Delete Users
         for member in all_members:
-            db.delete(member)
+            try:
+                db.delete(member)
+            except Exception as e:
+                # If a user still has dependencies we can't clear, nullify them
+                print(f"Warning: Could not delete user {member.id}: {str(e)}")
+                member.disabled = True
     else:
         # For standard staff deletion
         from app.models.orders import Order, KOT
         from app.models.pos_session import POSSession
         from app.models.inventory import InventoryTransaction, BatchProduction
+        from app.models.user_branch import UserBranchAssignment
         
-        # Nullify creator fields where possible
+        # 1. Clear branch assignments
+        db.query(UserBranchAssignment).filter(UserBranchAssignment.user_id == user_id).delete(synchronize_session=False)
+
+        # 2. Nullify creator fields where possible
         db.query(Order).filter(Order.created_by == user_id).update({Order.created_by: None})
         db.query(KOT).filter(KOT.created_by == user_id).update({KOT.created_by: None})
         db.query(InventoryTransaction).filter(InventoryTransaction.created_by == user_id).update({InventoryTransaction.created_by: None})
         db.query(BatchProduction).filter(BatchProduction.created_by == user_id).update({BatchProduction.created_by: None})
         
-        # Delete non-nullable dependencies (sessions MUST have a user)
+        # 3. Delete non-nullable dependencies (sessions MUST have a user)
         db.query(POSSession).filter(POSSession.user_id == user_id).delete(synchronize_session=False)
         
+        db.flush()
         db.delete(user)
         
     db.commit()

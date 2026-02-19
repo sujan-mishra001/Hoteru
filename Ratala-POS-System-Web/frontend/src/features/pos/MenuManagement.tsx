@@ -378,7 +378,14 @@ const MenuManagement: React.FC = () => {
                                     helperText="Select a recipe from your BOM list to enable production tracking for this item."
                                 >
                                     <MenuItem value=""><em>No Recipe</em></MenuItem>
-                                    {boms.map(bom => <MenuItem key={bom.id} value={bom.id}>{bom.name} ({bom.output_quantity} units/batch)</MenuItem>)}
+                                    {boms
+                                        .filter(bom => bom.bom_type === 'menu' && bom.is_active)
+                                        .map(bom => (
+                                            <MenuItem key={bom.id} value={bom.id}>
+                                                {bom.name} ({bom.output_quantity} units/batch)
+                                            </MenuItem>
+                                        ))
+                                    }
                                 </TextField>
                                 <TextField label="Price" type="number" fullWidth required value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} InputProps={{ startAdornment: <InputAdornment position="start">NPRs.</InputAdornment> }} />
                                 <TextField label="Description" fullWidth multiline rows={3} value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} />

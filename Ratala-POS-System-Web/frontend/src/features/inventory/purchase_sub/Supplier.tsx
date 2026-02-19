@@ -22,6 +22,7 @@ import {
 import { Plus, Search, X, Edit, Trash2 } from 'lucide-react';
 
 import { purchaseAPI } from '../../../services/api';
+import BeautifulConfirm from '../../../components/common/BeautifulConfirm';
 
 const Supplier: React.FC = () => {
     const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -37,6 +38,7 @@ const Supplier: React.FC = () => {
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+    const [confirmDelete, setConfirmDelete] = useState<{ open: boolean, id: number | null }>({ open: false, id: null });
 
     const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
         setSnackbar({ open: true, message, severity });
@@ -99,9 +101,14 @@ const Supplier: React.FC = () => {
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Are you sure you want to delete this supplier?')) return;
+        setConfirmDelete({ open: true, id });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!confirmDelete.id) return;
         try {
-            await purchaseAPI.deleteSupplier(id);
+            await purchaseAPI.deleteSupplier(confirmDelete.id);
+            setConfirmDelete({ open: false, id: null });
             loadSuppliers();
             showSnackbar('Supplier deleted successfully');
         } catch (error: any) {
@@ -250,6 +257,16 @@ const Supplier: React.FC = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            <BeautifulConfirm
+                open={confirmDelete.open}
+                title="Delete Supplier"
+                message="Are you sure you want to delete this supplier? This might affect purchase history linked to this supplier."
+                onConfirm={confirmDeleteAction}
+                onCancel={() => setConfirmDelete({ open: false, id: null })}
+                confirmText="Yes, Delete Supplier"
+                isDestructive
+            />
         </Box>
     );
 };

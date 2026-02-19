@@ -59,6 +59,7 @@ const PurchaseBill: React.FC = () => {
     const [billItemForm, setBillItemForm] = useState({
         product_id: '',
         quantity: 1,
+        unit_id: '',
         rate: 0
     });
 
@@ -108,7 +109,8 @@ const PurchaseBill: React.FC = () => {
             setProductSaving(true);
             const res = await inventoryAPI.createProduct({
                 ...newProductForm,
-                unit_id: parseInt(newProductForm.unit_id)
+                unit_id: parseInt(newProductForm.unit_id),
+                product_type: 'Raw'
             });
 
             setSnackbar({ open: true, message: 'Product created!', severity: 'success' });
@@ -142,7 +144,7 @@ const PurchaseBill: React.FC = () => {
             ...billItemForm,
             product_id: parseInt(billItemForm.product_id as string),
             product_name: product?.name || 'Unknown',
-            unit_id: product?.unit_id,
+            unit_id: billItemForm.unit_id ? parseInt(billItemForm.unit_id as string) : product?.unit_id,
             total: billItemForm.quantity * billItemForm.rate
         };
 
@@ -159,6 +161,7 @@ const PurchaseBill: React.FC = () => {
         setBillItemForm({
             product_id: '',
             quantity: 1,
+            unit_id: '',
             rate: 0
         });
     };
@@ -398,11 +401,13 @@ const PurchaseBill: React.FC = () => {
                                     onChange={(e) => setBillItemForm({ ...billItemForm, product_id: e.target.value })}
                                     fullWidth
                                 >
-                                    {products.map((product) => (
-                                        <MenuItem key={product.id} value={product.id}>
-                                            {product.name}
-                                        </MenuItem>
-                                    ))}
+                                    {products
+                                        .filter(p => p.product_type === 'Raw')
+                                        .map((product) => (
+                                            <MenuItem key={product.id} value={product.id}>
+                                                {product.name}
+                                            </MenuItem>
+                                        ))}
                                 </TextField>
                                 <Button
                                     size="small"
@@ -421,6 +426,19 @@ const PurchaseBill: React.FC = () => {
                                 onChange={(e) => setBillItemForm({ ...billItemForm, quantity: parseFloat(e.target.value) || 0 })}
                                 sx={{ flex: 1 }}
                             />
+                            <TextField
+                                select
+                                label="Unit"
+                                size="small"
+                                value={billItemForm.unit_id}
+                                onChange={(e) => setBillItemForm({ ...billItemForm, unit_id: e.target.value })}
+                                sx={{ flex: 1 }}
+                            >
+                                <MenuItem value=""><em>Base Unit</em></MenuItem>
+                                {units.map((u) => (
+                                    <MenuItem key={u.id} value={u.id}>{u.abbreviation}</MenuItem>
+                                ))}
+                            </TextField>
                             <TextField
                                 label="Rate"
                                 type="number"
@@ -446,6 +464,7 @@ const PurchaseBill: React.FC = () => {
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 700 }}>Item</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Qty</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Unit</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Rate</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
                                         <TableCell></TableCell>
@@ -456,6 +475,7 @@ const PurchaseBill: React.FC = () => {
                                         <TableRow key={index}>
                                             <TableCell>{item.product_name}</TableCell>
                                             <TableCell>{Number(item.quantity).toFixed(2)}</TableCell>
+                                            <TableCell>{units.find(u => u.id === item.unit_id)?.abbreviation || products.find(p => p.id === item.product_id)?.unit?.abbreviation || 'unit'}</TableCell>
                                             <TableCell>{Number(item.rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>{Number(item.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                             <TableCell align="right">
@@ -467,7 +487,7 @@ const PurchaseBill: React.FC = () => {
                                     ))}
                                     {newBill.items.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={5} align="center" sx={{ py: 4, color: '#94a3b8' }}>
+                                            <TableCell colSpan={6} align="center" sx={{ py: 4, color: '#94a3b8' }}>
                                                 No items added yet
                                             </TableCell>
                                         </TableRow>

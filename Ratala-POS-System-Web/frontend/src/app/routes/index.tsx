@@ -39,7 +39,6 @@ import ProductList from '../../features/inventory/inventory/Products';
 import Units from '../../features/inventory/inventory/Units';
 import BOM from '../../features/inventory/inventory/BOM';
 import Adjustment from '../../features/inventory/inventory/Adjustment';
-import InventoryCount from '../../features/inventory/inventory/InventoryCount';
 import Production from '../../features/inventory/inventory/Production';
 import ProductionCount from '../../features/inventory/inventory/ProductionCount';
 import AddInventory from '../../features/inventory/inventory/AddInventory';
@@ -111,7 +110,6 @@ const AppRoutes: React.FC = () => {
                                 <Route path="units" element={<Units />} />
                                 <Route path="bom" element={<BOM />} />
                                 <Route path="adjustment" element={<Adjustment />} />
-                                <Route path="count" element={<InventoryCount />} />
                                 <Route path="production" element={<Production />} />
                                 <Route path="production-count" element={<ProductionCount />} />
                                 <Route path="add" element={<AddInventory />} />

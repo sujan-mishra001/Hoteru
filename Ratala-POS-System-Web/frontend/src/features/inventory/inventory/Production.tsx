@@ -213,12 +213,21 @@ const Production: React.FC = () => {
                                         </Box>
                                     </TableCell>
                                     <TableCell>
-                                        <Box>
-                                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                                                {Number(prod.total_produced).toFixed(2)} units
-                                            </Typography>
-                                            <Typography variant="caption" color="#64748b" sx={{ display: 'block' }}>
-                                                from {Number(prod.quantity).toFixed(2)} {prod.quantity === 1 ? 'batch' : 'batches'}
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                            {prod.bom?.outputs && prod.bom.outputs.length > 0 ? (
+                                                prod.bom.outputs.map((out: any, oIdx: number) => (
+                                                    <Typography key={oIdx} variant="body2" sx={{ fontWeight: 700, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        <Package size={12} /> {out.quantity.toLocaleString()} {out.unit} {out.product_name}
+                                                    </Typography>
+                                                ))
+                                            ) : (
+                                                /* Legacy Fallback */
+                                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                                                    {Number(prod.total_produced).toLocaleString()} units
+                                                </Typography>
+                                            )}
+                                            <Typography variant="caption" color="#64748b" sx={{ display: 'block', mt: 0.5 }}>
+                                                Total {Number(prod.quantity).toLocaleString()} {prod.quantity === 1 ? 'batch' : 'batches'}
                                             </Typography>
                                         </Box>
                                     </TableCell>
@@ -281,10 +290,10 @@ const Production: React.FC = () => {
                                 type="number"
                                 fullWidth
                                 value={formData.quantity}
-                                onChange={(e) => setFormData({ ...formData, quantity: parseFloat(e.target.value) || 0 })}
+                                onChange={(e) => setFormData({ ...formData, quantity: Math.max(1, parseInt(e.target.value) || 0) })}
                                 required
-                                inputProps={{ min: 0.1, step: 0.1 }}
-                                helperText="How many times the recipe are you producing?"
+                                inputProps={{ min: 1, step: 1 }}
+                                helperText="How many batches are you producing? (Must be a whole number)"
                             />
 
                             <TextField

@@ -56,8 +56,9 @@ def list_organizations(
 ):
     """
     List all organizations (super admin only in production)
-    For now, returns all organizations
     """
+    # Enforce platform admin for full list if needed, or allow it for now if that fits user reqs
+    # User said "admin can view the details of the users who has buyied subsription"
     organizations = organization_service.get_organizations(db, skip=skip, limit=limit)
     return organizations
 
@@ -78,7 +79,7 @@ def get_organization(
         )
     
     # Check if user has access to this organization
-    if current_user.organization_id != organization_id and not current_user.is_organization_owner:
+    if current_user.role != "platform_admin" and current_user.organization_id != organization_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this organization"
@@ -126,11 +127,11 @@ def update_organization(
             detail="Organization not found"
         )
     
-    # Check if user is the owner or admin of this organization
-    if organization.owner_id != current_user.id and current_user.role != "admin":
+    # Check if user is the owner or admin of this organization, or Platform Admin
+    if current_user.role != "platform_admin" and organization.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only organization owner or admin can update organization"
+            detail="Only organization owner, admin or Platform Admin can update organization"
         )
     
     updated_org = organization_service.update_organization(db, organization_id, org_data)
@@ -152,11 +153,11 @@ def delete_organization(
             detail="Organization not found"
         )
     
-    # Check if user is the owner
-    if organization.owner_id != current_user.id:
+    # Check if user is the owner or Platform Admin
+    if current_user.role != "platform_admin" and organization.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only organization owner can delete organization"
+            detail="Only organization owner or Platform Admin can delete organization"
         )
     
     organization_service.delete_organization(db, organization_id)

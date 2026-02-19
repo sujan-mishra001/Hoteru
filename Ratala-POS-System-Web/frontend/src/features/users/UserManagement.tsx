@@ -25,8 +25,10 @@ import {
 } from '@mui/material';
 import { UserPlus, Trash2, Edit, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { usersAPI, rolesAPI, branchAPI } from '../../services/api';
+import { useAuth } from '../../app/providers/AuthProvider';
 
 const UserManagement: React.FC = () => {
+    const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
@@ -83,16 +85,16 @@ const UserManagement: React.FC = () => {
         setSnackbar({ open: true, message, severity });
     };
 
-    const handleOpenDialog = (user?: any) => {
+    const handleOpenDialog = (user: any = null) => {
         if (user) {
             setEditingUser(user);
             setNewUser({
-                username: user.username || '',
-                full_name: user.full_name || '',
-                email: user.email || '',
-                password: '',
-                role: user.role || '',
-                branch_id: user.current_branch_id || ''
+                username: user.username,
+                full_name: user.full_name,
+                email: user.email,
+                role: user.role,
+                branch_id: user.branch_id,
+                password: '' // Don't show password on edit
             });
         } else {
             setEditingUser(null);
@@ -102,7 +104,7 @@ const UserManagement: React.FC = () => {
                 email: '',
                 password: '',
                 role: roles.length > 0 ? roles[0].name : '',
-                branch_id: branches.length > 0 ? branches[0].id : ''
+                branch_id: currentUser?.current_branch_id || ''
             });
         }
         setShowPassword(false);

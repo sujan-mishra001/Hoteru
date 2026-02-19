@@ -228,20 +228,41 @@ async def create_bill(
         db.add(bill_item)
         
         # Create inventory transaction (IN)
-        # Note: We create the transaction as soon as the bill is created, 
-        # or maybe we should only do it if status is 'Paid'? 
-        # Usually, purchase bill means stock has arrived.
+        # Convert quantity to product's base unit if necessary using InventoryService
+        from app.services.inventory_service import InventoryService
+        
+        # Get product's base unit_id
+        product = db.query(Product).filter(Product.id == item['product_id']).first()
+        to_unit_id = product.unit_id if product else None
+        
+        # Convert quantity
+        conversion_qty = InventoryService.convert_quantity(
+            db, 
+            item['quantity'], 
+            item.get('unit_id'), 
+            to_unit_id
+        )
+
         inventory_txn = InventoryTransaction(
             product_id=item['product_id'],
             transaction_type="IN",
-            quantity=item['quantity'],
+            quantity=conversion_qty,
             reference_number=new_bill.bill_number,
             reference_id=new_bill.id,
             branch_id=branch_id,
-            notes=f"Purchase from {new_bill.supplier.name}" if new_bill.supplier else "Purchase Bill",
+            notes=f"Purchase from {new_bill.supplier.name} ({item['quantity']} {item.get('unit_id') if item.get('unit_id') else ''})" if new_bill.supplier else "Purchase Bill",
             created_by=current_user.id
         )
         db.add(inventory_txn)
+        
+        # Trigger auto-production for each purchase item
+        InventoryService.trigger_auto_production(
+            db,
+            item['product_id'],
+            conversion_qty,
+            branch_id,
+            current_user.id
+        )
 
     db.commit()
     db.refresh(new_bill)
