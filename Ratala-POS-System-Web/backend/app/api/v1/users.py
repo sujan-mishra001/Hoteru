@@ -282,9 +282,15 @@ async def delete_user(
             db.query(Category).filter(Category.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.flush()
             
-            # BOM
+            # Bill of Materials and Batch Production cleanup
             if bom_ids:
+                # 1. Delete all production records referencing these BOMs (even if branch_id differs)
+                db.query(BatchProduction).filter(BatchProduction.bom_id.in_(bom_ids)).delete(synchronize_session=False)
+                # 2. Delete all items belonging to these BOMs
                 db.query(BOMItem).filter(BOMItem.bom_id.in_(bom_ids)).delete(synchronize_session=False)
+                db.flush()
+            
+            # 3. Finally delete the BOMs themselves
             db.query(BillOfMaterials).filter(BillOfMaterials.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.flush()
             
@@ -302,6 +308,9 @@ async def delete_user(
             # Purchases
             if purchase_bill_ids:
                 db.query(PurchaseBillItem).filter(PurchaseBillItem.purchase_bill_id.in_(purchase_bill_ids)).delete(synchronize_session=False)
+                # Delete returns referencing these bills first
+                db.query(PurchaseReturn).filter(PurchaseReturn.purchase_bill_id.in_(purchase_bill_ids)).delete(synchronize_session=False)
+                db.flush()
             db.query(PurchaseReturn).filter(PurchaseReturn.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(PurchaseBill).filter(PurchaseBill.branch_id.in_(branch_ids)).delete(synchronize_session=False)
             db.query(Supplier).filter(Supplier.branch_id.in_(branch_ids)).delete(synchronize_session=False)
@@ -329,8 +338,11 @@ async def delete_user(
             member.current_branch_id = None
         db.flush()
 
-        # 4. Clean up any remaining sessions/orders for these specific users (even if branch_id was null)
-        # Order MUST be deleted before POSSession
+        # 4. Clean up any remaining sessions/orders/transactions for these specific users
+        # Delete in order of dependency
+        db.query(InventoryTransaction).filter(InventoryTransaction.created_by.in_(member_ids)).delete(synchronize_session=False)
+        db.query(BatchProduction).filter(BatchProduction.created_by.in_(member_ids)).delete(synchronize_session=False)
+        db.query(KOT).filter(KOT.created_by.in_(member_ids)).delete(synchronize_session=False)
         db.query(Order).filter(Order.created_by.in_(member_ids)).delete(synchronize_session=False)
         db.query(POSSession).filter(POSSession.user_id.in_(member_ids)).delete(synchronize_session=False)
         db.flush()
